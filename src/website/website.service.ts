@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import { DataSource, IsNull, Repository } from "typeorm";
+import { DataSource, IsNull, In, Repository } from "typeorm";
 import { Page } from "../page/page.entity";
 import { EvaluationService } from "../evaluation/evaluation.service";
 import { AccessibilityStatementService } from "src/accessibility-statement-module/accessibility-statement/accessibility-statement.service";
@@ -26,6 +26,12 @@ export class WebsiteService {
     @InjectDataSource()
     private readonly connection: DataSource
   ) {}
+
+  async findWebsistesFromIds(ids: number[]): Promise<Website[]> {
+    return await this.websiteRepository.findBy({
+      WebsiteId: In(ids)
+    })
+  };
 
   async findAccessiblityStatements(): Promise<any> {
     const websites = await this.websiteRepository.find({
@@ -275,65 +281,123 @@ export class WebsiteService {
     }
   }
 
-  async findInfo(websiteId: number): Promise<any> {
+  async findInfoAll(websiteIds: number[]): Promise<any> {
+    if (!websiteIds || websiteIds.length === 0) {
+      return [];
+    }
     const websites = await this.websiteRepository.query(
-      `SELECT w.*, u.Username as User, e.Long_Name as Entity, 
-              COUNT(distinct wp.PageId) as Pages,
-              AVG(ev.Score) as AverageScore
-      FROM 
-        Website as w
-        LEFT OUTER JOIN User as u ON u.UserId = w.UserId
-        LEFT OUTER JOIN EntityWebsite as ew ON ew.WebsiteId = w.WebsiteId
-        LEFT OUTER JOIN Entity as e ON e.EntityId = ew.EntityId
-        LEFT OUTER JOIN WebsitePage as wp ON wp.WebsiteId = w.WebsiteId
-        LEFT OUTER JOIN Page as p ON p.PageId = wp.PageId AND p.Show_In LIKE "1__"
-        LEFT OUTER JOIN Evaluation as ev ON ev.PageId = p.PageId AND ev.Evaluation_Date IN (
-          SELECT max(Evaluation_Date) FROM Evaluation WHERE PageId = p.PageId
-        )
-      WHERE 
-        w.WebsiteId = ?
-      GROUP BY w.WebsiteId, w.StartingUrl 
-      LIMIT 1`,
-      [websiteId]
+                    `SELECT 
+                      w.WebsiteId,
+                      w.Name,
+                      w.StartingUrl,
+                      u.Username as User,
+                      e_main.Long_Name as Entity,
+                      COUNT(DISTINCT wp.PageId) as Pages,
+
+                      AVG(last_ev.Score) as AverageScore,
+                      
+                      (SELECT JSON_ARRAYAGG(t.Name) FROM Tag t 
+                      INNER JOIN TagWebsite tw ON t.TagId = tw.TagId WHERE tw.WebsiteId = w.WebsiteId) as tags,
+                    
+                     (SELECT JSON_ARRAYAGG(e.Long_Name) FROM Entity e 
+                      INNER JOIN EntityWebsite ew ON e.EntityId = ew.EntityId 
+                      WHERE ew.WebsiteId = w.WebsiteId) as entities,
+                      
+                      (SELECT JSON_ARRAYAGG(d.Name) FROM Directory d
+                      INNER JOIN DirectoryTag dt ON dt.DirectoryId = d.DirectoryId
+                      INNER JOIN TagWebsite tw ON tw.TagId = dt.TagId
+                      WHERE tw.WebsiteId = w.WebsiteId AND d.Show_in_Observatory = 1) as directories
+
+                    FROM Website as w
+                    LEFT JOIN User u ON u.UserId = w.UserId
+                    LEFT JOIN EntityWebsite ew_main ON ew_main.WebsiteId = w.WebsiteId
+                    LEFT JOIN Entity e_main ON e_main.EntityId = ew_main.EntityId
+                    LEFT JOIN WebsitePage wp ON wp.WebsiteId = w.WebsiteId
+                    LEFT JOIN Page p ON p.PageId = wp.PageId AND p.Show_In LIKE '1__'
+
+                  LEFT JOIN (
+                      SELECT ev.PageId, ev.Score
+                      FROM Evaluation ev
+                      WHERE ev.PageId IN (
+
+                          SELECT wp2.PageId 
+                          FROM WebsitePage wp2 
+                          WHERE wp2.WebsiteId IN (?)
+                      )
+                      AND ev.Evaluation_Date = (
+                          SELECT MAX(ev2.Evaluation_Date) 
+                          FROM Evaluation ev2 
+                          WHERE ev2.PageId = ev.PageId
+                      )
+                  ) as last_ev ON last_ev.PageId = p.PageId
+
+                  WHERE w.WebsiteId IN (?)
+                  GROUP BY w.WebsiteId;`,
+      [websiteIds,websiteIds]
     );
 
-    if (websites) {
-      const website = websites[0];
-
-      website.tags = await this.websiteRepository.query(
-        `SELECT t.* FROM Tag as t, TagWebsite as tw WHERE tw.WebsiteId = ? AND t.TagId = tw.TagId`,
-        [websiteId]
-      );
-
-      website.entities = await this.websiteRepository.query(
-        `SELECT e.* FROM Entity as e, EntityWebsite as ew WHERE ew.WebsiteId = ? AND e.EntityId = ew.EntityId`,
-        [websiteId]
-      );
-
-      // Fetch Observatory directories for this website
-      const directories = await this.websiteRepository.query(
-        `
-        SELECT DISTINCT d.Name
-        FROM
-          Directory as d
-          INNER JOIN DirectoryTag as dt ON dt.DirectoryId = d.DirectoryId
-          INNER JOIN TagWebsite as tw ON tw.TagId = dt.TagId
-        WHERE
-          d.Show_in_Observatory = 1 AND
-          tw.WebsiteId = ?
-        ORDER BY d.Name
-        `,
-        [websiteId]
-      );
-
-      website.directories = directories.map((dir: any) => dir.Name);
-
-      return website;
-    } else {
-      throw new InternalServerErrorException();
-    }
+        return websites;
   }
+  async findInfo(websiteId: number): Promise<any> {
+    if (!websiteId) {
+      return [];
+    }
+    const websites = await this.websiteRepository.query(
+                    `SELECT 
+                      w.WebsiteId,
+                      w.Name,
+                      w.StartingUrl,
+                      u.Username as User,
+                      e_main.Long_Name as Entity,
+                      COUNT(DISTINCT wp.PageId) as Pages,
+                      AVG(last_ev.Score) as AverageScore,
+                      
+                      MAX(last_ev.Evaluation_Date) as LatestEvaluationDate,
+                      MAX(last_ev.EvaluationId) as LatestEvaluationId,
 
+                      (SELECT JSON_ARRAYAGG(t.Name) FROM Tag t 
+                      INNER JOIN TagWebsite tw ON t.TagId = tw.TagId WHERE tw.WebsiteId = w.WebsiteId) as tags,
+                    
+                      (SELECT JSON_ARRAYAGG(e.Long_Name) FROM Entity e 
+                      INNER JOIN EntityWebsite ew ON e.EntityId = ew.EntityId 
+                      WHERE ew.WebsiteId = w.WebsiteId) as entities,
+                      
+                      (SELECT JSON_ARRAYAGG(d.Name) FROM Directory d
+                      INNER JOIN DirectoryTag dt ON dt.DirectoryId = d.DirectoryId
+                      INNER JOIN TagWebsite tw ON tw.TagId = dt.TagId
+                      WHERE tw.WebsiteId = w.WebsiteId AND d.Show_in_Observatory = 1) as directories
+
+                      FROM Website as w
+                      LEFT JOIN User u ON u.UserId = w.UserId
+                      LEFT JOIN EntityWebsite ew_main ON ew_main.WebsiteId = w.WebsiteId
+                      LEFT JOIN Entity e_main ON e_main.EntityId = ew_main.EntityId
+                      LEFT JOIN WebsitePage wp ON wp.WebsiteId = w.WebsiteId
+                      LEFT JOIN Page p ON p.PageId = wp.PageId AND p.Show_In LIKE '1__'
+
+
+                      LEFT JOIN (
+                          SELECT 
+                              ev.PageId, 
+                              ev.Score, 
+                              ev.Evaluation_Date, 
+                              ev.EvaluationId    
+                          FROM Evaluation ev
+                          WHERE ev.PageId IN (
+                              SELECT wp2.PageId FROM WebsitePage wp2 WHERE wp2.WebsiteId = ?
+                          )
+                          AND ev.Evaluation_Date = (
+                              SELECT MAX(ev2.Evaluation_Date) FROM Evaluation ev2 WHERE ev2.PageId = ev.PageId
+                          )
+                      ) as last_ev ON last_ev.PageId = p.PageId
+
+                      WHERE w.WebsiteId = ?
+                      GROUP BY w.WebsiteId;`,
+      [websiteId, websiteId]
+    );
+
+        return websites;
+  }
+  
   async findUserType(username: string): Promise<any> {
     if (username === "admin") {
       return "nimda";

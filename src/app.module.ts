@@ -48,6 +48,7 @@ import { LogModule } from "./log/log.module";
 import { DumpModule } from "./dump/dump.module";
 import { ApiSeloModule } from "./api-selo/api-selo.module";
 import { HealthModule } from "./health/heath.module";
+import { ExportModule } from './export/export.module';
 
 const databaseConfig = JSON.parse(
   readFileSync("./monitor_db.json").toString()
@@ -111,7 +112,7 @@ const databaseConfig = JSON.parse(
     }),
     HealthModule,
     AuthModule,
-    // AppsAuthModule,
+    ExportModule,
     UserModule,
     ObservatoryModule,
     // AppsObservatoryModule,
