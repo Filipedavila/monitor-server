@@ -8,7 +8,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import * as Joi from 'joi';
 import { ConfigModule } from '@nestjs/config';
-
+import {CrawlerNewModule} from "./crawler-new/crawler.module";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
@@ -48,13 +48,34 @@ import { LogModule } from "./log/log.module";
 import { DumpModule } from "./dump/dump.module";
 import { ApiSeloModule } from "./api-selo/api-selo.module";
 import { HealthModule } from "./health/heath.module";
-
+import { BullBoardModule } from '@bull-board/nestjs';
+import { ExpressAdapter } from '@bull-board/express';
+import { BullModule } from '@nestjs/bullmq';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 const databaseConfig = JSON.parse(
   readFileSync("./monitor_db.json").toString()
 );
 
 @Module({
   imports: [
+    BullModule.forRoot({
+      connection: {
+        host: 'localhost',
+        port: 6379,
+      }}),
+      BullBoardModule.forRoot({
+      route: '/admin/queues',
+      adapter: ExpressAdapter,
+    }),
+    BullBoardModule.forFeature({
+      name: 'crawl-queue-private', 
+      adapter: BullMQAdapter,
+    }),
+        BullBoardModule.forFeature({
+      name: 'crawl-queue-public', 
+      adapter: BullMQAdapter,
+    }),
+    
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: `.env.${process.env.NODE_ENV == 'production' ? 'prod' : 'dev'}`,
@@ -111,6 +132,7 @@ const databaseConfig = JSON.parse(
     }),
     HealthModule,
     AuthModule,
+    CrawlerNewModule,
     // AppsAuthModule,
     UserModule,
     ObservatoryModule,
