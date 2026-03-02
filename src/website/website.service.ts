@@ -27,6 +27,25 @@ export class WebsiteService {
     private readonly connection: DataSource
   ) {}
 
+  async getWebsiteById(websiteId: number): Promise<any> {
+    const website = await this.websiteRepository.findOne({
+      where: { WebsiteId: websiteId }});
+    return website;
+  }
+
+  async getWebsiteId(userId: number, websiteUrl: string): Promise<number > {
+
+    const website = await this.websiteRepository.findOne({
+
+
+      where: { StartingUrl: websiteUrl, UserId: userId },
+
+    });
+    if (website) {
+      throw new InternalServerErrorException("Website Does not exists");
+    }
+      return website.WebsiteId;
+  }
   async findAccessiblityStatements(): Promise<any> {
     const websites = await this.websiteRepository.find({
       relations: ["Pages"],

@@ -16,7 +16,13 @@ import { CollectionDateModule } from "src/accessibility-statement-module/collect
     AccessibilityStatementModule,
     CollectionDateModule,
   ],
-  exports: [WebsiteService],
+  exports: [
+    WebsiteService, 
+    TypeOrmModule,      
+    EvaluationModule,   
+    AccessibilityStatementModule,
+    CollectionDateModule
+  ],
   providers: [WebsiteService],
   controllers: [WebsiteController],
 })
