@@ -309,6 +309,25 @@ export class WebsiteService {
         `SELECT e.* FROM Entity as e, EntityWebsite as ew WHERE ew.WebsiteId = ? AND e.EntityId = ew.EntityId`,
         [websiteId]
       );
+
+      // Fetch Observatory directories for this website
+      const directories = await this.websiteRepository.query(
+        `
+        SELECT DISTINCT d.Name
+        FROM
+          Directory as d
+          INNER JOIN DirectoryTag as dt ON dt.DirectoryId = d.DirectoryId
+          INNER JOIN TagWebsite as tw ON tw.TagId = dt.TagId
+        WHERE
+          d.Show_in_Observatory = 1 AND
+          tw.WebsiteId = ?
+        ORDER BY d.Name
+        `,
+        [websiteId]
+      );
+
+      website.directories = directories.map((dir: any) => dir.Name);
+
       return website;
     } else {
       throw new InternalServerErrorException();
