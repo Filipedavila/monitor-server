@@ -1,1 +1,1 @@
-export const ADMIN_USER_ID = -1;
+export const ADMIN_USER_TYPE_ID = -1;
