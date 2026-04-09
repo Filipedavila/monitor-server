@@ -1,18 +1,21 @@
-import { DataSource,  QueryRunner, Repository } from 'typeorm';
+import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { EntityRepository } from './base.repository';
-import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
-import { BaseFilterDto } from '../dto/base-filter.dto';
-import { BasePaginationDto } from '../dto/base-pagination.dto';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel.js';
+
+import { BaseFilter, BasePagination, BaseSort } from '../interfaces/types';
+import { AppLoggerService } from '@core/app-logger/app-logger.service';
+import { BaseModel } from '../entities/base.entity';
 
 export abstract class BaseTransactionalRepository<
-  T, 
-  F extends BaseFilterDto = BaseFilterDto, 
-  P extends BasePaginationDto = BasePaginationDto
-> extends EntityRepository<T, F, P> {
+  T extends BaseModel, 
+  F extends BaseFilter = BaseFilter, 
+  S extends BaseSort = BaseSort,
+  P extends BasePagination = BasePagination
+> extends EntityRepository<T, F, S, P> {
   protected readonly dataSource: DataSource;
-  constructor(orm: Repository<T>
+  constructor(orm: Repository<T>, protected readonly logger: AppLoggerService
   ) {
-    super(orm);
+    super(orm,logger);
     this.dataSource = orm.manager.connection;
   }
 

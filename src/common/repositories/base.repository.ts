@@ -1,43 +1,63 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {  Repository, DeleteResult, SelectQueryBuilder, In, FindOptionsWhere } from 'typeorm';
-import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity.js';
-import { BasePaginationDto } from '../dto/base-pagination.dto';
-import { BaseFilterDto } from '../dto/base-filter.dto';
-import { BaseSortDto } from '../dto/base-sort.dto';
 import { chunkArray } from '../utils/utils';
+import { BaseFilter, BasePagination, BaseSort, SortCriteria } from '../interfaces/types';
+import { AppLoggerService } from 'src/core/app-logger/app-logger.service';
+import { BaseModel } from '../entities/base.entity';
+import { ConfigService } from '@nestjs/config';
 
-export type SortCriteria = 'ASC' | 'DESC';
 
-export type FilterMap<F,T> = {
+export type FilterMap<F,T extends BaseModel> = {
   [P in keyof F]-?: (query: SelectQueryBuilder<T>, value: F[P]) => void;
 };
 
-export type SortingMap<S,T> = {
+export type SortingMap<S,T extends BaseModel> = {
   [P in keyof S]-?: (query: SelectQueryBuilder<T>, order: SortCriteria) => void;
 };
 
-
-export interface BaseEntity {
-  id: string | number;
+export interface QueryRequest<F,S,P> {
+  filters?: Partial<F>;
+  sorting?: Partial<S>;
+  pagination?: Partial<P>;
+}
+export interface QueryResponse<T> {
+  data: T[];
+  count: number;
 }
 
 @Injectable()
-export abstract class EntityRepository<T, 
-  F extends BaseFilterDto = BaseFilterDto,
-  S extends BaseSortDto = BaseSortDto, 
-  P extends BasePaginationDto = BasePaginationDto> {
+export abstract class EntityRepository<T extends BaseModel, 
+  F extends BaseFilter = BaseFilter,
+  S extends BaseSort = BaseSort, 
+  P extends BasePagination = BasePagination> {
   
-  constructor(protected readonly orm: Repository<T>,protected readonly logger:Logger) {
+  constructor(protected readonly orm: Repository<T>,
+    protected readonly logger: AppLoggerService,
+    protected readonly configService: ConfigService) {
+    this.maxPaginationLimit = this.configService.get<number>('PAGINATION_MAX_LIMIT', 100);
     this.primaryKey = this.orm.metadata.primaryColumns[0].propertyName;
    }
+   protected readonly maxPaginationLimit: number;
    protected readonly primaryKey: string;
-
+   protected abstract  readonly alias: string ;
    protected abstract readonly filterMap: FilterMap<F, T>;
    protected abstract readonly sortMap: SortingMap<S, T>;
+   
 
-
-    async findAll():Promise<T[]> {
-        return await this.orm.find();
+    /** Find entities based on dynamic filters, sorting, and pagination.
+     * 
+     * @param filters 
+     * @param sorts 
+     * @param pagination 
+     * @returns { data: T[]; count: number }
+     */
+    async find(queryArgs: QueryRequest<F, S, P>): Promise<QueryResponse<T>> {
+        const query = this.orm.createQueryBuilder(this.alias);
+        this.applyDynamicFilters(query, queryArgs.filters);
+        this.applyDynamicSorting(query, queryArgs.sorting);
+        this.applyPagination(query, queryArgs.pagination);
+        const [data, count] = await query.getManyAndCount();
+        return { data, count };
     }
 
     async findById(id: string | number): Promise<T | null> {
@@ -52,22 +72,25 @@ export abstract class EntityRepository<T,
     * @param data - An array of entities to be saved.
     * @returns A promise that resolves to an array of saved entities.
     */
-    async saveMany(data: T[]): Promise<T[]> {
-      if (!data?.length) return [];
-      
-      const savedEntities: T[] = [];
-        const chunks = chunkArray(data, 10); 
+   async saveMany(data: T[]): Promise<T[]> {
+  if (!data?.length) return [];
+  
+  const chunks = chunkArray(data, 10); 
+  const savedEntities: T[] = [];
 
-      for (const chunk of chunks) {
-        try {
-          const results = await this.orm.save(chunk);
-          savedEntities.push(...results);
-        } catch (err) {
-        this.logger.error(`[${this.orm.metadata.name}] Failed to save chunk`, err.stack);        }
-      }
-      
-      return savedEntities;
+  for (const chunk of chunks) {
+    try {
+      const results = await this.orm.save(chunk);
+      savedEntities.push(...results);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      this.logger.error(`[${this.orm.metadata.name}] Failed to save chunk`, error.stack);
+      throw error; 
     }
+  }
+  
+  return savedEntities;
+}
 
 
     async delete(id: string | number): Promise<DeleteResult> {
@@ -84,21 +107,20 @@ export abstract class EntityRepository<T,
 
     protected applyPagination(
           query: SelectQueryBuilder<T>,
-          pagination: P,
-          filters: F,
-          sorts: S,
+          pagination?: Partial<P>
         ): void {
-          const limit = pagination.limit || 100;
-          const page = pagination.page || 1;
+          const rawLimit = pagination?.limit || 10;
+          const limit = Math.min(Math.max(1, rawLimit), this.maxPaginationLimit);
+          const rawPage = pagination?.page || 1;
+          const page = Math.max(1, rawPage);
+        
           const skip = (page - 1) * limit;
-            this.applyDynamicFilters(query, filters);
-            this.applyDynamicSorting(query, sorts);
           query.take(limit).skip(skip);
     }
 
       protected applyDynamicFilters(
       query: SelectQueryBuilder<T>,
-      filters: F
+      filters?: Partial<F>
     ): void {
       if (!filters) return;
       if(filters.ids) {
@@ -115,7 +137,7 @@ export abstract class EntityRepository<T,
 
     protected applyDynamicSorting(
       query: SelectQueryBuilder<T>,
-      sorting: S
+      sorting?: Partial<S>,
     ): void {
       if (!sorting) return;
 
@@ -125,4 +147,7 @@ export abstract class EntityRepository<T,
         }
       });
     } 
+    async query(sql: string, parameters?: any[]): Promise<any> {
+  return this.orm.query(sql, parameters);
+  }
 }
