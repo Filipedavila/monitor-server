@@ -86,7 +86,7 @@ describe('AccessLevelProvider', () => {
 
     it('should return levels with weight equal or higher than target', () => {
       // Act
-      const result = provider.getSatisfyingLevels('EDITOR' as AccessLevelCode);
+      const result = provider.getLevelsForMinimum('EDITOR' as AccessLevelCode);
 
       // Assert
       expect(result).toContain('OWNER');
@@ -96,18 +96,18 @@ describe('AccessLevelProvider', () => {
     });
 
     it('should return only the highest level when target is the maximum', () => {
-      const result = provider.getSatisfyingLevels('OWNER' as AccessLevelCode);
+      const result = provider.getLevelsForMinimum('OWNER' as AccessLevelCode);
       expect(result).toEqual(['OWNER']);
     });
 
     it('should return all levels when minimum level is requested', () => {
-      const result = provider.getSatisfyingLevels('VIEWER' as AccessLevelCode);
+      const result = provider.getLevelsForMinimum('VIEWER' as AccessLevelCode);
       expect(result).toHaveLength(3);
       expect(result).toEqual(['OWNER', 'EDITOR', 'VIEWER']);
     });
 
     it('should handle unknown levels by defaulting to weight 0 (granting no levels)', () => {
-      const result = provider.getSatisfyingLevels('UNKNOWN' as AccessLevelCode);
+      const result = provider.getLevelsForMinimum('UNKNOWN' as AccessLevelCode);
       expect(result).toHaveLength(0);
     });
   });

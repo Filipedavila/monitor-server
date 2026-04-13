@@ -43,7 +43,7 @@ export class AccessLevelProvider implements OnModuleInit {
     );
   }
 
-  getSatisfyingLevels(minLevel: AccessLevelCode): AccessLevelCode[] {
+  getLevelsForMinimum(minLevel: AccessLevelCode): AccessLevelCode[] {
     const minWeight = this.weightsCache[minLevel];
     if (minWeight === undefined) {
       this.logger.warn(
