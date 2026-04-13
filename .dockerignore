@@ -1,9 +1,6 @@
 Dockerfile
-db.sql
 migration-*
-user.sql
 node_modules/
-.claude
 .idea
 .vscode
 .git

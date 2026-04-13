@@ -3,9 +3,13 @@ public/stamps
 dist
 action-log
 error-log
-CLAUDE.md
-.claude/*
+.vscode/
+.idea/
+coverage/
+.env.dev
+.env.prod
 
-idea
+
+
 qualweb-errors-*.log
 tmux*.log
