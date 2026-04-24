@@ -1,8 +1,11 @@
 import { Entity, Column, Index, PrimaryGeneratedColumn } from "typeorm";
 
 export const AccessLevel = {
+  // OWNER tem acesso total, incluindo gerenciamento de permissões
   OWNER: "OWNER",
+  // EDITOR pode criar e modificar, mas não gerenciar permissões
   EDITOR: "EDITOR",
+  // VIEWER tem acesso somente leitura
   VIEWER: "VIEWER",
 } as const;
 

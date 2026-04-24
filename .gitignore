@@ -9,7 +9,7 @@ coverage/
 .env.dev
 .env.prod
 
-
+documentation/
 
 qualweb-errors-*.log
 tmux*.log

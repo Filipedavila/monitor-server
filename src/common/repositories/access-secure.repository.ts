@@ -15,13 +15,10 @@ import { BaseFilter, BasePagination, BaseSort } from "../interfaces/types";
 import { BaseModel } from "../entities/base.entity";
 import { AppLoggerService } from "src/core/app-logger/app-logger.service";
 import { ConfigService } from "@nestjs/config";
-import { AccessLevelProvider } from "src/core/security-authorization/access-level.service";
 import { AccessLevelCode } from "src/core/security-authorization/entitities/access-level.entity";
 import {
-  AccessPolicyMap,
   AccessScope,
   BaseGrant,
-  DatabaseOperation,
   SecurityContext,
   validateSecurityContext,
 } from "src/core/security-authorization/SecurityContext";
@@ -32,15 +29,25 @@ import {
 
 export interface SecureQueryRequest<F, S, P> extends QueryRequest<F, S, P> {
   securityContext: SecurityContext;
+  minimumAccessLevels: AccessLevelCode[];
 }
 
-export type GrantMap<A extends BaseGrant> = {
-  [P in keyof A]: (
-    query: WhereExpressionBuilder,
-    value: NonNullable<A[P]>,
-    index: number,
-  ) => void;
+export type GrantHandler<V> = (
+  query: WhereExpressionBuilder,
+  value: NonNullable<V>,
+  index: number
+) => void;
+
+export type CustomGrantHandler<T> = (query: WhereExpressionBuilder, context: SecurityContext) => void;
+
+export type BaseGrantMap<A extends BaseGrant> = {
+  [P in keyof A]: GrantHandler<A[P]>;
 };
+
+export type OptionalGrantMap<T extends BaseModel> = {
+  [P in keyof T]?: CustomGrantHandler<T>;
+};
+
 
 @Injectable()
 export abstract class SecureEntityRepository<
@@ -55,22 +62,23 @@ export abstract class SecureEntityRepository<
   private readonly accesscolumnMap = new Map<keyof AG, string>();
   private _relationAccessPath?: string;
   protected abstract readonly accessStrategy: AccessScope;
-  protected abstract readonly AccessPolicyMap: AccessPolicyMap;
+  
 
-  protected readonly SecureAccessGrantMap: GrantMap<AG> = {
+  private readonly SecureAccessGrantMap: BaseGrantMap<AG> = {
     granteeId: (q, val, index) => this.applyGrant(q, "granteeId", val, index),
     granteeType: (q, val, index) =>
       this.applyGrant(q, "granteeType", val, index),
     accessLevel: (q, val, index) =>
       this.applySatisfyingLevelsGrant(q, "accessLevel", val, index),
-  } as GrantMap<AG>;
+  } as BaseGrantMap<AG>;
+
+  abstract readonly CustomAccessPolicyMap: OptionalGrantMap<T>;
+
   constructor(
     orm: Repository<T>,
     protected readonly accessOrm: Repository<A>,
     logger: AppLoggerService,
-    configService: ConfigService,
-    protected readonly accessLevelProvider: AccessLevelProvider,
-  ) {
+    configService: ConfigService  ) {
     super(orm, logger, configService);
     this.initializeColumnMap();
   }
@@ -86,11 +94,11 @@ export abstract class SecureEntityRepository<
     validateSecurityContext(queryArgs.securityContext);
     const requiredGrants = this.generateRequiredGrants(
       queryArgs.securityContext,
-      DatabaseOperation.READ,
+      queryArgs.minimumAccessLevels
     );
     const query = this.orm.createQueryBuilder(`${this.alias}`);
     this.applySecureAccessJoin(query);
-    this.applySecurityPolicies(query, requiredGrants);
+    this.applySecurityPolicies(query,queryArgs.securityContext, requiredGrants);
     this.applyDynamicFilters(query, queryArgs.filters);
     this.applyDynamicSorting(query, queryArgs.sorting);
     this.applyPagination(query, queryArgs.pagination);
@@ -102,11 +110,9 @@ export abstract class SecureEntityRepository<
 
   protected generateRequiredGrants(
     securityContext: SecurityContext,
-    operation: DatabaseOperation,
+    levels: AccessLevelCode[],
   ): BaseGrant[] {
-    const minimumRequiredLevel = this.AccessPolicyMap[operation];
-    const satisfyingLevels =
-      this.accessLevelProvider.getSatisfyingLevels(minimumRequiredLevel);
+
     const grants: BaseGrant[] = [];
     Object.entries(GranteeType).forEach(([_, granteeType]) => {
       const granteeId = this.getIdBasedOnGranteeType(
@@ -116,11 +122,11 @@ export abstract class SecureEntityRepository<
       if (granteeId === undefined) {
         return;
       }
-      if (satisfyingLevels?.length) {
+      if (levels?.length) {
         grants.push({
           granteeId: granteeId,
           granteeType: granteeType,
-          accessLevel: satisfyingLevels,
+          accessLevel: levels,
         });
       }
     });
@@ -154,6 +160,7 @@ export abstract class SecureEntityRepository<
 
   protected applySecurityPolicies(
     query: SelectQueryBuilder<T>,
+    context: SecurityContext,
     identities: BaseGrant[],
   ) {
     const isMandatory = this.accessStrategy === AccessScope.PRIVATE;
@@ -183,11 +190,29 @@ export abstract class SecureEntityRepository<
             }),
           );
         });
+           this.applyCustomSecurityPolicies(mainSecurityBracket, context);
         if (!isMandatory) {
           mainSecurityBracket.orWhere(`${this.aliasAccessTable}.id IS NULL`);
         }
       }),
     );
+  }
+
+  
+  protected applyCustomSecurityPolicies(
+    query: WhereExpressionBuilder,
+    securityContext: SecurityContext, 
+  ) {
+        query.orWhere(
+          new Brackets((customPolicyBracket) => {
+            for (const key in this.CustomAccessPolicyMap) {
+              const policyFn = this.CustomAccessPolicyMap[key as keyof T];
+              if (policyFn) {
+                policyFn(customPolicyBracket, securityContext);
+              }
+            }
+          }),
+        );
   }
 
   private applyGrant(

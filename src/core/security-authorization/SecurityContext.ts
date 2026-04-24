@@ -2,11 +2,11 @@ import { GranteeType } from "src/common/entities/base-access.entity";
 import { z } from "zod";
 import { AccessLevelCode } from "./entitities/access-level.entity";
 import { SecurityContextValidationError } from "./exceptions/security-authorization.exceptions";
+import { AuthenticatedUser } from "../auth/interfaces/types";
 
 export interface SecurityContext {
-  readonly userId: number;
-  readonly roleId: number;
-  readonly institutionId?: number;
+  readonly user: AuthenticatedUser;
+
 }
 
 export const SecurityContextSchema = z

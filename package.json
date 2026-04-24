@@ -24,10 +24,11 @@
     "graph": "madge --image graph.png --extensions ts --ts-config tsconfig.json src/main.ts",
     "graph:check": "madge --circular --extensions ts --ts-config tsconfig.json src/main.ts",
     "graph:summary": "madge --summary --extensions ts --ts-config tsconfig.json src/main.ts",
-    "migration:generate": "npm run typeorm -- migration:generate -d src/data-source.ts",
-    "migration:run": "npm run typeorm -- migration:run -d src/data-source.ts",
-    "migration:revert": "npm run typeorm -- migration:revert -d src/data-source.ts",
-    "schema:drop": "npm run typeorm -- schema:drop -d src/data-source.ts"
+    "migration:generate": "npm run typeorm:base -- migration:generate -d src/data-source.ts",
+    "migration:run": "npm run typeorm:base -- migration:run -d src/data-source.ts",
+    "typeorm:base": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
+    "migration:revert": "npm run typeorm:base -- migration:revert -d src/data-source.ts",
+    "schema:drop": "npm run typeorm:base -- schema:drop -d src/data-source.ts"
   },
   "dependencies": {
     "@a12e/accessmonitor-rulesets": "^1.0.3",

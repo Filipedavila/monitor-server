@@ -1,0 +1,71 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Directory } from '../directory.entity';
+import { BaseTransactionalRepository } from '../../common/repositories/base-transactional.repository';
+import { FilterMap, SortingMap } from 'src/common/repositories/base.repository';
+
+@Injectable()
+export class DirectoryRepository extends BaseTransactionalRepository<Directory, any, any> {
+  constructor(@InjectRepository(Directory) private readonly ormRepo: Repository<Directory>) {
+    super(ormRepo);
+  }
+
+  protected readonly filterMap: FilterMap<any, Directory> = {
+    searchTerm: (query, term) => query.andWhere('d.Name LIKE :term', { term: `%${term}%` }),
+    observatory: (query, val) => query.andWhere('d.Show_in_Observatory = :val', { val }),
+  };
+
+  protected readonly sortMap: SortingMap<any, Directory> = {
+    name: (query, order) => query.addOrderBy('d.Name', order),
+    date: (query, order) => query.addOrderBy('d.Creation_Date', order),
+    tagsCount: (query, order) => query.addOrderBy('TagsCount', order),
+  };
+
+  /**
+   * Resolve a lógica complexa de encontrar páginas por Diretório (Metodologia 0 e 1)
+   */
+  async findPagesByDirectory(directoryId: number, isAllPages: boolean): Promise<any[]> {
+    const directory = await this.ormRepo.findOne({ 
+        where: { DirectoryId: directoryId }, 
+        relations: ['tags'] 
+    });
+    
+    if (!directory || !directory.tags.length) return [];
+
+    const tagIds = directory.tags.map(t => t.TagId);
+    const showInFilter = isAllPages ? "1__" : "1_1";
+
+    const query = this.ormRepo.manager.createQueryBuilder()
+      .select(['p.PageId as PageId', 'p.Uri as Uri'])
+      .from('TagWebsite', 'tw')
+      .innerJoin('Website', 'w', 'w.WebsiteId = tw.WebsiteId')
+      .innerJoin('WebsitePage', 'wp', 'wp.WebsiteId = w.WebsiteId')
+      .innerJoin('Page', 'p', 'p.PageId = wp.PageId')
+      .where('tw.TagId IN (:...tagIds)', { tagIds })
+      .andWhere('p.Show_In LIKE :filter', { filter: showInFilter });
+
+    if (directory.Method === 0) {
+      query.groupBy('p.PageId')
+           .having('COUNT(DISTINCT tw.TagId) = :tagCount', { tagCount: tagIds.length });
+    } else {
+      query.distinct(true);
+    }
+
+    return await query.getRawMany();
+  }
+
+  async findWithTagsCount(filters: any, pagination: any): Promise<[any[], number]> {
+    const query = this.ormRepo.createQueryBuilder('d')
+      .leftJoin('d.tags', 't')
+      .select('d.*')
+      .addSelect('COUNT(DISTINCT t.TagId)', 'TagsCount')
+      .groupBy('d.DirectoryId');
+
+    this.applyDynamicFilters(query, filters);
+    this.applyDynamicSorting(query, pagination);
+    this.applyPagination(query, pagination, filters, pagination);
+
+    return [await query.getRawMany(), await this.ormRepo.count()];
+  }
+}

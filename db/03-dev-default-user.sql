@@ -1,0 +1,1 @@
+INSERT INTO `User` ( `Username`, `Password`, `Type`, `Register_Date`, `Last_Login`, `Unique_Hash`) VALUES ( 'admin', '$2b$10$jZX4uFcexwNBLNIs7huCRuU8F0PszLPRtNoDQCd4l6viKOK1QUGPG', 'nimda', '2026-01-13 16:01:27', '2026-01-13 16:22:37', 'b7258ef3c8d936bd145a7521cdcfb409f3cf53b7f10c88a1263be6d2fc664f87');

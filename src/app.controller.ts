@@ -1,7 +1,7 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { AppService } from "./app.service";
-import { success } from "./lib/response";
+import { success } from "./common/response";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 
 @ApiTags("admin")
@@ -50,10 +50,13 @@ export class AppController {
     return success(await this.appService.getMyMonitorStats());
   }
 
-  @ApiOperation({ summary: "Get total observatory-style data including all systems" })
+  @ApiOperation({
+    summary: "Get total observatory-style data including all systems",
+  })
   @ApiResponse({
     status: 200,
-    description: "Complete observatory-style statistics for all systems (observatory + mymonitor + AMS)",
+    description:
+      "Complete observatory-style statistics for all systems (observatory + mymonitor + AMS)",
     type: Object,
   })
   @UseGuards(AuthGuard("jwt-admin"))
@@ -65,7 +68,8 @@ export class AppController {
   @ApiOperation({ summary: "Get totals practice table data" })
   @ApiResponse({
     status: 200,
-    description: "Success - Returns practice table with accessibility test results",
+    description:
+      "Success - Returns practice table with accessibility test results",
   })
   @UseGuards(AuthGuard("jwt-admin"))
   @Get("totals/practices")

@@ -66,6 +66,7 @@ export abstract class EntityRepository<
    * @param pagination
    * @returns { data: T[]; count: number }
    */
+  /*
   async find(queryArgs: QueryRequest<F, S, P>): Promise<QueryResponse<T>> {
     const query = this.orm.createQueryBuilder(this.alias);
     this.applyDynamicFilters(query, queryArgs.filters);
@@ -73,7 +74,24 @@ export abstract class EntityRepository<
     this.applyPagination(query, queryArgs.pagination);
     const [data, count] = await query.getManyAndCount();
     return { data, count };
+  }*/
+
+    async findOneBy( filters: Partial<F> ): Promise<T | null> {
+    const query = this.orm.createQueryBuilder(this.alias);
+    this.applyDynamicFilters(query, filters);
+    const result = await query.getOne();
+    return result || null;
+  } 
+
+    async findMany(queryArgs: QueryRequest<F, S, P>): Promise<QueryResponse<T>> {
+    const query = this.orm.createQueryBuilder(this.alias);
+    this.applyDynamicFilters(query, queryArgs.filters);
+    this.applyDynamicSorting(query, queryArgs.sorting);
+    this.applyPagination(query, queryArgs.pagination);
+    const [data, count] = await query.getManyAndCount();
+    return { data, count };
   }
+
 
   async findById(id: string | number): Promise<T | null> {
     return await this.orm.findOneBy({

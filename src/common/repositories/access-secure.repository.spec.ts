@@ -93,7 +93,7 @@ describe("SecureEntityRepository (Unit Tests)", () => {
       },
     ] as any;
 
-    mockLevelsProvider.getSatisfyingLevels.mockReturnValue([
+    mockLevelsProvider.getLevelsForMinimum.mockReturnValue([
       "VIEWER",
       "EDITOR",
       "OWNER",
@@ -207,7 +207,7 @@ describe("SecureEntityRepository (Unit Tests)", () => {
         roleId: 2,
         institutionId: 3,
       } as SecurityContext;
-      mockLevelsProvider.getSatisfyingLevels.mockReturnValue([
+      mockLevelsProvider.getLevelsForMinimum.mockReturnValue([
         "VIEWER",
         "EDITOR",
         "OWNER",
@@ -239,7 +239,7 @@ describe("SecureEntityRepository (Unit Tests)", () => {
 
     it("Should generate grants for each identity provided in the security context ( no institutionId )", () => {
       const securityContext = { userId: 1, roleId: 2 } as SecurityContext;
-      mockLevelsProvider.getSatisfyingLevels.mockReturnValue([
+      mockLevelsProvider.getLevelsForMinimum.mockReturnValue([
         "VIEWER",
         "EDITOR",
         "OWNER",
@@ -271,7 +271,7 @@ describe("SecureEntityRepository (Unit Tests)", () => {
         roleId: 2,
         institutionId: 3,
       } as SecurityContext;
-      mockLevelsProvider.getSatisfyingLevels.mockReturnValue([
+      mockLevelsProvider.getLevelsForMinimum.mockReturnValue([
         "EDITOR",
         "OWNER",
       ]);
@@ -306,7 +306,7 @@ describe("SecureEntityRepository (Unit Tests)", () => {
         roleId: 2,
         institutionId: 3,
       } as SecurityContext;
-      mockLevelsProvider.getSatisfyingLevels.mockReturnValue(["OWNER"]);
+      mockLevelsProvider.getLevelsForMinimum.mockReturnValue(["OWNER"]);
 
       repository.changeAccessPolicyMap(DatabaseOperation.READ, "OWNER");
       const grants = repository["generateRequiredGrants"](
@@ -338,7 +338,7 @@ describe("SecureEntityRepository (Unit Tests)", () => {
         roleId: 2,
         institutionId: 3,
       } as SecurityContext;
-      mockLevelsProvider.getSatisfyingLevels.mockReturnValue([]);
+      mockLevelsProvider.getLevelsForMinimum.mockReturnValue([]);
 
       const grants = repository["generateRequiredGrants"](
         securityContext,

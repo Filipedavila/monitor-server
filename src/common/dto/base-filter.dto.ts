@@ -1,5 +1,5 @@
-import { IsOptional, IsInt, IsArray, ArrayMinSize } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import { IsOptional, IsInt, IsArray, ArrayMinSize } from "class-validator";
+import { Transform, Type } from "class-transformer";
 
 export class BaseFilterDto {
   @IsOptional()
@@ -7,14 +7,14 @@ export class BaseFilterDto {
     const rawValues = Array.isArray(value) ? value : [value];
 
     const cleanNumbers = rawValues
-                        .map(v => Number(v))
-                        .filter(v => !isNaN(v) && v > 0); 
+      .map((v) => Number(v))
+      .filter((v) => !isNaN(v) && v > 0);
 
     return [...new Set(cleanNumbers)];
-  })  @IsArray()
+  })
+  @IsArray()
   @IsInt({ each: true })
   @ArrayMinSize(1)
   @Type(() => Number)
   ids?: number[];
-
 }
