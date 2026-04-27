@@ -12,19 +12,19 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
-// import { AppsAuthModule } from "./apps-auth/apps-auth.module";
+import { AppsAuthModule } from "./apps-auth/apps-auth.module";
 import { UserModule } from "./user/user.module";
 import { ObservatoryModule } from "./observatory/observatory.module";
-// import { AppsObservatoryModule } from "./apps-observatory/apps-observatory.module";
+import { AppsObservatoryModule } from "./apps-observatory/apps-observatory.module";
 import { PageModule } from "./page/page.module";
 import { TagModule } from "./tag/tag.module";
-// import { AppsCategoryModule } from "./apps-category/apps-category.module";
+import { AppsCategoryModule } from "./apps-category/apps-category.module";
 import { WebsiteModule } from "./website/website.module";
-// import { ApplicationModule } from "./application/application.module";
+import { ApplicationModule } from "./application/application.module";
 import { EntityModule } from "./entity/entity.module";
 // import { AppsEntityModule } from "./apps-entity/apps-entity.module";
 import { EvaluationModule } from "./evaluation/evaluation.module";
-// import { AppsEvaluationModule } from "./apps-evaluation/apps-evaluation.module";
+import { AppsEvaluationModule } from "./apps-evaluation/apps-evaluation.module";
 import { ContentAspectsModule } from "./content-aspects/content-aspects.module";
 import { TransactionAspectsModule } from "./transaction-aspects/transaction-aspects.module";
 import { FunctionalAspectsModule } from "./functional-aspects/functional-aspects.module";
@@ -32,7 +32,7 @@ import { AmpModule } from "./amp/amp.module";
 import { StampModule } from "./stamp/stamp.module";
 import { CrawlerModule } from "./crawler/crawler.module";
 import { DirectoryModule } from "./directory/directory.module";
-// import { AppsDirectoryModule } from "./apps-directory/apps-directory.module";
+import { AppsDirectoryModule } from "./apps-directory/apps-directory.module";
 import { AccessibilityStatementModule } from "./accessibility-statement-module/accessibility-statement/accessibility-statement.module";
 import { AutomaticEvaluationModule } from "./accessibility-statement-module/automatic-evaluation/automatic-evaluation.module";
 import { ManualEvaluationModule } from "./accessibility-statement-module/manual-evaluation/manual-evaluation.module";
@@ -112,19 +112,19 @@ const databaseConfig = JSON.parse(
     }),
     HealthModule,
     AuthModule,
-    // AppsAuthModule,
+    AppsAuthModule,
     UserModule,
     ObservatoryModule,
-    // AppsObservatoryModule,
+    AppsObservatoryModule,
     PageModule,
     TagModule,
-    // AppsCategoryModule,
+    AppsCategoryModule,
     WebsiteModule,
-    // ApplicationModule,
+    ApplicationModule,
     EntityModule,
     // AppsEntityModule,
     EvaluationModule,
-    // AppsEvaluationModule,
+    AppsEvaluationModule,
     ContentAspectsModule,
     FunctionalAspectsModule,
     TransactionAspectsModule,
@@ -132,7 +132,7 @@ const databaseConfig = JSON.parse(
     StampModule,
     CrawlerModule,
     DirectoryModule,
-    // AppsDirectoryModule,
+    AppsDirectoryModule,
     AccessibilityStatementModule,
     AutomaticEvaluationModule,
     ManualEvaluationModule,
