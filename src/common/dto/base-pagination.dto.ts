@@ -1,7 +1,14 @@
-import { IsOptional, IsInt, Min, Max, IsString, IsArray } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
-import { PAGINATION_CONFIG } from '../constants/pagination.constants';
-export class BasePaginationDto {
+import {
+  IsOptional,
+  IsInt,
+  Min,
+  Max,
+} from "class-validator";
+import { Type } from "class-transformer";
+import { PAGINATION_CONFIG } from "../constants/pagination.constants";
+
+
+export class BasePaginationDTO<T> {
   @IsOptional()
   @Type(() => Number)
   @IsInt()

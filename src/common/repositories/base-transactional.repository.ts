@@ -1,28 +1,31 @@
-import { DataSource, QueryRunner, Repository } from 'typeorm';
-import { EntityRepository } from './base.repository';
-import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel.js';
+import { DataSource, QueryRunner, Repository } from "typeorm";
+import { EntityRepository } from "./base.repository";
+import { IsolationLevel } from "typeorm/driver/types/IsolationLevel.js";
 
-import { BaseFilter, BasePagination, BaseSort } from '../interfaces/types';
-import { AppLoggerService } from '@core/app-logger/app-logger.service';
-import { BaseModel } from '../entities/base.entity';
+import { BaseFilter, BasePagination, BaseSort } from "../interfaces/types";
+import { AppLoggerService } from "@core/app-logger/app-logger.service";
+import { BaseModel } from "../entities/base.entity";
+import { ConfigService } from "@nestjs/config";
 
 export abstract class BaseTransactionalRepository<
-  T extends BaseModel, 
-  F extends BaseFilter = BaseFilter, 
+  T extends BaseModel,
+  F extends BaseFilter = BaseFilter,
   S extends BaseSort = BaseSort,
-  P extends BasePagination = BasePagination
+  P extends BasePagination = BasePagination,
 > extends EntityRepository<T, F, S, P> {
   protected readonly dataSource: DataSource;
-  constructor(orm: Repository<T>, protected readonly logger: AppLoggerService
+  constructor(
+    orm: Repository<T>,
+    protected readonly logger: AppLoggerService,
+    protected readonly configService: ConfigService,
   ) {
-    super(orm,logger);
+    super(orm, logger, configService);
     this.dataSource = orm.manager.connection;
   }
 
-
-async runInTransaction<R>(
+  async runInTransaction<R>(
     operation: (queryRunner: QueryRunner) => Promise<R>,
-    isolationLevel: IsolationLevel = 'READ COMMITTED',
+    isolationLevel: IsolationLevel = "READ COMMITTED",
   ): Promise<R> {
     const queryRunner = this.dataSource.createQueryRunner();
 
@@ -35,7 +38,6 @@ async runInTransaction<R>(
       await queryRunner.commitTransaction();
       return result;
     } catch (err) {
-
       await queryRunner.rollbackTransaction();
 
       throw err;

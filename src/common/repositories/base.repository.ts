@@ -5,6 +5,7 @@ import {
   SelectQueryBuilder,
   In,
   FindOptionsWhere,
+  QueryBuilder,
 } from "typeorm";
 import { chunkArray } from "../utils/utils";
 import {
@@ -16,6 +17,7 @@ import {
 import { AppLoggerService } from "src/core/app-logger/app-logger.service";
 import { BaseModel } from "../entities/base.entity";
 import { ConfigService } from "@nestjs/config";
+import { SecurityContext } from "src/core/authorization/SecurityContext";
 
 export type FilterMap<F, T extends BaseModel> = {
   [P in keyof F]-?: (query: SelectQueryBuilder<T>, value: F[P]) => void;
@@ -29,6 +31,7 @@ export interface QueryRequest<F, S, P> {
   filters?: Partial<F>;
   sorting?: Partial<S>;
   pagination?: Partial<P>;
+  securityContext?: SecurityContext; // Puedes definir un tipo específico para el contexto de seguridad si lo deseas
 }
 export interface QueryResponse<T> {
   data: T[];
@@ -43,7 +46,7 @@ export abstract class EntityRepository<
   P extends BasePagination = BasePagination,
 > {
   constructor(
-    protected readonly orm: Repository<T>,
+    public readonly orm: Repository<T>,
     protected readonly logger: AppLoggerService,
     protected readonly configService: ConfigService,
   ) {
@@ -66,14 +69,28 @@ export abstract class EntityRepository<
    * @param pagination
    * @returns { data: T[]; count: number }
    */
-  async find(queryArgs: QueryRequest<F, S, P>): Promise<QueryResponse<T>> {
+ 
+    abstract  applyAuthorization(query: QueryBuilder<T>, rules:any,operation:string): Promise<void>;
+  
+    async findOneBy( filters: Partial<F> ): Promise<T | null> {
     const query = this.orm.createQueryBuilder(this.alias);
+    this.applyDynamicFilters(query, filters);
+    const result = await query.getOne();
+    return result || null;
+  } 
+
+    async findMany(queryArgs: QueryRequest<F, S, P>): Promise<QueryResponse<T>> {
+    const query = this.orm.createQueryBuilder(this.alias);
+    if (queryArgs.securityContext) {
+      await this.applyAuthorization(query, queryArgs.securityContext, "read");
+    }
     this.applyDynamicFilters(query, queryArgs.filters);
     this.applyDynamicSorting(query, queryArgs.sorting);
     this.applyPagination(query, queryArgs.pagination);
     const [data, count] = await query.getManyAndCount();
     return { data, count };
   }
+
 
   async findById(id: string | number): Promise<T | null> {
     return await this.orm.findOneBy({
