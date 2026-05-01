@@ -1,1 +1,0 @@
-export const ADMIN_USER_TYPE_ID = -1;
