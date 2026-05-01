@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import * as request from "supertest";
 import { AuthGuard } from "@nestjs/passport";
-import { WebsiteModule } from "src/website/website.module";
+import { WebsiteModule } from "src/domains/inventory/website/website.module";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { readFileSync } from "fs";
 
@@ -45,7 +45,7 @@ describe("WebsiteController (e2e)", () => {
   const WEBSITE_STUDY_MONITOR_REMOVE = "website/studyMonitor/remove"; //post
 
   const databaseConfig = JSON.parse(
-    readFileSync("../monitor_db.json").toString()
+    readFileSync("../monitor_db.json").toString(),
   );
 
   beforeEach(async () => {
