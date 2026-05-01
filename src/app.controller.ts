@@ -1,10 +1,9 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { AppService } from "./app.service";
-import { success } from "./lib/response";
-import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { AppDocs } from "./app.swagger";
 
-@ApiTags("admin")
+@AppDocs.controller()
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
@@ -14,62 +13,38 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  @ApiOperation({ summary: "Get Observatory aggregated statistics" })
-  @ApiResponse({
-    status: 200,
-    description: "Observatory statistics",
-    type: Object,
-  })
-  @UseGuards(AuthGuard("jwt-admin"))
+  @AppDocs.getObservatoryStats()
+  @UseGuards(AuthGuard("jwt"))
   @Get("admin/stats/observatory")
   async getObservatoryStats(): Promise<any> {
-    return success(await this.appService.getObservatoryStats());
+    return await this.appService.getObservatoryStats();
   }
 
-  @ApiOperation({ summary: "Get total aggregated statistics" })
-  @ApiResponse({
-    status: 200,
-    description: "Total statistics",
-    type: Object,
-  })
-  @UseGuards(AuthGuard("jwt-admin"))
+  @AppDocs.getTotalStats()
+  @UseGuards(AuthGuard("jwt"))
   @Get("admin/stats/totals")
   async getTotalStats(): Promise<any> {
-    return success(await this.appService.getTotalStats());
+    return await this.appService.getTotalStats();
   }
 
-  @ApiOperation({ summary: "Get MyMonitor aggregated statistics" })
-  @ApiResponse({
-    status: 200,
-    description: "MyMonitor statistics",
-    type: Object,
-  })
-  @UseGuards(AuthGuard("jwt-admin"))
+  @AppDocs.getMyMonitorStats()
+  @UseGuards(AuthGuard("jwt"))
   @Get("admin/stats/mymonitor")
   async getMyMonitorStats(): Promise<any> {
-    return success(await this.appService.getMyMonitorStats());
+    return await this.appService.getMyMonitorStats();
   }
 
-  @ApiOperation({ summary: "Get total observatory-style data including all systems" })
-  @ApiResponse({
-    status: 200,
-    description: "Complete observatory-style statistics for all systems (observatory + mymonitor + AMS)",
-    type: Object,
-  })
-  @UseGuards(AuthGuard("jwt-admin"))
+  @AppDocs.getTotalsData()
+  @UseGuards(AuthGuard("jwt"))
   @Get("totals")
   async getTotalsData(): Promise<any> {
-    return success(await this.appService.getTotalsData());
+    return await this.appService.getTotalsData();
   }
 
-  @ApiOperation({ summary: "Get totals practice table data" })
-  @ApiResponse({
-    status: 200,
-    description: "Success - Returns practice table with accessibility test results",
-  })
-  @UseGuards(AuthGuard("jwt-admin"))
+  @AppDocs.getTotalsPracticesData()
+  @UseGuards(AuthGuard("jwt"))
   @Get("totals/practices")
   async getTotalsPracticesData(): Promise<any> {
-    return success(await this.appService.getTotalsPracticesData());
+    return await this.appService.getTotalsPracticesData();
   }
 }
