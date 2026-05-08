@@ -106,6 +106,11 @@ export class Website {
     const pageErrors = page.evaluation.errors;
 
     for (const key in page.evaluation.tot.results || {}) {
+      if (!ruleset[key]) {
+        console.warn(`[Mapping Required]: Test key "${key}" from previous evaluation DB not found in current ruleset. Skipping.`);
+          continue;
+      }
+      
       const test = ruleset[key]["test"];
       const elem = ruleset[key]["elem"];
       const occurrences =
