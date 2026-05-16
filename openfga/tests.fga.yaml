@@ -1,0 +1,174 @@
+name: "Monitor Server ReBAC Model Validation"
+model_file: ./model.fga
+
+tuples:
+
+  # Creation of users with specific roles
+  - user: "user:admin1"
+    relation: "member"
+    object: "role:admin"
+
+  - user: "user:estudante1"
+    relation: "member"
+    object: "role:study"
+
+  ## Assign main permissions to admin resources
+  - user: "role:admin"
+    relation: "admin"
+    object: "directory:all"
+  - user: "role:admin"
+    relation: "admin"
+    object: "tag:all"
+  - user: "role:admin"
+    relation: "admin"
+    object: "accessibility_statement:all"
+
+  ## criar default organization 
+  - user: "role:admin"
+    relation: "admin_roles"
+    object: "organization:pending"
+
+  # ---ORGANIZATIO 1 ---
+  ## creation of userx for organization 1
+  - user: "user:monitor1"
+    relation: "member"
+    object: "role:monitor"
+
+  - user: "user:monitor2"
+    relation: "member"
+    object: "role:monitor"
+
+  - user: "role:admin"
+    relation: "admin_roles"
+    object: "organization:1"
+  ## Assign User 1 as local admin and user 2 as local member of organization 1
+
+
+  - user: "user:monitor1"
+    relation: "local_admin"
+    object: "organization:1"
+
+  - user: "user:monitor2"
+    relation: "local_member"
+    object: "organization:1"
+
+  # --- WEBSITE E RECURSOS ---
+  - user: "organization:1"
+    relation: "parent_org"
+    object: "website:site_a"
+  - user: "user:monitor1"
+    relation: "creator"
+    object: "website:site_a"
+  - user: "user:estudante1"
+    relation: "study_assignee"
+    object: "website:site_a"
+  ## -- pages for website a 
+  - user: "website:site_a"
+    relation: "parent_website"
+    object: "page:site_a_home"
+
+    ## website criado por admin sem organization definida
+  - user: "user:admin1"
+    relation: "creator"
+    object: "website:site_b_no_org"
+  - user: "organization:pending"
+    relation: "parent_org"
+    object: "website:site_b_no_org"
+
+  
+
+  # --- EVALUATIONS ---
+  - user: "user:monitor1"
+    relation: "creator"
+    object: "evaluation:eval_1"
+  - user: "website:site_a"
+    relation: "parent"
+    object: "evaluation:eval_1"
+
+tests:
+  - name: "1. Organization Access Control"
+    check:
+      # Teste Admin Global (via Role)
+      - user: "user:admin1"
+        object: "organization:1"
+        assertions:
+          can_manage: true
+          can_view: true
+      # Teste Local Admin
+      - user: "user:monitor1"
+        object: "organization:1"
+        assertions:
+          can_manage: true
+      # Teste Local Member
+      - user: "user:monitor2"
+        object: "organization:1"
+        assertions:
+          can_view: true
+          can_edit: true
+          can_manage: false
+
+  - name: "2. Website and Page Inheritance"
+    check:
+      # Local Admin herdando permissões na Página
+      - user: "user:monitor1"
+        object: "page:site_a_home"
+        assertions:
+          can_manage: true
+      # Criador do Site
+      - user: "user:monitor1"
+        object: "page:site_a_home"
+        assertions:
+          can_edit: true
+      # Estudante Designado (Apenas View)
+      - user: "user:estudante1"
+        object: "page:site_a_home"
+        assertions:
+          can_view: true
+          can_edit: false
+
+  - name: "3. Website sem Organização (Pending Flow)"
+    check:
+      # Admin1 deve conseguir gerir porque é creator E porque org:pending tem role:admin
+      - user: "user:admin1"
+        object: "website:site_b_no_org"
+        assertions:
+          can_manage: true
+
+  - name: "4. Evaluation Logic (Intersection Check)"
+    check:
+      # Monitor1 é creator da eval_1 E tem can_edit no parent site_a
+      - user: "user:monitor1"
+        object: "evaluation:eval_1"
+        assertions:
+          can_manage: true
+          can_view: true
+      # Estudante1 NÃO é creator, logo não vê a eval mesmo estando no site
+      - user: "user:estudante1"
+        object: "evaluation:eval_1"
+        assertions:
+          can_view: false
+
+  - name: "5. Directory and Global Tags (Singleton Pattern)"
+    check:
+      # Admin1 pertence à role:admin que está ligada ao directory:all
+      - user: "user:admin1"
+        object: "directory:all"
+        assertions:
+          can_view: true
+          can_manage: true
+      # Monitor1 NÃO é admin global, não deve aceder ao directory:all
+      - user: "user:monitor1"
+        object: "directory:all"
+        assertions:
+          can_view: false
+
+  - name: "6. Accessibility Statement"
+    check:
+      - user: "user:admin1"
+        object: "accessibility_statement:all"
+        assertions:
+          can_manage: true
+      - user: "user:estudante1"
+        object: "accessibility_statement:all"
+        assertions:
+          can_view: false

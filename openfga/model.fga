@@ -1,0 +1,85 @@
+model
+  schema 1.1
+
+type user
+
+type role
+  relations
+    define member: [user]
+
+type directory
+  relations
+    define admin: [role]
+
+    define can_manage: member from admin 
+    define can_view: member from admin
+
+type tag
+  relations
+    define admin: [role]
+
+    define can_manage: member from admin 
+    define can_view: member from admin
+
+type accessibility_statement
+  relations
+    define admin: [role]
+
+    define can_manage: member from admin 
+    define can_view: member from admin
+  
+type organization
+  relations
+    define admin_roles: [role]
+    define local_admin: [user]
+    define local_member: [user]    
+    
+    define can_manage: member from admin_roles or local_admin
+    define can_edit: member from admin_roles or local_admin or local_member
+    define can_view: member from admin_roles or local_admin or local_member
+
+type website
+  relations
+    define parent_org: [organization]
+    define creator: [user]
+    define study_assignee: [user]
+    
+    define can_manage: creator or can_manage from parent_org
+    define can_edit: creator or can_edit from parent_org
+    define can_view: study_assignee or creator or can_view from parent_org
+
+type page
+  relations
+    define parent_website: [website]
+    
+    define can_manage: can_manage from parent_website
+    define can_edit: can_edit from parent_website
+    define can_view: can_view from parent_website
+
+type evaluation
+  relations
+    define parent: [website]
+    define creator: [user]
+
+    define can_manage: creator and can_edit from parent
+    define can_view: creator and can_view from parent
+    
+type crawler_website
+  relations
+    define parent: [website]
+    define creator: [user]
+    
+    define can_manage: creator or can_manage from parent
+    define can_edit: creator or can_edit from parent
+    define can_view: creator or can_view from parent
+
+type crawler_page
+  relations
+    define parent: [crawler_website]
+    
+    define can_manage: can_manage from parent
+    define can_edit: can_edit from parent
+    define can_view: can_view from parent
+
+
+
