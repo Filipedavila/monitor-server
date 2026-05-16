@@ -33,7 +33,7 @@ export class FgaGuard implements CanActivate {
     if (!objectId) throw new ForbiddenException('Resource ID not found in request');
 
     
-    const fgaUser:FgaUserIdentifier = `user:${userId}`;
+    const fgaUser:FgaUserIdentifier<any> = `user:${userId}`;
     const fgaObject:FgaObjectIdentifier<any> = `${permission.objectType}:${objectId}`;
 
     

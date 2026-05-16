@@ -11,7 +11,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": " nest start",
     "start:dev": "cross-env NODE_ENV=development nest start --watch",
-    "start:debug": "cross-env NODE_ENV=development nest start --debug --watch",
+    "start:debug": "cross-env NODE_ENV=development NEST_DEBUG=true nest start --debug --watch",
     "start:prod": "cross-env NODE_ENV=production node dist/main",
     "start:local": "cross-env NODE_ENV=development node dist/main",
     "lint": "eslint '{src,apps,libs,test}/**/*.ts' --fix",
@@ -61,13 +61,13 @@
     "bcrypt": "^6.0.0",
     "body-parser": "^1.20.2",
     "bullmq": "^5.76.4",
+    "cheerio": "^1.2.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "compression": "^1.7.4",
     "css-select": "^5.1.0",
     "file-saver": "^2.0.5",
     "helmet": "^8.1.0",
-    "htmlparser2": "^8.0.1",
     "ip-range-check": "^0.2.0",
     "joi": "^18.0.2",
     "lodash.clone": "^4.5.0",
@@ -83,6 +83,7 @@
     "puppeteer": "^22.12.1",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "qs": "^6.15.1",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^4.3.1",
     "rxjs": "^7.8.1",
@@ -139,7 +140,7 @@
     "typescript": "^5.7.2"
   },
   "overrides": {
-  "trim": "^0.0.3",
-  "uuid": "^14.0.0"
-}
+    "trim": "^0.0.3",
+    "uuid": "^14.0.0"
+  }
 }

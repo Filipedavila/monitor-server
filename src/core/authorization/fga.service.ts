@@ -18,7 +18,7 @@ export class FgaService {
 
  
   async listObjects<T extends ResourceType>(params: { 
-    user: FgaUserIdentifier; 
+    user: FgaUserIdentifier<T>; 
     relation: FgaCheck<T>['relation']; 
     type: T 
   }): Promise<string[]> {
@@ -28,7 +28,7 @@ export class FgaService {
 
 
   async check<T extends ResourceType>(
-    user: FgaUserIdentifier, 
+    user: FgaUserIdentifier<T>, 
     relation: FgaModelMap[Extract<T, keyof FgaModelMap>],
     object: FgaObjectIdentifier<T>
   ): Promise<boolean> {
@@ -44,28 +44,34 @@ export class FgaService {
       writes: [tuple],
     });
   }
+  
+  async createBatchesRelationships<T extends ResourceType>(tuples: FgaTuple<T>[]): Promise<any> {
+    return this.fgaClient.write({
+      writes: tuples,
+    });
+  }
 
   async isSystemAdmin(userId: number): Promise<boolean> {
-    return this.check<typeof FGA_RESOURCE.ROLE>(
+    return this.check(
       `user:${userId}`,
-      FGA_RELATION.ADMIN, 
-      `${FGA_RESOURCE.ROLE}:global`
+      FGA_RELATION.ROLE, 
+      `${FGA_RESOURCE.ROLE}:admin`
     );
   }
 
   async isMonitor(userId: number): Promise<boolean> {
-    return this.check<typeof FGA_RESOURCE.ROLE>(
+    return this.check(
       `user:${userId}`,
-      FGA_RELATION.MONITOR, 
-      `${FGA_RESOURCE.ROLE}:global`
+      FGA_RELATION.ROLE, 
+      `${FGA_RESOURCE.ROLE}:monitor`
     );
   }
 
   async isStudy(userId: number): Promise<boolean> {
-    return this.check<typeof FGA_RESOURCE.ROLE>(
+    return this.check(
       `user:${userId}`,
-      FGA_RELATION.STUDY, 
-      `${FGA_RESOURCE.ROLE}:global`
+      FGA_RELATION.ROLE, 
+      `${FGA_RESOURCE.ROLE}:study`
     );
   } 
 

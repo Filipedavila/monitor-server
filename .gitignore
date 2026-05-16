@@ -8,8 +8,9 @@ error-log
 coverage/
 .env.dev
 .env.prod
+storage/
 
-
+documentation/
 
 qualweb-errors-*.log
 tmux*.log

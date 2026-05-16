@@ -31,7 +31,7 @@ export interface QueryRequest<F, S, P> {
   filters?: Partial<F>;
   sorting?: Partial<S>;
   pagination?: Partial<P>;
-  securityContext?: SecurityContext; // Puedes definir un tipo específico para el contexto de seguridad si lo deseas
+  securityContext?: SecurityContext; 
 }
 export interface QueryResponse<T> {
   data: T[];
@@ -160,6 +160,7 @@ export abstract class EntityRepository<
     query: SelectQueryBuilder<T>,
     filters?: Partial<F>,
   ): void {
+    console.log("Filters recebido para aplicação:", filters); // Log para depuração
     if (!filters) return;
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && this.filterMap[key as keyof F]) {
@@ -172,9 +173,12 @@ export abstract class EntityRepository<
     query: SelectQueryBuilder<T>,
     sorting?: Partial<S>,
   ): void {
+    console.log("Sorting recebido para aplicação:", sorting); // Log para depuração
     if (!sorting) return;
 
+
     Object.entries(sorting).forEach(([key, order]) => {
+      console.log(`Aplicando ordenação para ${key} com ordem ${order}`); // Log para depuração
       if (order && this.sortMap[key as keyof S]) {
         this.sortMap[key as keyof S](query, (order as SortCriteria) || "DESC");
       }

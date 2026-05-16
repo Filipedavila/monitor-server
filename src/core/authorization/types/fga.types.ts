@@ -16,10 +16,7 @@ export const FGA_RESOURCE = {
 
 export const FGA_RELATION = {
   // Roles Globais
-  ADMIN: 'admin',
-  MONITOR: 'monitor',
-  STUDY: 'study',
-
+  ROLE: 'member',
   // Atribuições e Contexto
   SYSTEM_ADMIN: 'system_admin',
   LOCAL_ADMIN: 'local_admin',
@@ -47,7 +44,7 @@ export type RelationType = typeof FGA_RELATION[keyof typeof FGA_RELATION];
 
 
 export type FgaModelMap = {
-  [FGA_RESOURCE.ROLE]: 'admin' | 'monitor' | 'study' | 'can_manage' | 'can_view' | 'can_monitor' | 'can_study';
+  [FGA_RESOURCE.ROLE]: 'member';
   [FGA_RESOURCE.ORGANIZATION]: 'system_admin' | 'local_admin' | 'local_member' | 'can_manage' | 'can_edit' | 'can_view';
   [FGA_RESOURCE.WEBSITE]: 'parent_org' | 'creator' | 'study_assignee' | 'can_manage' | 'can_edit' | 'can_view';
   [FGA_RESOURCE.PAGE]: 'parent_website' | 'can_manage' | 'can_edit' | 'can_view';
@@ -62,19 +59,19 @@ export type FgaModelMap = {
 
 
 
-export type FgaUserIdentifier = `user:${string}` | `role:${string}#${string}`;
+export type FgaUserIdentifier<T extends ResourceType> = `${T}:${string}`;
 export type FgaObjectIdentifier<T extends ResourceType> = `${T}:${string}`;
 
 
 export interface FgaTuple<T extends ResourceType> {
-  user: FgaUserIdentifier | FgaObjectIdentifier<ResourceType>;
+  user: FgaUserIdentifier<T> | FgaObjectIdentifier<ResourceType>;
   relation: FgaModelMap[Extract<T, keyof FgaModelMap>]; 
   object: FgaObjectIdentifier<T>;
 }
 
 
 export interface FgaCheck<T extends ResourceType> {
-  user: FgaUserIdentifier;
+  user: FgaUserIdentifier<T>;
   relation: Extract<
     FgaModelMap[Extract<T, keyof FgaModelMap>], 
     'can_manage' | 'can_edit' | 'can_view' | 'can_monitor' | 'can_study'
@@ -87,7 +84,7 @@ export function makeFgaTuple<T extends ResourceType>(
   type: T,
   id: string,
   relation: FgaModelMap[Extract<T, keyof FgaModelMap>],
-  user: FgaUserIdentifier | FgaObjectIdentifier<ResourceType>
+  user: FgaUserIdentifier<T> | FgaObjectIdentifier<ResourceType>
 ): FgaTuple<T> {
   return {
     user,
