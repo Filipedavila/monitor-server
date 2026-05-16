@@ -82,7 +82,7 @@ export class AppService implements OnModuleInit {
 
   async getObservatoryStats(): Promise<any> {
           throw new Error("Method not implemented.");
-          /*
+  /*
     const [directories, tags, entities, websites, pages] = await Promise.all([
       this.directoryService.findNumberOfObservatory(),
       this.tagService.findNumberOfObservatory(),
