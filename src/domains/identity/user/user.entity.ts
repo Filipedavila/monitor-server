@@ -67,6 +67,9 @@ export class User extends AuditableEntity {
   @OneToOne(() => GovUser)
   @JoinColumn({ name: "gov_user_id" })
   govUser: GovUser;
+
+@Column({ name: "gov_user_id", type: "int", unsigned: true, nullable: true })
+  govUserId: number;
   
 
   @ManyToMany(() => Organization, (organization: Organization) => organization.users)
