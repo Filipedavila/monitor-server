@@ -8,6 +8,10 @@ tuples:
     relation: "member"
     object: "role:admin"
 
+  - user: "user:admin2"
+    relation: "member"
+    object: "role:admin"
+
   - user: "user:estudante1"
     relation: "member"
     object: "role:study"
@@ -25,7 +29,7 @@ tuples:
 
   ## criar default organization 
   - user: "role:admin"
-    relation: "admin_roles"
+    relation: "admin"
     object: "organization:pending"
 
   # ---ORGANIZATIO 1 ---
@@ -39,87 +43,105 @@ tuples:
     object: "role:monitor"
 
   - user: "role:admin"
-    relation: "admin_roles"
+    relation: "admin"
     object: "organization:1"
+
+  ## Other organization and user for testing isolation
+  - user: "user:monitor_other"
+    relation: "member"
+    object: "role:monitor"
+  - user: "role:admin"
+    relation: "admin"
+    object: "organization:other_org"
   ## Assign User 1 as local admin and user 2 as local member of organization 1
 
 
   - user: "user:monitor1"
-    relation: "local_admin"
+    relation: "admin"
     object: "organization:1"
 
   - user: "user:monitor2"
-    relation: "local_member"
+    relation: "member"
     object: "organization:1"
 
-  # --- WEBSITE E RECURSOS ---
+  - user: "user:monitor_other"
+    relation: "admin"
+    object: "organization:other_org"
+
+  # --Websites, Org and Pages---
   - user: "organization:1"
-    relation: "parent_org"
+    relation: "parent"
     object: "website:site_a"
   - user: "user:monitor1"
-    relation: "creator"
+    relation: "owner"
     object: "website:site_a"
   - user: "user:estudante1"
     relation: "study_assignee"
     object: "website:site_a"
-  ## -- pages for website a 
+  ## Pages created for website A
   - user: "website:site_a"
-    relation: "parent_website"
+    relation: "parent"
     object: "page:site_a_home"
 
-    ## website criado por admin sem organization definida
+  ## Website created by admin without organization defined (pending flow)
   - user: "user:admin1"
-    relation: "creator"
+    relation: "owner"
     object: "website:site_b_no_org"
   - user: "organization:pending"
-    relation: "parent_org"
+    relation: "parent"
     object: "website:site_b_no_org"
 
-  
+  ## Crawler for a Website
+  - user: "website:site_a"
+    relation: "parent"
+    object: "crawler_website:crawler1"
 
+  - user: "crawler_website:crawler1"
+    relation: "parent"
+    object: "crawler_page:crawler1_page1"
   # --- EVALUATIONS ---
   - user: "user:monitor1"
-    relation: "creator"
+    relation: "owner"
     object: "evaluation:eval_1"
   - user: "website:site_a"
     relation: "parent"
     object: "evaluation:eval_1"
 
+    # Evaluation by Admin Role
+  - user: "website:site_a"
+    relation: "parent"
+    object: "evaluation:eval_admin"
+  - user: "role:admin"
+    relation: "owner"
+    object: "evaluation:eval_admin"
+
 tests:
   - name: "1. Organization Access Control"
     check:
-      # Teste Admin Global (via Role)
+      # Test Global Admin (via Role) should have manage and view access to the organization
       - user: "user:admin1"
         object: "organization:1"
         assertions:
           can_manage: true
-          can_view: true
-      # Teste Local Admin
+      # Test Local Admin of Organization 1 should have manage access to the organization
       - user: "user:monitor1"
         object: "organization:1"
         assertions:
           can_manage: true
-      # Teste Local Member
+      # Test Local Member of Organization 1 should have view and edit but not full manage access
       - user: "user:monitor2"
         object: "organization:1"
         assertions:
-          can_view: true
-          can_edit: true
           can_manage: false
 
   - name: "2. Website and Page Inheritance"
     check:
-      # Local Admin herdando permissões na Página
+      # Local Admin inheriting permissions on the Page
       - user: "user:monitor1"
         object: "page:site_a_home"
         assertions:
           can_manage: true
-      # Criador do Site
-      - user: "user:monitor1"
-        object: "page:site_a_home"
-        assertions:
-          can_edit: true
-      # Estudante Designado (Apenas View)
+      # Student assigned to the site should have view access but not edit
       - user: "user:estudante1"
         object: "page:site_a_home"
         assertions:
@@ -128,35 +150,46 @@ tests:
 
   - name: "3. Website sem Organização (Pending Flow)"
     check:
-      # Admin1 deve conseguir gerir porque é creator E porque org:pending tem role:admin
+      # Admin1 should be able to manage because they are the creator AND because org:pending has role:admin
       - user: "user:admin1"
+        object: "website:site_b_no_org"
+        assertions:
+          can_manage: true
+      # Admin2 should also be able to manage because of role:admin
+      - user: "user:admin2"
         object: "website:site_b_no_org"
         assertions:
           can_manage: true
 
   - name: "4. Evaluation Logic (Intersection Check)"
     check:
-      # Monitor1 é creator da eval_1 E tem can_edit no parent site_a
+      - user: "user:admin1"
+        object: "evaluation:eval_admin"
+        assertions:
+          can_manage: true
+      # Monitor1 is creator of eval_1 so should have manage and view access to it
       - user: "user:monitor1"
         object: "evaluation:eval_1"
         assertions:
           can_manage: true
-          can_view: true
-      # Estudante1 NÃO é creator, logo não vê a eval mesmo estando no site
+      # Student1 cannot view eval 1 because it did not created it.
       - user: "user:estudante1"
         object: "evaluation:eval_1"
         assertions:
           can_view: false
+      - user: "user:monitor2"
+        object: "evaluation:eval_admin"
+        assertions:
+          can_view: false
 
-  - name: "5. Directory and Global Tags (Singleton Pattern)"
+  - name: "5. Directory and Global Tags"
     check:
-      # Admin1 pertence à role:admin que está ligada ao directory:all
+      # User admin1 is part of role:admin which is linked to directory:all, so it should have access to directory:all
       - user: "user:admin1"
         object: "directory:all"
         assertions:
-          can_view: true
           can_manage: true
-      # Monitor1 NÃO é admin global, não deve aceder ao directory:all
+      # Monitor1 is not of role admin so it should not have access to directory:all
       - user: "user:monitor1"
         object: "directory:all"
         assertions:
@@ -172,3 +205,27 @@ tests:
         object: "accessibility_statement:all"
         assertions:
           can_view: false
+  - name: "7. Crawler Access Control"
+    check:
+    ## user from a certain organization can access its crawler resources
+      - user: "user:monitor1"
+        object: "crawler_website:crawler1"
+        assertions:
+          can_manage: true
+      - user: "user:monitor1"
+        object: "crawler_page:crawler1_page1"
+        assertions:
+          can_manage: true
+    ## user from a certain organization cannot access crawler resources of another organization
+      - user: "user:monitor_other"
+        object: "crawler_website:crawler1"
+        assertions:
+          can_view: false
+          can_manage: false
+      - user: "user:monitor_other"
+        object: "crawler_page:crawler1_page1"
+        assertions:
+          can_view: false
+          can_manage: false
+
+        

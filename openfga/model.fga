@@ -30,48 +30,38 @@ type accessibility_statement
   
 type organization
   relations
-    define admin_roles: [role]
-    define local_admin: [user]
-    define local_member: [user]    
+    define admin: [role,user]
+    define member: [user]    
     
-    define can_manage: member from admin_roles or local_admin
-    define can_edit: member from admin_roles or local_admin or local_member
-    define can_view: member from admin_roles or local_admin or local_member
+    define can_manage: member from admin  or admin
+    define can_edit: member from admin or member
+    define can_view: member from admin or member
 
 type website
   relations
-    define parent_org: [organization]
-    define creator: [user]
+    define parent: [organization]
+    define owner: [user]
     define study_assignee: [user]
     
-    define can_manage: creator or can_manage from parent_org
-    define can_edit: creator or can_edit from parent_org
-    define can_view: study_assignee or creator or can_view from parent_org
+    define can_manage: owner or can_manage from parent
+    define can_edit: owner or can_edit from parent
+    define can_view: study_assignee or owner or can_view from parent
 
 type page
   relations
-    define parent_website: [website]
-    
-    define can_manage: can_manage from parent_website
-    define can_edit: can_edit from parent_website
-    define can_view: can_view from parent_website
-
-type evaluation
-  relations
     define parent: [website]
-    define creator: [user]
-
-    define can_manage: creator and can_edit from parent
-    define can_view: creator and can_view from parent
-    
+    define can_manage: can_manage from parent
+    define can_edit: can_edit from parent
+    define can_view: can_view from parent
+   
 type crawler_website
   relations
     define parent: [website]
-    define creator: [user]
+    define owner: [user]
     
-    define can_manage: creator or can_manage from parent
-    define can_edit: creator or can_edit from parent
-    define can_view: creator or can_view from parent
+    define can_manage: owner or can_manage from parent
+    define can_edit: owner or can_edit from parent
+    define can_view: owner or can_view from parent
 
 type crawler_page
   relations
@@ -81,5 +71,11 @@ type crawler_page
     define can_edit: can_edit from parent
     define can_view: can_view from parent
 
-
+type evaluation
+  relations
+    define parent: [website]
+    define owner: [user, role]
+    define can_manage: (owner or member from owner) and can_manage from parent
+    define can_edit: (owner or member from owner) and can_edit from parent
+    define can_view: (owner or member from owner) and can_view from parent
 

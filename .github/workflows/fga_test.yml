@@ -1,0 +1,27 @@
+name: OpenFGA Check Tests
+
+on:
+    push:
+        branches: [main, develop]
+    pull_request:
+        branches: [main, develop]
+    workflow_dispatch: 
+    
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        steps:
+           - name: Checkout Repository
+             uses: actions/checkout@v4
+             with:
+              fetch-depth: 0
+           - name: Install FGA CLI
+             run: |
+                VERSION="v0.6.1"
+                curl -sSLO "https://github.com/openfga/cli/releases/download/${VERSION}/fga_${VERSION:1}_linux_amd64.tar.gz"
+                tar -xzf fga_${VERSION:1}_linux_amd64.tar.gz fga
+                sudo mv fga /usr/local/bin/fga
+                rm fga_${VERSION:1}_linux_amd64.tar.gz
+           - name: Run OpenFGA Check
+             run: |
+                  fga model test --tests ./openfga/tests.fga.yaml
