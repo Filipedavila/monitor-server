@@ -1,4 +1,4 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, StreamableFile } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -19,7 +19,11 @@ export class ResponseTransformInterceptor<T> implements NestInterceptor<T, Respo
 intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     return next.handle().pipe(
       map(result => {
-
+        const response = context.switchToHttp().getResponse();
+        if (result instanceof StreamableFile || response.headersSent) {
+          return result;
+        }
+        
         if (!result || typeof result !== 'object') {
           return { timestamp: new Date().toISOString(), data: result };
         }
