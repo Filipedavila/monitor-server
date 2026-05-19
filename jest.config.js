@@ -15,10 +15,22 @@ module.exports = {
             legacyDecorator: true,
             decoratorMetadata: true, 
           },
+          baseUrl: '.',
+          paths: {
+            'src/*': ['./src/*'],
+            'test/*': ['./test/*'],
+            '@factories/*': ['./test/factories/*'],
+            '@domains/*': ['./src/domains/*'],
+            '@common/*': ['./src/common/*'],
+            '@core/*': ['./src/core/*'],
+          }
         },
       },
     ],
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!uuid)/'
+  ],
   collectCoverageFrom: [
     '**/*.(t|j)s',
     '!main.(t|j)s',
@@ -32,11 +44,11 @@ module.exports = {
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
   moduleNameMapper: {
-    '^src/(.*)$': '<rootDir>/src/$1',
+    '^@factories/(.*)$': '<rootDir>/test/factories/$1',
+    '^@domains/(.*)$': '<rootDir>/src/domains/$1',
+    '^@common/(.*)$': '<rootDir>/src/common/$1',
+    '^@core/(.*)$': '<rootDir>/src/core/$1',
     '^test/(.*)$': '<rootDir>/test/$1',
-    '@factories/(.*)$': '<rootDir>/test/factories/$1',
-    '@domains/(.*)$': '<rootDir>/src/domains/$1',
-    '@common/(.*)$': '<rootDir>/src/common/$1',
-    '@core/(.*)$': '<rootDir>/src/core/$1',
+    '^src/(.*)$': '<rootDir>/src/$1', 
   },
 };
