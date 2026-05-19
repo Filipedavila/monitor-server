@@ -1,5 +1,6 @@
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
+
 import express from "express";
 import helmet from "helmet";
 import compression from "compression";
@@ -7,10 +8,16 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import { ValidationPipe, VersioningType } from "@nestjs/common";
 import { AppLoggerService } from "./core/app-logger/app-logger.service";
+import { useContainer } from 'class-validator';
 
 
 async function bootstrap() {
+  const expressApp = express();
+  expressApp.set('query parser', 'extended');
   const app = await NestFactory.create(AppModule, { cors: true });
+  
+  useContainer(app.select(AppModule), { fallbackOnErrors: true });
+
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -23,6 +30,8 @@ async function bootstrap() {
       },
     }),
   );
+     app.getHttpAdapter().getInstance().set('query parser', 'extended');
+
   app.useWebSocketAdapter(new IoAdapter(app) as any);
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -42,6 +51,7 @@ async function bootstrap() {
     defaultVersion: "2",
   });
   SwaggerModule.setup("api", app, document);
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
