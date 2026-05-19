@@ -2,38 +2,38 @@ import { BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
 import { Evaluation, EvaluationContext } from "../../entities/evaluation.entity";
 import { IsNumber, IsOptional, IsString } from "class-validator";
 
-export class EvaluationFilterDTO extends BaseFilterDTO<Evaluation> implements Partial<Pick<Evaluation, 'pageId' | 'pageTitle' | 'score' | 'A' | 'AA' | 'AAA' | 'context' | 'tagCount'>> {
+export class EvaluationFilterDTO extends BaseFilterDTO<Evaluation> implements Required<Pick<Evaluation, 'pageId' | 'pageTitle' | 'score' | 'A' | 'AA' | 'AAA' | 'context' | 'tagCount'>> {
   @IsOptional()
   @IsNumber()
-  pageId?: number;
+  pageId: number;
 
   @IsOptional()
   @IsString()
-  pageTitle?: string;
+  pageTitle: string;
 
   @IsOptional()
   @IsString()
-  score?: string;
+  score: string;
 
   @IsOptional()
   @IsNumber()
-  A?: number;
+  A: number;
 
   @IsOptional()
   @IsNumber()
-  AA?: number;
+  AA: number;
 
   @IsOptional()
   @IsNumber()
-  AAA?: number;
+  AAA: number;
 
   @IsOptional()
   @IsString()
-  context?: EvaluationContext;
+  context: EvaluationContext;
 
 
   @IsOptional()
   @IsNumber()
-  tagCount?: number;
+  tagCount: number;
 
 }

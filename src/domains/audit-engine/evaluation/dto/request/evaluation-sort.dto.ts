@@ -1,28 +1,60 @@
-import { Transform } from 'class-transformer';
 import { IsOptional } from 'class-validator';
+import { Evaluation } from '../../entities/evaluation.entity';
+import { IsSortOrder } from 'src/common/decorators/is-sort-order.decorator';
+import { SortCriteria } from 'src/common/interfaces/types';
 
-export class EvaluationSortDTO {
-  private static readonly ALLOWED_FIELDS = ["id", "pageId", "context", "createdAt", "updatedAt", "score"];
+
+
+type TargetKeys = keyof Pick<
+  Evaluation, 
+  'pageId' | 'pageTitle' | 'score' | 'A' | 'AA' | 'AAA' | 'context' | 'tagCount' | 'createdAt' | 'updatedAt'
+>;
+
+type EvaluationSortContract = {
+  [K in TargetKeys]: SortCriteria;
+};
+
+export class EvaluationSortDTO implements EvaluationSortContract {
+  
+  @IsOptional()
+  @IsSortOrder()
+  pageId: SortCriteria;
 
   @IsOptional()
-  @Transform(({ value }) => {
+  @IsSortOrder()
+  pageTitle: SortCriteria;
+  
+  @IsOptional()
+  @IsSortOrder()
+  score: SortCriteria;
+  
+  @IsOptional()
+  @IsSortOrder()
+  A: SortCriteria;
+  
+  @IsOptional()
+  @IsSortOrder()
+  AA: SortCriteria;
+  
+  @IsOptional()
+  @IsSortOrder()
+  AAA: SortCriteria;
+  
+  @IsOptional()
+  @IsSortOrder()
+  context: SortCriteria;
+  
+  @IsOptional()
+  @IsSortOrder()
+  tagCount: SortCriteria;
 
-    const result: Record<string, 'ASC' | 'DESC'> = {};
+  @IsOptional()
+  @IsSortOrder()
+  createdAt: SortCriteria;
 
-    const items = Array.isArray(value) ? value : [value];
+  @IsOptional()
+  @IsSortOrder()
+  updatedAt: SortCriteria;
 
-    items.forEach((item) => {
-      if (typeof item === 'string' && item.includes(':')) {
-        const [field, order] = item.split(':');
-        
-        if (EvaluationSortDTO.ALLOWED_FIELDS.includes(field)) {
-          const normalizedOrder = order?.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
-          result[field] = normalizedOrder;
-        }
-      }
-    });
-
-    return Object.keys(result).length > 0 ? result : undefined;
-  })
-  sorts?: Record<string, 'ASC' | 'DESC'>;
+    
 }
