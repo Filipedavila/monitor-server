@@ -1,15 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { OpenFgaClient } from '@openfga/sdk';
 import { FGA_CLIENT } from './fga.provider';
-import { 
-  FgaCheck, 
+import {  
   FgaTuple, 
   ResourceType, 
   FgaUserIdentifier, 
   FgaObjectIdentifier, 
   FGA_RESOURCE,
   FGA_RELATION,
-  FgaModelMap
 } from './types/fga.types'; 
 
 @Injectable()
@@ -19,7 +17,7 @@ export class FgaService {
  
   async listObjects<T extends ResourceType>(params: { 
     user: FgaUserIdentifier<T>; 
-    relation: FgaCheck<T>['relation']; 
+    relation: FgaTuple<T>['relation']; 
     type: T 
   }): Promise<string[]> {
     const response = await this.fgaClient.listObjects(params);
@@ -29,7 +27,7 @@ export class FgaService {
 
   async check<T extends ResourceType>(
     user: FgaUserIdentifier<T>, 
-    relation: FgaModelMap[Extract<T, keyof FgaModelMap>],
+    relation: FgaTuple<T>['relation'],
     object: FgaObjectIdentifier<T>
   ): Promise<boolean> {
     const { allowed } = await this.fgaClient.check({ user, relation, object });
