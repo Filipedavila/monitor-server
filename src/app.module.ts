@@ -13,6 +13,7 @@ import { DomainsModule } from "./domains/domains.module";
 import { ConfigAppModule } from "./core/config-app/config-app.module";
 import { PersistenceModule } from "./core/database/persistence.module";
 import { SecurityAuthorizationModule } from "./core/authorization/security-authorization.module";
+import { MaxOffsetLimitConstraint } from "./core/validators/max-limit-pag.validator";
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { SecurityAuthorizationModule } from "./core/authorization/security-autho
       provide: APP_GUARD,
       useClass: RateLimiterGuard,
     },
+    MaxOffsetLimitConstraint,
   ],
 })
 export class AppModule {}

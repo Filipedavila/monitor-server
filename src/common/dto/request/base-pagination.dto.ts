@@ -2,10 +2,9 @@ import {
   IsOptional,
   IsInt,
   Min,
-  Max,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { PAGINATION_CONFIG } from "../../constants/pagination.constants";
+import { IsMaxOffsetLimit } from "src/core/validators/max-limit-pag.validator";
 
 
 export class BasePaginationDTO<T> {
@@ -19,6 +18,6 @@ export class BasePaginationDTO<T> {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(PAGINATION_CONFIG.MAX_LIMIT)
-  limit?: number = PAGINATION_CONFIG.DEFAULT_LIMIT;
+  @IsMaxOffsetLimit()
+  limit?: number = 100;
 }
