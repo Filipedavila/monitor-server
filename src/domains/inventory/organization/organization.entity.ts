@@ -1,6 +1,5 @@
 import { Entity, Column, ManyToMany } from "typeorm";
 import { AuditableEntity } from "../../../common/entities/auditable.entity";
-
 import {DeletionMetadata} from "../../../common/entities/soft-deletable.entity";
 import { BaseUser, BaseWebsite } from "src/common/types";
 
@@ -27,10 +26,5 @@ export class Organization extends AuditableEntity {
   @ManyToMany("Website", (website: any) => website.organizations)
   websites: BaseWebsite[];
 
-  @ManyToMany("User", (user: any) => user.organizations)
-  users: BaseUser[];
-
-  @Column(() => DeletionMetadata , { prefix: false })
-  deletionMetadata: DeletionMetadata;
 
 }

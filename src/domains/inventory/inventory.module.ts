@@ -4,6 +4,7 @@ import { PageModule } from "./page/page.module";
 import { UserModule } from "../identity/user/user.module";
 import { WebsiteModule } from "./website/website.module";
 import { TagModule } from "./tag/tag.module";
+import { OrganizationModule } from "./organization/organization.module";
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { TagModule } from "./tag/tag.module";
     UserModule,
     WebsiteModule,
     TagModule,
+    OrganizationModule,
   ],
   exports: [
     DirectoryModule,
@@ -19,6 +21,7 @@ import { TagModule } from "./tag/tag.module";
     UserModule,
     WebsiteModule,
     TagModule,
+    OrganizationModule,
   ],
 })
 export class AccessibilityCatalogModule {}

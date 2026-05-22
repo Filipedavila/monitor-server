@@ -1,7 +1,6 @@
 import {
   Controller, InternalServerErrorException, Post, Get, Param, UseGuards, UseInterceptors, Body,
 } from "@nestjs/common";
-import { AuthGuard } from "@nestjs/passport";
 import { OrganizationService } from "./organization.service";
 import { Organization } from "./organization.entity";
 import { LoggingInterceptor } from "src/core/log/log.interceptor";
