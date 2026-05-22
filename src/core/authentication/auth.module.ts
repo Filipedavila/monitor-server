@@ -7,7 +7,6 @@ import { User } from "../../domains/identity/user/user.entity";
 import { InvalidToken } from "./entitities/invalid-token.entity";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { jwtConstants } from "./constants/constants";
-import { GovUserModule } from "src/domains/identity/gov-user/gov-user.module";
 import { WsJwtAdminGuard } from "./strategies/ws-jwt-admin.strategy";
 import { WebSocketsAuth } from "./gateways/auth.gateway";
 import { AppLoggerModule } from "../app-logger/app-logger.module";
@@ -17,7 +16,6 @@ import { PassportModule } from "@nestjs/passport";
   imports: [
     AppLoggerModule,
     TypeOrmModule.forFeature([User, InvalidToken]),
-    GovUserModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: jwtConstants.secret,

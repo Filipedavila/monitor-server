@@ -8,7 +8,6 @@ import { InvalidToken } from "./entitities/invalid-token.entity";
 import { comparePasswordHash } from "../../common/security";
 import axios from "axios";
 import { NAME_CONVERTER, NIC } from "./constants/constants";
-import { GovUserService } from "src/domains/identity/gov-user/gov-user.service";
 import { AppLoggerService } from "../app-logger/app-logger.service";
 import { ConfigService } from "@nestjs/config/dist/config.service";
 export interface JWTTokenPayload {
@@ -22,7 +21,6 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    private readonly govUserService: GovUserService,
     @InjectRepository(InvalidToken)
     private readonly invalidTokenRepository: Repository<InvalidToken>,
     private readonly jwtService: JwtService,
@@ -168,8 +166,8 @@ async updateUserLastLogin(userId: number): Promise<void> {
     if (!ccNumber) {
       return null;
     }
-    await this.govUserService.updateLogin(ccNumber);
-    return this.govUserService.findOneByCC(ccNumber);
+    await this.userRepository.update({ ccNumber }, { lastLogin: new Date() });
+    return this.userRepository.findOne({ where: { ccNumber } });
   }
   async getAtributes(token: string) {
     const AUTH_SERVER = this.configService.get('AUTH_SERVER');
@@ -197,11 +195,11 @@ async updateUserLastLogin(userId: number): Promise<void> {
     return result;
   }
 
-  
+  /*
   public async findUserByGovId(govUserId: number): Promise<User> {
 
     return await this.userRepository.findOneOrFail({
       where: { govUser: { id: govUserId } },
     });
-  }
+  }*/
 }
