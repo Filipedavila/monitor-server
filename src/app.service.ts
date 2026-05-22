@@ -1,11 +1,10 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { DirectoryService } from "./domains/inventory/directory/directory.service";
 import { TagService } from "./domains/inventory/tag/tag.service";
-import { OrganizationService } from "./domains/identity/organization/organization.service";
+import { OrganizationService } from "./domains/inventory/organization/organization.service";
 import { WebsiteService } from "./domains/inventory/website/website.service";
 import { PageService } from "./domains/inventory/page/page.service";
 import { UserService } from "./domains/identity/user/user.service";
-import { GovUserService } from "./domains/identity/gov-user/gov-user.service";
 import { ObservatoryService } from "./integrations/observatory/observatory.service";
 import { ConfigService } from "@nestjs/config";
 import { Logger } from "@nestjs/common";
@@ -15,13 +14,6 @@ export class AppService implements OnModuleInit {
   private readonly logger = new Logger("Bootstrap");
   constructor(
     private configService: ConfigService,
-    private readonly directoryService: DirectoryService,
-    private readonly tagService: TagService,
-    private readonly entityService: OrganizationService,
-    private readonly websiteService: WebsiteService,
-    private readonly pageService: PageService,
-    private readonly userService: UserService,
-    private readonly govUserService: GovUserService,
     private readonly observatoryService: ObservatoryService,
   ) {}
   onModuleInit() {

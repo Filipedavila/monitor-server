@@ -7,4 +7,4 @@ import { FgaClientProvider } from "./fga.provider";
   providers: [ FgaService, FgaClientProvider],
   exports: [ FgaService, FgaClientProvider ],
 })
-export class SecurityAuthorizationModule {}
+export class AuthorizationModule {}

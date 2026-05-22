@@ -12,7 +12,7 @@ import { CoreModule } from "./core/core.module";
 import { DomainsModule } from "./domains/domains.module";
 import { ConfigAppModule } from "./core/config-app/config-app.module";
 import { PersistenceModule } from "./core/database/persistence.module";
-import { SecurityAuthorizationModule } from "./core/authorization/security-authorization.module";
+import { AuthorizationModule } from "./core/authorization/authorization.module";
 import { MaxOffsetLimitConstraint } from "./core/validators/max-limit-pag.validator";
 import { ClickhouseModule } from './clickhouse/clickhouse.module';
 
@@ -33,7 +33,7 @@ import { ClickhouseModule } from './clickhouse/clickhouse.module';
     CoreModule,
     DomainsModule,
     IntegrationsModule,
-    SecurityAuthorizationModule,
+    AuthorizationModule,
     ClickhouseModule,
   ],
   controllers: [AppController],

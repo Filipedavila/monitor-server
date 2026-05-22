@@ -12,7 +12,7 @@ import { ObservatorySyncStatus } from "./integrations/observatory/observatory-sy
 
 
 import { Log } from "./core/log/entities/log.entity";
-import { GovUser } from "./domains/identity/gov-user/entities/gov-user.entity";
+
 import { Directory } from "./domains/inventory/directory/directory.entity";
 
 import { AccessibilityStatement } from "./domains/compliance/accessibility-statement/entities/accessibility-statement.entity";
@@ -24,7 +24,7 @@ import { Contact } from "./domains/compliance/contact/entities/contact.entity";
 import { InvalidToken } from "./core/authentication/entitities/invalid-token.entity";
 import { CrawlerWebsite } from "./domains/audit-engine/discovery/entities/crawler-website.entity";
 import { CrawlerPage } from "./domains/audit-engine/discovery/entities/crawler-page.entity";
-import { Role } from "./domains/identity/user/roles.entity";
+import { Role } from "./domains/identity/role/roles.entity";
 import { Evaluation } from "./domains/audit-engine/evaluation/entities/evaluation.entity";
 import { EvaluationResult } from "./domains/audit-engine/evaluation/entities/evaluation-result.entity";
 import { ManualEvaluation } from "./domains/audit-engine/manual-evaluation/manual-evaluation.entity";
@@ -53,7 +53,6 @@ export function getAllEntities() {
     ObservatorySyncStatus,
     ManualEvaluation,
     Log,
-    GovUser,
     Directory,
     CrawlerWebsite,
     CrawlerPage,
