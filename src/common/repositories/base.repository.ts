@@ -27,9 +27,14 @@ export type SortingMap<S, T extends BaseModel> = {
   [P in keyof S]-?: (query: SelectQueryBuilder<T>, order: SortCriteria) => void;
 };
 
+export type RelationColumnConfig = { field: string};
+
+export type RelationProjection<T> = {
+  [K in keyof T]?: RelationColumnConfig[]; 
+};
 export interface QueryRequest<F, S, P> {
   filters?: Partial<F>;
-  sorting?: Partial<S>;
+  sortings?: Partial<S>;
   pagination?: Partial<P>;
   securityContext?: SecurityContext; 
 }
@@ -46,7 +51,7 @@ export abstract class EntityRepository<
   P extends BasePagination = BasePagination,
 > {
   constructor(
-    public readonly orm: Repository<T>,
+    protected readonly orm: Repository<T>,
     protected readonly logger: AppLoggerService,
     protected readonly configService: ConfigService,
   ) {
@@ -62,34 +67,75 @@ export abstract class EntityRepository<
   protected abstract readonly filterMap: FilterMap<F, T>;
   protected abstract readonly sortMap: SortingMap<S, T>;
 
-  /** Find entities based on dynamic filters, sorting, and pagination.
-   *
-   * @param filters
-   * @param sorts
-   * @param pagination
-   * @returns { data: T[]; count: number }
-   */
- 
-    abstract  applyAuthorization(query: QueryBuilder<T>, rules:any,operation:string): Promise<void>;
-  
+
+    public getOrmRepository(): Repository<T> {
+      return this.orm;
+    }
+
+
     async findOneBy( filters: Partial<F> ): Promise<T | null> {
     const query = this.orm.createQueryBuilder(this.alias);
     this.applyDynamicFilters(query, filters);
     const result = await query.getOne();
     return result || null;
   } 
-
+    /** Find entities based on dynamic filters, sorting, and pagination.
+     *
+     * @param filters
+     * @param sorts
+     * @param pagination
+     * @returns { data: T[]; count: number }
+     */
+  
     async findMany(queryArgs: QueryRequest<F, S, P>): Promise<QueryResponse<T>> {
     const query = this.orm.createQueryBuilder(this.alias);
-    if (queryArgs.securityContext) {
-      await this.applyAuthorization(query, queryArgs.securityContext, "read");
-    }
     this.applyDynamicFilters(query, queryArgs.filters);
-    this.applyDynamicSorting(query, queryArgs.sorting);
+    this.applyDynamicSorting(query, queryArgs.sortings);
     this.applyPagination(query, queryArgs.pagination);
     const [data, count] = await query.getManyAndCount();
     return { data, count };
   }
+
+  async findManyProjected<R>(queryArgs: QueryRequest<F, S, P>, projection: (keyof T)[]): Promise<QueryResponse<R>> {
+    const query = this.orm.createQueryBuilder(this.alias);
+    this.applyDynamicFilters(query, queryArgs.filters);
+    this.applyDynamicSorting(query, queryArgs.sortings);
+    this.applyPagination(query, queryArgs.pagination);
+
+    const selectColumns = projection.map(
+    field => `${this.alias}.${String(field)}`
+    );
+    query.select(selectColumns);
+    const [entities, count] = await query.getManyAndCount();    
+    return { data: entities as unknown as R[], count };
+  }
+
+    async findManyCustom<R>(queryArgs: QueryRequest<F, S, P>, projection: (keyof T)[],relations: RelationProjection<T>): Promise<QueryResponse<R>> {
+    const query = this.orm.createQueryBuilder(this.alias);
+    this.applyDynamicFilters(query, queryArgs.filters);
+    this.applyDynamicSorting(query, queryArgs.sortings);
+    this.applyPagination(query, queryArgs.pagination);
+
+    const selectColumns = projection.map(
+    field => `${this.alias}.${String(field)}`
+    );
+      query.select(selectColumns);
+    for (const [relationName, configs] of Object.entries(relations)) {
+    if (!configs) continue;
+
+    query.leftJoin(`${this.alias}.${relationName}`, relationName);
+    
+    for (const config of configs) {
+      const dbColumn = `${relationName}.${config.field}`;
+      
+        query.addSelect(dbColumn);
+
+    }
+  }
+    const [entities, count] = await query.getManyAndCount();    
+    return { data: entities as unknown as R[], count };
+  }
+
 
 
   async findById(id: string | number): Promise<T | null> {
@@ -97,6 +143,14 @@ export abstract class EntityRepository<
       [this.primaryKey]: id,
     } as FindOptionsWhere<T>);
   }
+
+  async findByIdOrFail(id: string | number): Promise<T> {
+    return await this.orm.findOneByOrFail({
+      [this.primaryKey]: id,
+    } as FindOptionsWhere<T>);
+  }
+
+
 
   async save(data: T): Promise<T> {
     return this.orm.save(data);
@@ -160,7 +214,6 @@ export abstract class EntityRepository<
     query: SelectQueryBuilder<T>,
     filters?: Partial<F>,
   ): void {
-    console.log("Filters recebido para aplicação:", filters); // Log para depuração
     if (!filters) return;
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && this.filterMap[key as keyof F]) {
@@ -173,12 +226,10 @@ export abstract class EntityRepository<
     query: SelectQueryBuilder<T>,
     sorting?: Partial<S>,
   ): void {
-    console.log("Sorting recebido para aplicação:", sorting); // Log para depuração
     if (!sorting) return;
 
 
     Object.entries(sorting).forEach(([key, order]) => {
-      console.log(`Aplicando ordenação para ${key} com ordem ${order}`); // Log para depuração
       if (order && this.sortMap[key as keyof S]) {
         this.sortMap[key as keyof S](query, (order as SortCriteria) || "DESC");
       }
