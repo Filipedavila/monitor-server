@@ -32,4 +32,12 @@ export class RoleService implements OnModuleInit {
     }
     return id;
   }
+  getSlugByRoleId(id: number): RoleSlug {
+    for (const [slug, roleId] of this.roleCache.entries()) {
+      if (roleId === id) {
+        return slug;
+      }
+    }
+    throw new NotFoundException(`Role with ID ${id} not found in cache.`);
+  }
 }

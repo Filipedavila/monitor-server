@@ -1,12 +1,11 @@
 import { Module } from "@nestjs/common";
 import { UserModule } from "./user/user.module";
-import { OrganizationModule } from "./organization/organization.module";
-import { GovUserModule } from "./gov-user/gov-user.module";
-import { UserService } from "./user/user.service";
-import { RoleService } from "./user/role.service";
+import { TeamModule } from "./team/team.module";
+import { RoleModule } from "./role/role.module";
+
 
 @Module({
-  imports: [UserModule, OrganizationModule, GovUserModule],
-  exports: [UserModule, OrganizationModule, GovUserModule],
+  imports: [RoleModule,UserModule, TeamModule ],
+  exports: [RoleModule, UserModule, TeamModule],
 })
 export class IdentityModule {}
