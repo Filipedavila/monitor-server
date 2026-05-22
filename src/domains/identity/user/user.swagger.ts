@@ -1,138 +1,82 @@
-import { applyDecorators, HttpCode } from "@nestjs/common";
+import { applyDecorators, HttpCode, HttpStatus } from "@nestjs/common";
 import { 
   ApiOperation, 
   ApiResponse, 
   ApiTags, 
-  ApiBasicAuth, 
-  ApiParam, 
-  ApiBody 
+  ApiBasicAuth,
+  ApiBody,
+  ApiParam,
+  ApiQuery,
 } from "@nestjs/swagger";
-import { User } from "./user.entity";
-import { CreateUserDto } from "./dto/create-user.dto";
+import { UserDTO } from "./dto/user.dto";
+import { UserQueryDTO } from "./dto/request/user-request.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
-import { DeleteUserDto } from "./dto/delete-user.dto";
+import { UpdateMeDTO } from "./dto/update-user-me.dto";
+import { CreateUserDto } from "./dto/create-user.dto";
+import { UserPaginationResponse } from "./dto/pagination-response.dto";
 
 export const UserDocs = {
-  controller: () =>
-    applyDecorators(
-      ApiTags("user"),
-      ApiBasicAuth(),
-      ApiResponse({ status: 403, description: "Forbidden" })
-    ),
+  controller: applyDecorators(
+    ApiTags("user"),
+    ApiBasicAuth(),
+    ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Unauthorized access." }),
+  ),
 
-  changePassword: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Change user password" }),
-      ApiResponse({ status: 200, description: "The password was changed", type: Boolean }),
-      HttpCode(200)
-    ),
+  create: applyDecorators(
+    ApiOperation({ summary: "Create a new user" }),
+    ApiBody({ type: CreateUserDto, description: "Payload for creating a new user" }),
+    ApiResponse({ status: HttpStatus.CREATED, description: "User successfully created.", type: UserDTO }),
+    ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Invalid input data or role assignment issues." }),
+    HttpCode(HttpStatus.CREATED)  
+  ),
 
-  create: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Create user" }),
-      ApiResponse({ status: 200, description: "A new user was created", type: Boolean }),
-      HttpCode(200)
-    ),
+  update: applyDecorators(
+    ApiOperation({ summary: "Update an existing user by ID" ,
+      description: " For administrators: Update any user's details such as names, email, role, and citizen card number. Provide the user ID in the path and the updated fields in the request body. For monitors and study roles: Update their own profile details such as names, email, and citizen card number. The role field will be ignored for these roles. Provide the updated fields in the request body without the need for a user ID in the path." }),
+    ApiBody({ type: UpdateUserDto, description: "Payload for updating user details" }),
+    ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Invalid input data or role assignment issues." }),
+    ApiResponse({ status: HttpStatus.OK, description: "The user was successfully updated.", type: UserDTO }),
+    HttpCode(HttpStatus.OK)
+  ),
 
-  update: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Update user" }),
-      ApiResponse({ status: 200, description: "The user was updated", type: Boolean }),
-      HttpCode(200)
-    ),
 
-  delete: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Delete user" }),
-      ApiResponse({ status: 200, description: "The user was deleted", type: Boolean })
-    ),
+  updateMe: applyDecorators(
+    ApiOperation({ summary: "Update current authenticated user profile" 
+      , description: "Allows current user to update personal details and change passwords."
+    }),
+    ApiBody({ type: UpdateMeDTO, description: "Payload for updating user profile details" }),
+    ApiResponse({ status: HttpStatus.OK, description: "Profile successfully updated.", type: UserDTO }),
+    ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Invalid input data or password change requirements not met." }),
+    HttpCode(HttpStatus.OK)
+  ),
 
-  getUser: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find user by id" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean })
-    ),
+  delete: applyDecorators(
+    ApiOperation({ summary: "Soft delete or remove a user from the system" }),
+    ApiParam({ name: "id", description: "Unique identifier of the user to be deleted", type: Number }),
+     ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." }),
+     ApiResponse({ status: HttpStatus.NO_CONTENT, description: "User successfully removed. No content returned." }),
+     HttpCode(HttpStatus.NO_CONTENT) 
+  ),
+  
 
-  getUserInfo: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find user info by id" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
+  getUser: applyDecorators(
+    ApiOperation({ summary: "Retrieve a specific user by their unique ID" }),
+    ApiResponse({ status: HttpStatus.OK, description: "User found.", type: UserDTO })
+  ),
 
-  checkExists: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Check if user exists by id" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
+  findAll: applyDecorators(
+    ApiOperation({ summary: "Find all users with pagination and filters" }),
+    ApiQuery({ name: "query", description: "Query parameters for filtering, sorting, and paginating users", type: UserQueryDTO }),
+    ApiResponse({ status: HttpStatus.OK, description: "Paginated list retrieved.", type: UserPaginationResponse }),
+    ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Invalid query parameters." }),
+    HttpCode(HttpStatus.OK)
+  ),
+  recover: applyDecorators(
+    ApiOperation({ summary: "Restore a previously deleted user" }),
+    ApiParam({ name: "id", description: "Unique identifier of the user to be restored", type: Number }),
+    ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." }),
+    ApiResponse({ status: HttpStatus.NO_CONTENT, description: "User successfully restored. No content returned." }),
+    HttpCode(HttpStatus.NO_CONTENT) 
+  ),
 
-  findAllAMS: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find all users AMS" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  findAllMyMonitor: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find all users MyMonitor" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  totalStudyMonitor: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find total users Study Monitor" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  totalMyMonitor: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find total users My Monitor" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  checkTagName: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Check if tag name exists" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  findType: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find user type" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  findWebsites: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find websites by user" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  findTags: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find tags by user" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  countSearch: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Count users by search term" }),
-      ApiResponse({ status: 200, description: "Success", type: Number }),
-      HttpCode(200)
-    ),
-
-  findAllPaged: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find all users with pagination and search" }),
-      ApiResponse({ status: 200, description: "Success", type: Array })
-    ),
 };

@@ -44,6 +44,10 @@ export class UserSortDTO implements UserSortContract {
   @IsSortOrder()
   lastLogin: SortCriteria;
 
+  @IsOptional()
+  @IsSortOrder()
+  role: SortCriteria;
+
 
     
 }

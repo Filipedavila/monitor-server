@@ -1,14 +1,27 @@
+import { IsEmail, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, MinLength} from "class-validator";
+import { RoleSlug } from "src/core/authentication/interfaces/types";
+
 export class UpdateUserDto {
-  password: string;
-  username: string;
+  @IsNumber({}, { message: "ID must be a number." })
+  @IsNotEmpty({ message: "ID is required." })
+  id: number
+  @IsString({ message: "Names must be a string." })
+  @IsOptional()
   names: string;
-  emails: string;
-  type: string;
-  tags: string[];
-  websites: number[];
-  transfer: any;
-  userId: number;
-  confirmPassword: string;
-  app: string;
-  defaultWebsites: number[];
+  @IsString({ message: "Email must be a string." })
+  @IsOptional()
+  @IsEmail({}, { message: "Email must be a valid email address." })
+  email: string;
+  @IsString({ message: "Role must be a string." })
+  @IsOptional()
+  @IsIn([RoleSlug.ADMIN, RoleSlug.STUDY, RoleSlug.MONITOR],
+     { message: "Role must be one of the following values: nimda, study, monitor." })
+  role: string;
+    
+  @IsOptional()
+  @IsString({ message: "Citizen card number must be a string" })
+  @MinLength(1, { message: "Citizen card number cannot be empty" })
+  @MaxLength(30, { message: "Citizen card number is too long" })
+  ccNumber: string;
+
 }

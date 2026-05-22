@@ -19,4 +19,12 @@ export class UserFilterDTO extends BaseFilterDTO<User> implements Required<Pick<
   @IsOptional()
   @IsString( {message: "Full name must be a string."} )
   fullName: string;
+
+  @IsOptional()
+  @IsString( {message: "Search term must be a string."} )
+  searchTerm: string;
+
+  @IsOptional()
+  @IsString( {message: "Role must be a string."} )
+  role: string;
 }

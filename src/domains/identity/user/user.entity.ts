@@ -1,9 +1,9 @@
-import { Role } from "./roles.entity";
-import { GovUser } from "../gov-user/entities/gov-user.entity";
-import { Entity, Column, ManyToMany, JoinColumn, ManyToOne, OneToOne } from "typeorm";
+import { Role } from "../role/roles.entity";
+import { Entity, Column, ManyToMany, JoinColumn, ManyToOne, OneToOne, JoinTable } from "typeorm";
 import { AuditableEntity } from "../../../common/entities/auditable.entity";
 import {DeletionMetadata} from "../../../common/entities/soft-deletable.entity";
-import { Organization } from "../organization/organization.entity";
+import { Organization } from "../../inventory/organization/organization.entity";
+import { Team } from "../team/team.entity";
 
 @Entity("users")
 export class User extends AuditableEntity {
@@ -63,17 +63,24 @@ export class User extends AuditableEntity {
     nullable: false,
   })
   uniqueHash: string;
-
-  @OneToOne(() => GovUser)
-  @JoinColumn({ name: "gov_user_id" })
-  govUser: GovUser;
-
-@Column({ name: "gov_user_id", type: "int", unsigned: true, nullable: true })
-  govUserId: number;
   
-
-  @ManyToMany(() => Organization, (organization: Organization) => organization.users)
-  organizations: Organization[];
+  
+  @Column({
+    name: "cc_number",
+    type: "varchar",
+    length: 30,
+    unique: true,
+    nullable: true,
+  })
+  ccNumber: string;
+  
+  @ManyToMany(() => Team, (team: Team) => team.users)
+  @JoinTable({
+      name: "team_users",
+      joinColumn: { name: "user_id", referencedColumnName: "id" },
+      inverseJoinColumn: { name: "team_id", referencedColumnName: "id" },
+    })
+  teams: Team[];
 
   @Column(() => DeletionMetadata , { prefix: false })
   deletionMetadata: DeletionMetadata;
