@@ -7,10 +7,9 @@ import {
   Param,
   UseInterceptors,
   Res,
-  HttpCode,
   Body,
   Query,
-  HttpStatus,
+  StreamableFile,
 } from "@nestjs/common";
 import { EvaluationService } from "../services/evaluation.service";
 import { LoggingInterceptor } from "src/core/log/log.interceptor";
@@ -21,12 +20,17 @@ import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { EvaluationQueryDTO } from "../dto/request/evaluation-request.dto";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
-import { NestedQuery } from "src/common/query-parser.decorator";
 import { Response } from 'express';
 import { createReadStream } from "node:fs";
+import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
+
+export interface SecurityContext {
+  user: AuthenticatedUser;
+}
 @EvaluationDocs.controller()
 @Controller("evaluations")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard,FgaGuard)
 @UseInterceptors(LoggingInterceptor)
 
 export class EvaluationController {
@@ -35,15 +39,24 @@ export class EvaluationController {
 
   @EvaluationDocs.findAll()
   @Roles(RoleSlug.ADMIN)
-  @Get("page/:pageIdEval")
-  async findAllAMSEval(@CurrentUser() user: AuthenticatedUser, @Param("pageIdEval") pageId: number, @NestedQuery() query: EvaluationQueryDTO): Promise<any> {
+  @FgaAuthorized({
+    objectType: "page",
+    action: "can_view",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.pageId
+  })  
+  @Get("page/:pageId")
+  async findAllAMSEval(@CurrentUser() user: AuthenticatedUser, @Param("pageId") pageId: number, @Query() query: EvaluationQueryDTO): Promise<any> {
     const securityContext = { user: user };
-    console.log("Received query in controller:", query); // Log para depuração
     return await this.evaluationService.getEvaluations(pageId, securityContext, query);
   }
 
   @EvaluationDocs.findOne()
   @Roles(RoleSlug.ADMIN)
+  @FgaAuthorized({
+    objectType: "page",
+    action: "can_view",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.pageId
+  })
   @Get("page/:pageId/evaluation/:evaluationId")
   async findOne(@Param("pageId") pageId: number, @Param("evaluationId") evaluationId: number, @CurrentUser() user: AuthenticatedUser): Promise<any> {
     const securityContext = { user: user };
@@ -51,12 +64,17 @@ export class EvaluationController {
   }
   
   @EvaluationDocs.findPageEvaluationDetails()
+  @FgaAuthorized({
+    objectType: "page",
+    action: "can_view",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.pageId
+  })
   @Get("/results/page/:pageId/evaluation/:evaluationId")
   async getPageEvaluationDetails(
     @Request() req: any,
     @Param("pageId") pageId: number,
     @Param("evaluationId") evaluationId: number,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<any> {
     const securityContext = { user: user };
@@ -69,20 +87,21 @@ export class EvaluationController {
 
   const fileStream = createReadStream(nodes);
   
-  fileStream.on('error', (err) => {
-    res.status(HttpStatus.INTERNAL_SERVER_ERROR).send({ message: 'Erro ao ler storage' });
-  });
-
-  fileStream.pipe(res);
+  return new StreamableFile(fileStream);
   }
 
-    @EvaluationDocs.findPageEvaluationDetails()
+  @EvaluationDocs.findPageEvaluationDetails()
+  @FgaAuthorized({
+    objectType: "page",
+    action: "can_view",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.pageId
+  })
   @Get("/results/page/:pageId/html/:evaluationId")
   async getPageEvaluationHtml(
     @Request() req: any,
     @Param("pageId") pageId: number,
     @Param("evaluationId") evaluationId: number,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<any> {
     const securityContext = { user: user };
@@ -93,16 +112,17 @@ export class EvaluationController {
     'Content-Disposition': 'inline', 
   });
 
-  const fileStream = createReadStream(html);
+   const fileStream = createReadStream(html);
   
-  fileStream.on('error', (err) => {
-    res.status(HttpStatus.INTERNAL_SERVER_ERROR).send({ message: 'Erro ao ler storage' });
-  });
-
-  fileStream.pipe(res);
+  return new StreamableFile(fileStream);
   }
 
   @EvaluationDocs.uploadExternalEvaluation()
+  @FgaAuthorized({
+    objectType: "page",
+    action: "can_edit",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.pageId
+  })
   @Post("external/:pageId")
   async uploadExternalEvaluation(
     @CurrentUser() user: AuthenticatedUser,
@@ -117,6 +137,11 @@ export class EvaluationController {
     );
   }
 
+  @FgaAuthorized({
+    objectType: "website",
+    action: "can_edit",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId
+  })
   @Post(":websiteId")
   async evaluateManyPages(
     @CurrentUser() user: AuthenticatedUser,

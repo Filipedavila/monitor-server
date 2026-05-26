@@ -32,54 +32,25 @@ export class EvaluationService {
     @InjectQueue("evaluation-queue-private")
     private readonly privateEvaluationQueue: any,
     private readonly logger: AppLoggerService,
-    private readonly fgaService: FgaService,
+
     private readonly evaluationStorageService: EvaluationStorageService
   ) {
     this.logger.setContext(EvaluationService.name);
   }
 
   public async getEvaluations(pageId: number,securityContext: SecurityContext, query: EvaluationQueryDTO ): Promise<{ data: Evaluation[]; count: number }> {
-    const permitted = await this.fgaService.check(`user:${securityContext.user.id}`, "can_view", `page:${pageId}`);
-    if (!permitted) {
-      throw new ForbiddenException(
-        `User ${securityContext.user.id} is not allowed to view evaluations for page ${pageId}`,
-      );
-    }
     
-    return await this.evaluationRepository.getManyEvaluationsAMS(pageId, { filters: query.filters, sortings: query.sorts?.sorts, pagination: query.pagination, securityContext });
+      return await this.evaluationRepository.getManyEvaluationsAMS(pageId, { filters: query.filters, sortings: query.sorts, pagination: query.pagination, securityContext });
   }
 
-/*
-    public async getEvaluationResult(pageId: number, evaluationId: number, securityContext: SecurityContext ): Promise<{ data: Evaluation[]; count: number }> {
-    const permitted = await this.fgaService.check(`user:${securityContext.user.id}`, "can_view", `page:${pageId}`);
-    if (!permitted) {
-      throw new ForbiddenException(
-        `User ${securityContext.user.id} is not allowed to view evaluations for page ${pageId}`,
-      );
-    }
-    
-    return await this.evaluationRepository.getManyEvaluationsAMS(pageId, { filters: query.filters, sortings: query.sorts?.sorts, pagination: query.pagination, securityContext });
-  }
-
-*/
   
   public async getEvaluationById(pageId: number, evaluationId: number, securityContext: SecurityContext): Promise<Evaluation> {
-    const permitted = await this.fgaService.check(`user:${securityContext.user.id}`, "can_view", `page:${pageId}`);
-    if (!permitted) {
-      throw new ForbiddenException(
-        `User ${securityContext.user.id} is not allowed to view evaluation ${evaluationId}`,
-      );
-    }
+
     return this.evaluationRepository.getOrmRepository().findOneByOrFail({ id: evaluationId });
   }
 
   public async evaluateWebsite(websiteId: number, securityContext: SecurityContext): Promise<void> {
-    const permitted = await this.fgaService.check(`user:${securityContext.user.id}`, "can_edit", `website:${websiteId}`);
-    if (!permitted) {
-      throw new ForbiddenException(
-        `User ${securityContext.user.id} is not allowed to evaluate website ${websiteId}`,
-      );
-    }
+
     const pages: Page[] = await this.pageRepository.find({ where: { websiteId: websiteId } });
     if (!pages || pages.length === 0) {
       throw new NotFoundException(`No pages found for website with ID ${websiteId}`);
@@ -168,7 +139,7 @@ export class EvaluationService {
     await this.evaluationRepository.save(evaluation);
   
 
-
+    
     this.evaluationStorageService.saveEvaluation(
       {
         evaluationId: evaluation.id,
@@ -195,12 +166,7 @@ export class EvaluationService {
     pageId: number,
     data: string,
   ): Promise<any> {
-    const permitted = await this.fgaService.check(`user:${securityContext.user.id}`, "can_edit", `page:${pageId}`);
-    if (!permitted) {
-      throw new ForbiddenException(
-        `User ${securityContext.user.id} is not allowed to add evaluation to page ${pageId}`,
-      );
-    }
+
     const splittedData = data.split(";");
 
     const newEvaluation = new Evaluation();
@@ -218,12 +184,6 @@ export class EvaluationService {
   }
 
   async getEvaluationResultJson(pageId: number, evaluationId: number, securityContext: SecurityContext): Promise<any> {
-    const permitted = await this.fgaService.check(`user:${securityContext.user.id}`, "can_view", `page:${pageId}`);
-    if (!permitted) {
-      throw new ForbiddenException(
-        `User ${securityContext.user.id} is not allowed to view evaluation ${evaluationId}`,
-      );
-    }
 
     const evaluation = await this.evaluationRepository.findById(evaluationId);
   
@@ -246,12 +206,6 @@ export class EvaluationService {
   }
 
     async getEvaluationHtml(pageId: number, evaluationId: number, securityContext: SecurityContext): Promise<any> {
-    const permitted = await this.fgaService.check(`user:${securityContext.user.id}`, "can_view", `page:${pageId}`);
-    if (!permitted) {
-      throw new ForbiddenException(
-        `User ${securityContext.user.id} is not allowed to view evaluation ${evaluationId}`,
-      );
-    }
 
     const evaluation = await this.evaluationRepository.findById(evaluationId);
   
