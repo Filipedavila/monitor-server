@@ -14,7 +14,8 @@ import { ConfigAppModule } from "./core/config-app/config-app.module";
 import { PersistenceModule } from "./core/database/persistence.module";
 import { AuthorizationModule } from "./core/authorization/authorization.module";
 import { MaxOffsetLimitConstraint } from "./core/validators/max-limit-pag.validator";
-import { ClickhouseModule } from './clickhouse/clickhouse.module';
+import { ClickhouseModule } from "./core/clickhouse/clickhouse.module"; 
+import { StatsModule } from './stats/stats.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ClickhouseModule } from './clickhouse/clickhouse.module';
     IntegrationsModule,
     AuthorizationModule,
     ClickhouseModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [
