@@ -5,7 +5,7 @@ import { Page } from "./domains/inventory/page/page.entity";
 import { User } from "./domains/identity/user/user.entity";
 
 import { Tag } from "./domains/inventory/tag/tag.entity";
-import { Organization } from "./domains/identity/organization/organization.entity";
+import { Organization } from "./domains/inventory/organization/organization.entity";
 
 import { Observatory } from "./integrations/observatory/observatory.entity";
 import { ObservatorySyncStatus } from "./integrations/observatory/observatory-sync-status.entity";
@@ -28,6 +28,8 @@ import { Role } from "./domains/identity/role/roles.entity";
 import { Evaluation } from "./domains/audit-engine/evaluation/entities/evaluation.entity";
 import { EvaluationResult } from "./domains/audit-engine/evaluation/entities/evaluation-result.entity";
 import { ManualEvaluation } from "./domains/audit-engine/manual-evaluation/manual-evaluation.entity";
+import { Outbox } from "./core/outbox/outbox.entity";
+import { Team } from "./domains/identity/team/team.entity";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -43,6 +45,7 @@ export function getAllEntities() {
   return [
     Role,
     User,
+    Team,
     Website,
     Page,
     Tag,
@@ -62,5 +65,6 @@ export function getAllEntities() {
     UserEvaluation,
     Contact,
     InvalidToken,
+    Outbox
   ];
 }

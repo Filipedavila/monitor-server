@@ -30,7 +30,7 @@ async function bootstrap() {
       },
     }),
   );
-     app.getHttpAdapter().getInstance().set('query parser', 'extended');
+  app.getHttpAdapter().getInstance().set('query parser', 'extended');
 
   app.useWebSocketAdapter(new IoAdapter(app) as any);
   app.use(express.json({ limit: "50mb" }));
