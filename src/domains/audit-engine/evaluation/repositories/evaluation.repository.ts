@@ -15,26 +15,25 @@ import { ConfigService } from "@nestjs/config";
 import { SecurityContext } from "src/core/authorization/SecurityContext";
 
 export interface EvaluationFilter extends BaseFilter {
-  id?: number;
-  ids?: number[] | string[];
-  score?: string;
-  context?: EvaluationContext;
-  pageId?: number;
+  id: number;
+  ids: number[] | string[];
+  score: string;
+  context: EvaluationContext;
+  pageId: number;
 }
 
 export interface EvaluationSorting extends BaseSort {
-  id?: SortCriteria;
-  pageId?: SortCriteria;
-  context?: SortCriteria;
-  createdAt?: SortCriteria;
-  updatedAt?: SortCriteria;
-  score?: SortCriteria;
-
+  id: SortCriteria;
+  pageId: SortCriteria;
+  context: SortCriteria;
+  createdAt: SortCriteria;
+  updatedAt: SortCriteria;
+  score: SortCriteria;
 }
 type EvaluationQueryRequest = {
-  filters?: Partial<EvaluationFilter>;
-  sortings?: Partial<EvaluationSorting>;
-  pagination?: Partial<BasePagination>;
+  filters: Partial<EvaluationFilter>;
+  sortings: Partial<EvaluationSorting>;
+  pagination: Partial<BasePagination>;
   securityContext: SecurityContext;
 };
 @Injectable()
@@ -148,11 +147,5 @@ export class EvaluationRepository extends BaseTransactionalRepository<
     return await query.orderBy(`${this.alias}.createdAt`, "DESC").getOne();
   }
 
-  applyAuthorization(query: QueryBuilder<Evaluation>, rules: any, operation: string): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
 
-  public getOrmRepository(): Repository<Evaluation> {
-    return this.ormRepo;
-  }
 }
