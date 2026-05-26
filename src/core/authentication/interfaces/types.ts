@@ -1,7 +1,7 @@
 export enum RoleSlug {
   ADMIN = "nimda",
   MONITOR = "monitor",
-  STUDY = "user",
+  STUDY = "study",
 }
 
 export interface AuthenticatedUser {
