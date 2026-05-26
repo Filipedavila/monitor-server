@@ -32,7 +32,7 @@
     "openfga:test": "fga model test --tests openfga/tests.fga.yaml"
   },
   "dependencies": {
-    "@a12e/accessmonitor-rulesets": "file:/../../accessmonitor-rulesets",
+
     "@bull-board/api": "^6.20.6",
     "@bull-board/express": "^6.20.6",
     "@bull-board/nestjs": "^6.20.6",

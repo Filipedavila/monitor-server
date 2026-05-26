@@ -52,12 +52,12 @@ export class CrawlerService extends BaseService {
   async getMany(
     query: CrawlerRequestDTO,
   ): Promise<CrawlWebsitesResponseDTO> {
-    const sorting = query.sorts?.sort;
+    const sortings = query.sorts?.sort;
     const filters = query.filters;
     const pagination = query.pagination;
     const websitesCrawled = await this.crawlWebsiteRepository.findMany({
       filters,
-      sorting,
+      sortings,
       pagination,
     });
     const responseDtos = plainToInstance(

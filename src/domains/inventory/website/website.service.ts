@@ -67,7 +67,7 @@ export class WebsiteService extends BaseService {
         },
         {
           user: `organization:pending`,
-          relation: 'parent_org',
+          relation: 'parent',
           object: `website:${savedWebsite.id}`,
         }
       ] 

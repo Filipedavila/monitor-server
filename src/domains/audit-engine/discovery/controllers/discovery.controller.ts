@@ -26,10 +26,11 @@ import { DiscoveryDocs } from "../discovery.swagger";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
+import { FgaGuard } from "src/core/authorization/guards/fda.guard";
 
 @DiscoveryDocs.controller()
 @Controller("discovery")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, FgaGuard)
 export class DiscoveryController {
   constructor(private readonly crawlerService: CrawlerService) {}
 

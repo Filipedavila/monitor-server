@@ -47,7 +47,7 @@ export class PageService {
     const  urls = dto.pagesUrl;
     const pages: Page[] = [];
       for (const url of urls) {
-    const newPage = this.pageRepo.orm.create({ 
+    const newPage = this.pageRepo.getOrmRepository().create({ 
       websiteId: dto.websiteId,
       url });
       

@@ -1,7 +1,6 @@
 import { applyDecorators } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags, ApiBody, ApiExtraModels, getSchemaPath } from "@nestjs/swagger";
 
-// Definir a resposta de sucesso para evitar o "String" genérico
 class LoginResponseDto {
   token: string;
 }

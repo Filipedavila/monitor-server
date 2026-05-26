@@ -8,7 +8,7 @@ import {
   Index,
 } from "typeorm";
 import { Tag } from "../tag/tag.entity";
-import type { Organization } from "../../identity/organization/organization.entity";
+import type { Organization } from "../organization/organization.entity";
 import { AuditableEntity } from "../../../common/entities/auditable.entity";
 
 @Entity("websites")

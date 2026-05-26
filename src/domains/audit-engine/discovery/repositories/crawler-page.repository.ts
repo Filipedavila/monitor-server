@@ -85,9 +85,9 @@ export class CrawlerPageRepository extends BaseTransactionalRepository<
       .innerJoin("cp.website", "w")
       .where("w.createdBy = :userId", { userId });
 
-    const { filters, sorting, pagination } = queryParams;
+    const { filters, sortings, pagination } = queryParams;
     this.applyDynamicFilters(query, filters);
-    this.applyDynamicSorting(query, sorting);
+    this.applyDynamicSorting(query, sortings);
     if (pagination) {
       this.applyPagination(query, pagination);
     }
