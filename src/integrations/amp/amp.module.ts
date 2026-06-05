@@ -1,9 +1,10 @@
-import { Module } from "@nestjs/common";
-import { AmpController } from "./amp.controller";
-import { EvaluationModule } from "../../domains/audit-engine/evaluation/evaluation.module";
+import { Module } from '@nestjs/common';
+import { AmpController } from './amp.controller';
+import { AmpService } from './amp.service';
 
 @Module({
-  imports: [EvaluationModule],
+  imports: [],
   controllers: [AmpController],
+  providers: [AmpService],
 })
 export class AmpModule {}
