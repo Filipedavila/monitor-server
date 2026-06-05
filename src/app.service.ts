@@ -54,8 +54,7 @@ export class AppService implements OnModuleInit {
       { label: "IP_BLACKLIST_RANGES", value: ipBlacklistRanges ? "✅ PRESENT" : "❌ NONE PROVIDED"  },
       { label: "FGA_API_URL", value: fgaApiUrl },
       { label: "FGA_STORE_ID", value: fgaStoreId ? "✅ PRESENT" : "❌ MISSING" },
-      { label: "FGA_MODEL_ID", value: fgaModelId ? "✅ PRESENT" : "❌ MISSING" },
-      { label: "FGA_AUTH_MODEL", value: fgaAuthModel ? "✅ PRESENT" : "❌ MISSING" },
+      { label: "FGA_MODEL_ID", value: fgaModelId ? "✅ PRESENT" : "❌ MISSING" }
     ];
 
     this.logger.log("┌──────────────────────────────────────────┐");
