@@ -15,6 +15,7 @@ import { FgaService } from "src/core/authorization/fga.service";
 
 export interface WebsiteFilter extends BaseFilter {
   search?: string;
+  baseUrl?: string;
   institutionId?: number;
 }
 
@@ -57,6 +58,9 @@ export class WebsiteRepository extends EntityRepository<
             .orWhere(`${this.alias}.base_url LIKE :search`, { search: `%${value}%` });
         }),
       );
+    },
+    baseUrl: (query, value) => {
+      query.andWhere(`${this.alias}.base_url = :baseUrl`, { baseUrl: value });
     },
     institutionId: (query, value) => {
       query.innerJoin(`${this.alias}.institutions`, 'inst')

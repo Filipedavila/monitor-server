@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, NotFoundException, Inject } from "@nestjs/common";
+import { Injectable, ForbiddenException, NotFoundException, Inject, BadRequestException } from "@nestjs/common";
 
 import { Website } from "./website.entity";
 import { SecurityContext } from "src/core/authorization/SecurityContext";
@@ -9,6 +9,7 @@ import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { FgaService } from "src/core/authorization/fga.service";
 import { FGA_RELATION, FgaObjectIdentifier, FgaUserIdentifier } from "src/core/authorization/types/fga.types";
 import { BaseService } from "src/common/services/base.service";
+import { FieldConflictException } from "src/common/exceptions/conflict.exception";
 
 @Injectable()
 export class WebsiteService extends BaseService {
@@ -49,6 +50,13 @@ export class WebsiteService extends BaseService {
     if (!isAdmin) {
       throw new ForbiddenException("You do not have permission to create a website");
     }
+    const normalizedBaseUrl = this.normalizeBaseUrl(createDto.baseUrl);
+    const existingWebsite = await this.repository.findOneBy({ baseUrl: normalizedBaseUrl });
+    if (existingWebsite) {
+      throw new FieldConflictException({
+        baseUrl: "url already exists",
+      });
+    }
 
     const website = this.repository.orm.create();
     Object.assign(website, createDto);
@@ -57,17 +65,17 @@ export class WebsiteService extends BaseService {
     if (!savedWebsite) {
       throw new Error("Failed to create website");
     }
-
+    
     await this.fgaService.createBatchesRelationships(
       [ 
         {
           user: `user:${securityContext.user.id}`,
-          relation: 'creator',
+          relation: 'owner',
           object: `website:${savedWebsite.id}`,
         },
         {
-          user: `organization:pending`,
-          relation: 'parent_org',
+          user: `team:pending`,
+          relation: 'parent',
           object: `website:${savedWebsite.id}`,
         }
       ] 
@@ -157,4 +165,16 @@ export class WebsiteService extends BaseService {
     `role:admin` as FgaObjectIdentifier<'role'>
   );
 }
+
+private normalizeBaseUrl(baseUrl: string): string {
+    if (baseUrl) {
+      return baseUrl
+        .trim()
+        .toLowerCase()
+        .replace(/\/+$/, "");
+    }
+    return baseUrl;
+
+    }
+  
 }
