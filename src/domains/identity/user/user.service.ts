@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from "@nestjs/common";
 import { User } from "./user.entity";
 import { plainToInstance } from 'class-transformer';
@@ -23,7 +24,13 @@ import { CreateUserDto } from "./dto/create-user.dto";
 import { RoleService } from "../role/role.service";
 import { UpdateMeDTO } from "./dto/update-user-me.dto";
 import { Not } from "typeorm";
+import { FieldConflictException } from "src/common/exceptions/conflict.exception";
 
+interface UniqueUserCriteria {
+  ccNumber?: string;
+  email: string;
+  username: string;
+}
 @Injectable()
 export class UserService {
   constructor(
@@ -167,12 +174,13 @@ async updateUser(userId: number, dto: UpdateUserDto): Promise<UserDTO> {
     securityContext: AuthenticatedUser,
     userCreateDto: CreateUserDto
   ): Promise<UserDTO> {
-        if(userCreateDto.ccNumber) {
-          const existingUser = await this.userRepository.getOrmRepository().findOne({ where: { ccNumber: userCreateDto.ccNumber } });
-          if (existingUser) {
-            throw new BadRequestException("A user with the provided citizen card number already exists.");
-          }
-        }
+      
+      await this.validateUniqueUserConflicts(userCreateDto, {
+        ccNumber: userCreateDto.ccNumber,
+        email: userCreateDto.email,
+        username: userCreateDto.username
+      });
+        
         const user = new User();
         user.username = userCreateDto.username;
         user.password = await generatePasswordHash(userCreateDto.password);
@@ -182,10 +190,9 @@ async updateUser(userId: number, dto: UpdateUserDto): Promise<UserDTO> {
         user.roleId = this.roleService.getRoleIdBySlug(userCreateDto.role as RoleSlug);
         user.uniqueHash = createRandomUniqueHash();
         user.createdById = securityContext.id;
-        await this.userRepository.getOrmRepository().save(user);
+        const savedUser = await this.userRepository.getOrmRepository().save(user);
 
-        const createdUser = await this.userRepository.getOrmRepository().findOneOrFail({ where: { id: user.id } });
-        return plainToInstance(UserDTO, createdUser, { excludeExtraneousValues: true });
+        return plainToInstance(UserDTO, savedUser, { excludeExtraneousValues: true });
       
   }
   async restoreUser(id: number): Promise<void> {
@@ -221,5 +228,40 @@ private async validateUniqueness(userId: number, dto: UpdateUserDto): Promise<vo
   }
 }
 
+private async validateUniqueUserConflicts(
+  userData: CreateUserDto, 
+  criteria: UniqueUserCriteria
+): Promise<void> {
 
+  const conflictingUsers = await this.userRepository.findByUniqueCriteria({
+            ccNumber: userData.ccNumber,
+            email: userData.email,
+            username: userData.username
+        });
+  if (!conflictingUsers || conflictingUsers.length === 0) {
+    return;
+  }
+
+  const conflicts: Record<string, string> = {};
+
+  const hasCcConflict = criteria.ccNumber && conflictingUsers.some(u => u.ccNumber === criteria.ccNumber);
+  const hasEmailConflict = conflictingUsers.some(u => u.email === criteria.email);
+  const hasUsernameConflict = conflictingUsers.some(u => u.username === criteria.username);
+
+  if (hasCcConflict) {
+    conflicts['ccNumber'] = "A user with the provided citizen card number already exists.";
+  }
+  if (hasEmailConflict) {
+    conflicts['email'] = "A user with the provided email address already exists.";
+  }
+  if (hasUsernameConflict) {
+    conflicts['username'] = "A user with the provided username already exists.";
+  }
+
+  if (Object.keys(conflicts).length > 0) {
+        throw new FieldConflictException(conflicts);
+  }
 }
+}
+
+

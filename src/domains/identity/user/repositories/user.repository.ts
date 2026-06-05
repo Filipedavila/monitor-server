@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { FindOptionsWhere, Repository, SelectQueryBuilder } from 'typeorm';
 import { User } from '../user.entity';
 import { BaseTransactionalRepository } from "@common/repositories/base-transactional.repository";
 import { FilterMap, SortingMap } from "@common/repositories/base.repository";
@@ -73,6 +73,23 @@ export class UserRepository extends BaseTransactionalRepository<User, UserFilter
     role: (query, order) => query.addOrderBy(`role.displayName`, order),
   };
 
+  
+async findByUniqueCriteria(criteria: { ccNumber?: string; email: string; username: string }): Promise<User[] | null> {
+    const { ccNumber, email, username } = criteria;
 
+    const whereConditions: FindOptionsWhere<User>[] = [
+      { email },
+      { username }
+    ];
+
+    if (ccNumber) {
+      whereConditions.push({ ccNumber });
+    }
+
+    return this.ormRepo.find({
+      where: whereConditions
+    });
+  }
+  
   
 }
