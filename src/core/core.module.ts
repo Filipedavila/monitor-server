@@ -8,6 +8,7 @@ import { AppLoggerModule } from "./app-logger/app-logger.module";
 import { GlobalExceptionFilter } from "./filters/http-exception.filter";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { ResponseTransformInterceptor } from "./interceptors/response.interceptor";
+import { OutboxModule } from "./outbox/outbox.module";
 
 
 const modules = [
@@ -17,6 +18,7 @@ const modules = [
   HealthModule,
   LogModule,
   AppLoggerModule,
+  OutboxModule
 ];
 
 @Module({

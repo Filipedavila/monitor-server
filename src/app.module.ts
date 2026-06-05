@@ -2,7 +2,8 @@ import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ServeStaticModule } from "@nestjs/serve-static";
-import { RateLimiterModule, RateLimiterGuard } from "nestjs-rate-limiter";
+import { GraphQLModule } from '@nestjs/graphql';
+import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from "path";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
@@ -15,35 +16,59 @@ import { PersistenceModule } from "./core/database/persistence.module";
 import { AuthorizationModule } from "./core/authorization/authorization.module";
 import { MaxOffsetLimitConstraint } from "./core/validators/max-limit-pag.validator";
 import { ClickhouseModule } from "./core/clickhouse/clickhouse.module"; 
-import { StatsModule } from './stats/stats.module';
-
+import { DashboardModule } from "./dashboard/dashboard.module";
+import { HybridRateLimiterGuard } from "./common/guards/hybrid-rate-limiter.guard";
+import { ThrottlerModule } from "@nestjs/throttler/dist/throttler.module";
+import { ConfigService } from '@nestjs/config';
 @Module({
   imports: [
     ConfigAppModule,
     EventEmitterModule.forRoot(),
 
     PersistenceModule,
-
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+      sortSchema: true,
+      playground: process.env.NODE_ENV !== 'production',
+      context: ({ req }) => ({ req }),
+    }),
     ScheduleModule.forRoot(),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, "..", "public"),
     }),
-    RateLimiterModule.register({
-      points: 1000,
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigAppModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const isEnabled = configService.get<boolean>('RATE_LIMIT_ENABLED');
+        const ttl = configService.get<number>('RATE_LIMIT_TTL');
+        const limit = configService.get<number>('RATE_LIMIT_LIMIT');
+        
+        return {
+          throttlers: [
+            {
+              name: 'global',
+              ttl: ttl ?? 60000,
+              limit: isEnabled ? (limit ?? 100) : 1000000000,
+            },
+          ],
+        };
+      },
     }),
     CoreModule,
     DomainsModule,
     IntegrationsModule,
     AuthorizationModule,
     ClickhouseModule,
-    StatsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     {
       provide: APP_GUARD,
-      useClass: RateLimiterGuard,
+      useClass: HybridRateLimiterGuard,
     },
     MaxOffsetLimitConstraint,
   ],
