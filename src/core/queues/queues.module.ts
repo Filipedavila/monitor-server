@@ -34,12 +34,15 @@ import { ConfigService } from "@nestjs/config";
         name: QUEUE_NAMES.CRAWL_PUBLIC,
         defaultJobOptions: DEFAULT_JOB_OPTIONS,
       },
+      { name: QUEUE_NAMES.AUTHORIZATION, defaultJobOptions: DEFAULT_JOB_OPTIONS },
     ),
 
     BullBoardModule.forFeature(
       { name: QUEUE_NAMES.CRAWL_PRIVATE, adapter: BullMQAdapter },
       { name: QUEUE_NAMES.EVAL_PUBLIC, adapter: BullMQAdapter },
       { name: QUEUE_NAMES.EVAL_PRIVATE, adapter: BullMQAdapter },
+      { name: QUEUE_NAMES.CRAWL_PUBLIC, adapter: BullMQAdapter },
+      { name: QUEUE_NAMES.AUTHORIZATION, adapter: BullMQAdapter },
     ),
     BullBoardModule.forRootAsync({
       inject: [ConfigService],

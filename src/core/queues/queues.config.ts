@@ -3,6 +3,7 @@ export const QUEUE_NAMES = {
   CRAWL_PUBLIC: "crawl-queue-public",
   EVAL_PUBLIC: "evaluation-queue-public",
   EVAL_PRIVATE: "evaluation-queue-private",
+  AUTHORIZATION: "authorization-queue",
 };
 
 export const DEFAULT_JOB_OPTIONS = {
