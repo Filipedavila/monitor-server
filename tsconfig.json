@@ -18,11 +18,11 @@
     "outDir": "./dist",
     "incremental": true,
     "types": ["jest", "node"],
-    "rootDir": ".",
+    "baseUrl": ".",
     "paths": {
       "src/*": ["./src/*"],
       "@factories/*": ["./test/factories/*"],
-      "@domains/*": ["./src/domains/*"],
+      "@domains/*": ["src/domains/*"],
       "@common/*": ["./src/common/*"],
       "@core/*": ["./src/core/*"],
       "test/*": ["./test/*"]
