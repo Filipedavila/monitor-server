@@ -11,7 +11,7 @@ import { OutboxService } from './outbox.service';
   imports: [
     TypeOrmModule.forFeature([Outbox]),
     BullModule.registerQueue(
-      { name: 'user-sync-queue' },
+      { name: 'authorization-queue' },
     ),
   ],
   providers: [

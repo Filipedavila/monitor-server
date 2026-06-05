@@ -6,6 +6,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 @Injectable()
 export class OutboxRouter implements OnModuleInit {
   private readonly routes: Record<string, string> = {
+    'authorization': 'authorization-queue'
 
   };
 
