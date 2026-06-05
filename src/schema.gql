@@ -1,0 +1,38 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type BasicMetrics {
+  nCategories: Int!
+  nDirectories: Int!
+  nEntities: Int!
+  nPages: Int!
+  nTags: Int!
+  nWebsites: Int!
+  oldestPage: DateTime!
+  recentPage: DateTime!
+}
+
+type DashboardMetrics {
+  basicMetrics: BasicMetrics!
+  score: Float!
+  topFiveWebsites: [TopWebsite!]!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Query {
+  dashboardMetrics: DashboardMetrics!
+}
+
+type TopWebsite {
+  DirectoryId: Int!
+  entity: String!
+  id: ID!
+  index: Int!
+  name: String!
+  score: Float!
+}
