@@ -28,7 +28,7 @@ type accessibility_statement
     define can_manage: member from admin 
     define can_view: member from admin
   
-type organization
+type team
   relations
     define admin: [role,user]
     define member: [user]    
@@ -39,7 +39,7 @@ type organization
 
 type website
   relations
-    define parent: [organization]
+    define parent: [team]
     define owner: [user]
     define study_assignee: [user]
     

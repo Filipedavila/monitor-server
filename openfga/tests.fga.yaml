@@ -27,13 +27,13 @@ tuples:
     relation: "admin"
     object: "accessibility_statement:all"
 
-  ## criar default organization 
+  ## criar default team 
   - user: "role:admin"
     relation: "admin"
-    object: "organization:pending"
+    object: "team:pending"
 
   # ---ORGANIZATIO 1 ---
-  ## creation of userx for organization 1
+  ## creation of userx for team 1
   - user: "user:monitor1"
     relation: "member"
     object: "role:monitor"
@@ -44,32 +44,32 @@ tuples:
 
   - user: "role:admin"
     relation: "admin"
-    object: "organization:1"
+    object: "team:1"
 
-  ## Other organization and user for testing isolation
+  ## Other team and user for testing isolation
   - user: "user:monitor_other"
     relation: "member"
     object: "role:monitor"
   - user: "role:admin"
     relation: "admin"
-    object: "organization:other_org"
-  ## Assign User 1 as local admin and user 2 as local member of organization 1
+    object: "team:other_org"
+  ## Assign User 1 as local admin and user 2 as local member of team 1
 
 
   - user: "user:monitor1"
     relation: "admin"
-    object: "organization:1"
+    object: "team:1"
 
   - user: "user:monitor2"
     relation: "member"
-    object: "organization:1"
+    object: "team:1"
 
   - user: "user:monitor_other"
     relation: "admin"
-    object: "organization:other_org"
+    object: "team:other_org"
 
   # --Websites, Org and Pages---
-  - user: "organization:1"
+  - user: "team:1"
     relation: "parent"
     object: "website:site_a"
   - user: "user:monitor1"
@@ -83,11 +83,11 @@ tuples:
     relation: "parent"
     object: "page:site_a_home"
 
-  ## Website created by admin without organization defined (pending flow)
+  ## Website created by admin without team defined (pending flow)
   - user: "user:admin1"
     relation: "owner"
     object: "website:site_b_no_org"
-  - user: "organization:pending"
+  - user: "team:pending"
     relation: "parent"
     object: "website:site_b_no_org"
 
@@ -118,19 +118,19 @@ tuples:
 tests:
   - name: "1. Organization Access Control"
     check:
-      # Test Global Admin (via Role) should have manage and view access to the organization
+      # Test Global Admin (via Role) should have manage and view access to the team
       - user: "user:admin1"
-        object: "organization:1"
+        object: "team:1"
         assertions:
           can_manage: true
-      # Test Local Admin of Organization 1 should have manage access to the organization
+      # Test Local Admin of Organization 1 should have manage access to the team
       - user: "user:monitor1"
-        object: "organization:1"
+        object: "team:1"
         assertions:
           can_manage: true
       # Test Local Member of Organization 1 should have view and edit but not full manage access
       - user: "user:monitor2"
-        object: "organization:1"
+        object: "team:1"
         assertions:
           can_manage: false
 
@@ -207,7 +207,7 @@ tests:
           can_view: false
   - name: "7. Crawler Access Control"
     check:
-    ## user from a certain organization can access its crawler resources
+    ## user from a certain team can access its crawler resources
       - user: "user:monitor1"
         object: "crawler_website:crawler1"
         assertions:
@@ -216,7 +216,7 @@ tests:
         object: "crawler_page:crawler1_page1"
         assertions:
           can_manage: true
-    ## user from a certain organization cannot access crawler resources of another organization
+    ## user from a certain team cannot access crawler resources of another team
       - user: "user:monitor_other"
         object: "crawler_website:crawler1"
         assertions:
