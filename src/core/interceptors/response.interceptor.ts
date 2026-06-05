@@ -17,6 +17,9 @@ export interface Response<T> {
 @Injectable()
 export class ResponseTransformInterceptor<T> implements NestInterceptor<T, Response<T>> {
 intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    if (context.getType().toString() === 'graphql') {
+      return next.handle();
+    }
     return next.handle().pipe(
       map(result => {
         const response = context.switchToHttp().getResponse();
