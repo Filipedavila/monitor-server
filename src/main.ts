@@ -9,6 +9,8 @@ import { IoAdapter } from "@nestjs/platform-socket.io";
 import { ValidationPipe, VersioningType } from "@nestjs/common";
 import { AppLoggerService } from "./core/app-logger/app-logger.service";
 import { useContainer } from 'class-validator';
+import { GlobalExceptionFilter } from "./core/filters/all-exceptions.filter";
+import { FieldConflictExceptionFilter } from "./core/filters/conflict-execption.filter";
 
 
 async function bootstrap() {
@@ -18,18 +20,22 @@ async function bootstrap() {
   
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: [`'self'`],
-          styleSrc: [`'self'`, `'unsafe-inline'`],
-          imgSrc: [`'self'`, "data:", "validator.swagger.io"],
-          scriptSrc: [`'self'`, `https: 'unsafe-inline'`],
-        },
-      },
-    }),
-  );
+ app.use(
+  helmet({
+    contentSecurityPolicy:
+      process.env.NODE_ENV === 'production'
+        ? {
+            directives: {
+              defaultSrc: [`'self'`],
+              styleSrc: [`'self'`, `'unsafe-inline'`],
+              imgSrc: [`'self'`, 'data:', 'validator.swagger.io'],
+              scriptSrc: [`'self'`, 'https:', `'unsafe-inline'`],
+            },
+          }
+        : false, 
+  }),
+);
+  
   app.getHttpAdapter().getInstance().set('query parser', 'extended');
 
   app.useWebSocketAdapter(new IoAdapter(app) as any);
@@ -51,7 +57,10 @@ async function bootstrap() {
     defaultVersion: "2",
   });
   SwaggerModule.setup("api", app, document);
-
+  app.useGlobalFilters(
+    new GlobalExceptionFilter(logger),   
+    new FieldConflictExceptionFilter(),    
+  );
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
