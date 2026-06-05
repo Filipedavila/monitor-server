@@ -2,10 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { Page } from "./page.entity";
 import { BaseFilter, BasePagination, BaseSort, SortCriteria } from "src/common/interfaces/types";
 import { EntityRepository, FilterMap, SortingMap } from "src/common/repositories/base.repository";
-import { QueryBuilder, Repository } from "typeorm";
+import { In, QueryBuilder, QueryRunner, Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config/dist/config.service";
 import { AppLoggerService } from "src/core/app-logger/app-logger.service";
 import { InjectRepository } from "@nestjs/typeorm/dist/common/typeorm.decorators";
+import { BaseTransactionalRepository } from "src/common/repositories/base-transactional.repository";
+import { Outbox, OutboxStatus } from "src/core/outbox/outbox.entity";
 export interface PageFilter extends BaseFilter {
   url?: string;
   url_hash?: string;
@@ -24,7 +26,7 @@ export interface PagePagination extends BasePagination {}
 
 
 @Injectable()
-export class PageRepository extends EntityRepository<
+export class PageRepository extends BaseTransactionalRepository<
   Page,
   PageFilter,
   PageSort,
@@ -63,5 +65,59 @@ export class PageRepository extends EntityRepository<
 
  applyAuthorization(query: QueryBuilder<Page>, rules: any, operation: string): Promise<void> {
       throw new Error("Method not implemented."); 
+  }
+
+  async createPagesWithOutbox(websiteId: string, urls: string[]): Promise<Page[]> {
+    if (urls.length === 0) return [];
+
+    return this.runInTransaction<Page[]>(async (queryRunner: QueryRunner) => {
+      const txManager = queryRunner.manager;
+       const rawPages = urls.map(url => {
+        const page = new Page();
+        page.websiteId = Number(websiteId);
+        page.url = url;
+        return page;
+      });
+      await txManager
+        .createQueryBuilder(Page, 'page')
+        .insert()
+        .into(Page)
+        .values(rawPages)
+        .orIgnore()
+        .execute();
+
+      const finalPages = await txManager.find(Page, {
+        where: { websiteId: Number(websiteId), url: In(urls) },
+      });
+
+     const outboxEvents = finalPages.map(page => {
+        const event = new Outbox();
+        event.aggregateType = 'Page';
+        event.aggregateId = String(page.id);
+        event.eventType = 'authorization';
+        event.payload = {
+          action: 'create',
+          fgaTuple: { 
+            user: `website:${websiteId}`, 
+            relation: 'parent', 
+            object: `page:${page.id}` 
+          }
+        };
+        event.status = OutboxStatus.PENDING;
+        event.attempts = 0;
+        return event;
+      });
+
+     if (outboxEvents.length > 0) {
+        await txManager
+          .createQueryBuilder(Outbox, 'outbox')
+          .insert()
+          .into(Outbox)
+          .values(outboxEvents)
+          .execute();
+      }
+
+      return finalPages;
+    });
   }
 }

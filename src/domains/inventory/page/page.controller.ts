@@ -40,7 +40,7 @@ export class PageController extends BaseController{
     return this.pageService.findAll({
       securityContext: { user },
       pagination: { limit: query.pagination?.limit, page: query.pagination?.page },
-      sorting: query.sorts?.sort,
+      sortings: query.sorts?.sort,
       filters: query.filters,
     });
   }
@@ -86,7 +86,7 @@ export class PageController extends BaseController{
   ) {
     return this.pageService.findAll({
       securityContext: { user },
-      filters: { websiteId } as any,
+      filters: { websiteId } ,
     });
   }
 

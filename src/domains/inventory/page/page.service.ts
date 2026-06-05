@@ -36,35 +36,21 @@ export class PageService {
 
 
   async create(dto: CreatePageDto, securityContext: SecurityContext): Promise<Page[]> {
-    const hasPermission = await this.fgaService.check(
-      `user:${securityContext.user.id}`,
-      'can_edit', 
-      `website:${dto.websiteId}`
-    );
-    if (!hasPermission) {
-      throw new ForbiddenException("You do not have permission to add pages to this website");
-    }
-    const  urls = dto.pagesUrl;
-    const pages: Page[] = [];
-      for (const url of urls) {
-    const newPage = this.pageRepo.orm.create({ 
-      websiteId: dto.websiteId,
-      url });
-      
+  const hasPermission = await this.fgaService.check(
+    `user:${securityContext.user.id}`,
+    'can_edit', 
+    `website:${dto.websiteId}`
+  );
+  if (!hasPermission) {
+    throw new ForbiddenException("You do not have permission to add pages to this website");
+  }
 
-      pages.push(newPage);
-    }
-    
-    const newPages = await this.pageRepo.saveMany(pages);
-    const fgaTuples = newPages.map(page => ({
-    user: `website:${dto.websiteId}`,
-    relation: 'parent_website' ,
-    object: `page:${page.id}`
+  const rawPages = dto.pagesUrl.map(url => ({
+    websiteId: dto.websiteId,
+    url,
   }));
-
-
-  await this.fgaService.createBatchesRelationships(fgaTuples as any[]);
-    return newPages;
+  if (rawPages.length === 0) return [];
+  return await this.pageRepo.createPagesWithOutbox(dto.websiteId.toString(), dto.pagesUrl);
   }
 
   async findPageById(id: number, securityContext: SecurityContext): Promise<Page> {
@@ -107,7 +93,7 @@ export class PageService {
       type: 'page',
     }).then(objects => objects.map(obj => parseInt(obj.split(':')[1], 10)));
     const idsToDelete = ids.filter(id => idsPermited.includes(id));
-
+    
     for (const id of idsToDelete) {
     await this.pageRepo.delete(id);
 
