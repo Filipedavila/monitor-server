@@ -40,8 +40,7 @@ import Joi from "joi";
         IP_BLACKLIST_RANGES: Joi.string().default(""),
         FGA_API_URL: Joi.string().required(),
         FGA_STORE_ID: Joi.string().required(),
-        FGA_MODEL_ID: Joi.string().required(),
-        FGA_AUTH_MODEL: Joi.string().required(),
+        FGA_MODEL_ID: Joi.string().required()
       }),
     }),
   ],
