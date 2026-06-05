@@ -2,7 +2,7 @@
 export const FGA_RESOURCE = {
   USER: 'user',
   ROLE: 'role',
-  ORGANIZATION: 'organization',
+  TEAM: 'team',
   WEBSITE: 'website',
   PAGE: 'page',
   CRAWLER_WEBSITE: 'crawler_website',
@@ -20,7 +20,7 @@ export const FGA_RELATION = {
   // Atribuições e Contexto
   ADMIN: 'admin',
   MEMBER: 'member',
-  CREATOR: 'creator',
+  OWNER: 'owner',
   STUDY_ASSIGNEE: 'study_assignee',
   // Hierarquia (Parents)
   PARENT: 'parent',
@@ -39,18 +39,22 @@ export type RelationType = typeof FGA_RELATION[keyof typeof FGA_RELATION];
 
 export type FgaModelMap = {
   [FGA_RESOURCE.ROLE]: 'member';
-  [FGA_RESOURCE.ORGANIZATION]: 'admin' | 'member' | 'can_manage' | 'can_edit' | 'can_view';
-  [FGA_RESOURCE.WEBSITE]: 'parent' | 'creator' | 'study_assignee' | 'can_manage' | 'can_edit' | 'can_view';
+  [FGA_RESOURCE.TEAM]: 'admin' | 'member' | 'can_manage' | 'can_edit' | 'can_view';
+  [FGA_RESOURCE.WEBSITE]: 'parent' | 'owner' | 'study_assignee' | 'can_manage' | 'can_edit' | 'can_view';
   [FGA_RESOURCE.PAGE]: 'parent' | 'can_manage' | 'can_edit' | 'can_view';
-  [FGA_RESOURCE.CRAWLER_WEBSITE]: 'parent' | 'creator' | 'can_manage' | 'can_edit' | 'can_view';
+  [FGA_RESOURCE.CRAWLER_WEBSITE]: 'parent' | 'owner' | 'can_manage' | 'can_edit' | 'can_view';
   [FGA_RESOURCE.CRAWLER_PAGE]: 'parent' | 'can_manage' | 'can_edit' | 'can_view';
-  [FGA_RESOURCE.EVALUATION]: 'parent' | 'creator' | 'can_manage' | 'can_view';
+  [FGA_RESOURCE.EVALUATION]: 'parent' | 'owner' | 'can_manage' | 'can_view';
   [FGA_RESOURCE.DIRECTORY]: 'admin' | 'can_manage' | 'can_view';
   [FGA_RESOURCE.TAG]: 'admin' | 'can_view' | 'can_manage';
   [FGA_RESOURCE.ACCESSIBILITY_STATEMENT]: 'admin' | 'can_manage' | 'can_view';
 };
 
-
+export interface AuthTuple {
+  user: FgaUserIdentifier<ResourceType>;
+  relation: RelationType;
+  object: FgaObjectIdentifier<ResourceType>;
+}
 
 
 export type FgaUserIdentifier<T extends ResourceType> = `${T}:${string}`;

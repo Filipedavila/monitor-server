@@ -10,7 +10,7 @@ export const FgaClientProvider: FactoryProvider = {
     const client = new OpenFgaClient({
       apiUrl: process.env.FGA_API_URL, 
       storeId: process.env.FGA_STORE_ID, 
-      authorizationModelId: process.env.FGA_AUTH_MODEL, 
+      authorizationModelId: process.env.FGA_MODEL_ID, 
     });
     try {
       logger.log('Validating OpenFGA connection...');
