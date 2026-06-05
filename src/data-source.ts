@@ -31,14 +31,20 @@ import { ManualEvaluation } from "./domains/audit-engine/manual-evaluation/manua
 import { Outbox } from "./core/outbox/outbox.entity";
 import { Team } from "./domains/identity/team/team.entity";
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 export const AppDataSource = new DataSource({
   type: "mysql",
-  host: "localhost",
-  username: "accessmonitor",
-  password: "v2password",
-  database: "Accessibility",
+  host: process.env.DB_HOST || 'localhost',
+  username: process.env.DB_USER || "accessmonitor",
+  password: process.env.DB_USER_PASSWORD || "v2password",
+  database: process.env.DB_NAME || "Accessibility",
   entities: getAllEntities(),
-  migrations: ["migrations/**/*.ts"],
+  migrations: [
+    isProduction 
+      ? __dirname + "/migrations/**/*.js" 
+      : __dirname + "/migrations/**/*.ts"
+  ],
 });
 
 export function getAllEntities() {
