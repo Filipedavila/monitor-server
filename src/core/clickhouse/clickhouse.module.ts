@@ -25,7 +25,7 @@ import { ClickHouseLogLevel, createClient } from '@clickhouse/client';
     ],
 
     
-    exports: [],
+    exports: ['CLICKHOUSE_CONNECTION'],
 })
 export class ClickhouseModule {
     
