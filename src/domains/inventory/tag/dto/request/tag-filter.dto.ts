@@ -1,45 +1,33 @@
 import { BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
-import { IsDate, IsNumber, IsOptional, IsString } from "class-validator";
+import { IsArray, IsBoolean, IsDate, IsNumber, IsOptional, IsString } from "class-validator";
 import { Tag } from "../../tag.entity";
 
 export class TagFilterDTO extends BaseFilterDTO<Tag> implements Partial<Pick<Tag, 'id' | 'name' | 'createdAt' | 'createdById' | 'updatedAt'>> {
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({},{ message: "id must be a number" })
   id?: number;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: "name must be a string" })
   name?: string;
 
   @IsOptional()
-  @IsDate()
+  @IsDate( { message: "createdAt must be a valid date" })
   createdAt?: Date;
 
   @IsOptional()
-  @IsNumber()
-  createdById?: number;
-  
-  @IsOptional()
-  @IsDate()
-  updatedAt?: Date;
+  @IsArray({message: "websites must be an array of numbers"})
+  @IsNumber({}, { each: true, message: "each website must be a number" })
+  websites?: number[];
+
 
   @IsOptional()
-  @IsDate()
-  createdAtFrom?: Date;
+  @IsArray({message: "directories must be an array of numbers"})
+  @IsNumber({}, { each: true, message: "each directory must be a number" })
+  directories?: number[];
 
   @IsOptional()
-  @IsDate()
-  createdAtTo?: Date;
-  
-  @IsOptional()
-  @IsDate()
-  updatedAtFrom?: Date;
-
-  @IsOptional()
-  @IsDate()
-  updatedAtTo?: Date; 
-
-
-
+  @IsBoolean({ message: "isOfficial must be a boolean" })
+  isOfficial?: boolean;
 }
