@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { Directory, TagMatchingStrategy } from '../directory.entity';
 import { BaseTransactionalRepository } from 'src/common/repositories/base-transactional.repository';
 import { FilterMap, SortingMap } from 'src/common/repositories/base.repository';
@@ -18,6 +18,7 @@ export interface DirectoryFilter extends BaseFilter {
   id?: number;
   name?: string;
   showInObservatory?: number;
+  searchTerm?: string;
 }
 
 export interface DirectorySort extends BaseSort {
@@ -43,6 +44,13 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
     id: (query, value) => query.andWhere(`${this.alias}.id = :id`, { id: value }),
     name: (query, value) => query.andWhere(`${this.alias}.name LIKE :name`, { name: `%${value}%` }),
     showInObservatory: (query, value) => query.andWhere(`${this.alias}.showInObservatory = :showInObservatory`, { showInObservatory: value }),
+    searchTerm: (query, value) => {
+      query.andWhere(
+        new Brackets((qb) => {
+          qb.where(`${this.alias}.name LIKE :searchTerm`, { searchTerm: `%${value}%` });
+        }),
+      );
+    }
   };
 
   protected readonly sortMap: SortingMap<DirectorySort, Directory> = {

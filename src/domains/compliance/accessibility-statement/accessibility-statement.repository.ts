@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Brackets, Repository } from "typeorm";
 import { BaseTransactionalRepository } from "src/common/repositories/base-transactional.repository";
 import { FilterMap, SortingMap } from "src/common/repositories/base.repository";
 import { BaseFilter, BaseSort, SortCriteria } from "src/common/interfaces/types";
@@ -16,6 +16,7 @@ export interface AccessibilityStatementFilter extends BaseFilter {
   statementDate?: Date;
   createdAt?: Date;
   year?: number;
+  searchTerm?: string;
 
 }
 
@@ -66,6 +67,13 @@ export class AccessibilityStatementRepository extends BaseTransactionalRepositor
     },
     year: (query, value) => {
       query.andWhere(`YEAR(${this.alias}.statementDate) = :year`, { year: value });
+    },
+    searchTerm: (query, value) => {
+      query.andWhere(
+        new Brackets((qb) => {
+          qb.where(`${this.alias}.statementDate LIKE :searchTerm`, { searchTerm: `%${value}%` });
+        }),
+      );
     },
   };
 

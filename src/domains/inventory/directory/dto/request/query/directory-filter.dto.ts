@@ -24,4 +24,9 @@ export class DirectoryFilterDTO
   @IsBoolean()
   @IsOptional()
   showInObservatory: number;
+
+  @IsString()
+  @IsOptional()
+  searchTerm: string;
+
 }

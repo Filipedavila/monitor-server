@@ -17,5 +17,7 @@ implements Partial<Pick<Organization, 'id' | 'shortName' | 'longName'>> {
     @IsString({message: "longName must be a string"})
     longName?: string;
 
-
+    @IsString()
+    @IsOptional()
+    searchTerm: string;
 }

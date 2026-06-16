@@ -1,10 +1,14 @@
 import { Entity, Column, JoinTable, ManyToMany } from "typeorm";
-import { Tag } from "../tag/tag.entity";
 import { AuditableEntity } from "../../../common/entities/auditable.entity";
 export enum TagMatchingStrategy {
   MATCH_ALL = 0, 
   
   MATCH_ANY = 1
+}
+interface TagBase {
+  id: number;
+  name: string;
+  isOfficial: boolean;
 }
 @Entity("directories")
 export class Directory extends AuditableEntity {
@@ -28,13 +32,13 @@ export class Directory extends AuditableEntity {
     width: 1,
     default: 0,
   })
-  tagMatchingStrategy:TagMatchingStrategy;
+  tagMatchingStrategy: TagMatchingStrategy;
 
-  @ManyToMany(() => Tag)
+  @ManyToMany("Tag", "Directory")
   @JoinTable({
     name: "directory_tags",
     joinColumn: { name: "directory_id", referencedColumnName: "id" },
     inverseJoinColumn: { name: "tag_id", referencedColumnName: "id" },
   })
-  tags: Tag[];
+  tags: TagBase[];
 }

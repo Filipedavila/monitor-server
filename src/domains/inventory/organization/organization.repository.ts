@@ -1,7 +1,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {  Repository } from 'typeorm';
+import {  Brackets, Repository } from 'typeorm';
 import { BaseTransactionalRepository } from 'src/common/repositories/base-transactional.repository';
 import { FilterMap, SortingMap } from 'src/common/repositories/base.repository';
 import { AppLoggerService } from 'src/core/app-logger/app-logger.service';
@@ -15,6 +15,8 @@ export interface OrganizationFilter extends BaseFilter {
   longName?: string;
   shortName?: string;
   createdAt?: Date;
+  searchTerm?: string;
+
 }
 
 export interface OrganizationSort extends BaseSort {
@@ -55,7 +57,15 @@ export class OrganizationRepository extends BaseTransactionalRepository<
     },
     createdAt: (query, value) => {
       query.andWhere(`${this.alias}.createdAt = :createdAt`, { createdAt: value });
-    },  
+    }, 
+    searchTerm: (query, value) => {
+      query.andWhere(
+        new Brackets((qb) => {
+          qb.where(`${this.alias}.shortName LIKE :searchTerm`, { searchTerm: `%${value}%` })
+            .orWhere(`${this.alias}.longName LIKE :searchTerm`, { searchTerm: `%${value}%` });
+        }),
+      ); 
+    }
   };
 
   protected readonly sortMap: SortingMap<OrganizationSort, Organization> = {

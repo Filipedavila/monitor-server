@@ -14,7 +14,7 @@ import { FgaService } from "src/core/authorization/fga.service";
 
 
 export interface WebsiteFilter extends BaseFilter {
-  search?: string;
+  searchTerm?: string;
   baseUrl?: string;
   institutionId?: number;
 }
@@ -51,11 +51,11 @@ export class WebsiteRepository extends EntityRepository<
 
   protected readonly filterMap: FilterMap<WebsiteFilter, Website> = {
     ids: (query, value) => query.andWhereInIds(value),
-    search: (query, value) => {
+    searchTerm: (query, value) => {
       query.andWhere(
         new Brackets((qb) => {
-          qb.where(`${this.alias}.title LIKE :search`, { search: `%${value}%` })
-            .orWhere(`${this.alias}.base_url LIKE :search`, { search: `%${value}%` });
+          qb.where(`${this.alias}.title LIKE :searchTerm`, { searchTerm: `%${value}%` })
+            .orWhere(`${this.alias}.base_url LIKE :searchTerm`, { searchTerm: `%${value}%` });
         }),
       );
     },

@@ -23,4 +23,8 @@ export class WebsiteFilterDTO
   @IsBoolean()
   @IsOptional()
   isInObservatory: boolean;
+
+  @IsString()
+  @IsOptional()
+  searchTerm: string;
 }
