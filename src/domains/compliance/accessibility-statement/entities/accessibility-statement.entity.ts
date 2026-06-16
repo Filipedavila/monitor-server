@@ -13,8 +13,8 @@ export class AccessibilityStatement extends AuditableEntity {
   @JoinColumn({ name: "website_id" })
   website: Website;
 
-  @Column({ type: "varchar", length: 255, nullable: false })
-  url: string;
+  @Column({ name: "website_id" , type: "int", unsigned: true, nullable: false })
+  websiteId:number;
 
   @Column({ type: "varchar", length: 255, nullable: false })
   conformance: string;

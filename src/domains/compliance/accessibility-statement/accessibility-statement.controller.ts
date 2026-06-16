@@ -1,10 +1,19 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
+  ParseIntPipe,
+  Post,
+  Query,
 } from "@nestjs/common";
 import { AccessibilityStatementService } from "./accessibility-statement.service";
+import { AccessibilityStatementQueryDTO } from "./dto/request/accessibility-statement-request.dto";
+import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
+import { AuthenticatedUser } from "src/core/authentication/interfaces/types";
+import { AccessibilityStatementDto } from "./dto/accessibility-statement.dto";
 
 @Controller("accessibility-statement")
 export class AccessibilityStatementController {
@@ -12,48 +21,32 @@ export class AccessibilityStatementController {
     private readonly accessibilityStatementService: AccessibilityStatementService,
   ) {}
 
-  @Get("website/:name")
-  @HttpCode(200)
-  async findOne(@Param("name") name: string) {
-    return await this.accessibilityStatementService.findByWebsiteName(name);
-  }
-
   @Get()
   @HttpCode(200)
-  async findAll() {
-    return await this.accessibilityStatementService.getASList();
+  async findAll( @CurrentUser() user: AuthenticatedUser, @Query() query: AccessibilityStatementQueryDTO) {
+    return await this.accessibilityStatementService.getAll(user, query);
   }
 
-  @Get("id/:id")
+  @Get(":id")
   @HttpCode(200)
-  async findOneById(@Param("id") id: number) {
+  async findOneById(@Param("id", ParseIntPipe) id: number) {
     return await this.accessibilityStatementService.findById(id);
   }
 
-  @Get("year")
+  @Post("")
   @HttpCode(200)
-  async findAllByYear() {
-    return await this.accessibilityStatementService.getByAge();
+  async upsert(@Body() dto: AccessibilityStatementDto) {
+    return await this.accessibilityStatementService.upsertStatement(dto);
   }
 
-  @Get("conformance")
-  @HttpCode(200)
-  async findAllByConformance() {
-    return await this.accessibilityStatementService.getByConformance();
+  @Delete(":id")
+  @HttpCode(204)
+  async deleteById(@Param("id", ParseIntPipe) id: number) {
+    await this.accessibilityStatementService.deleteById(id);
   }
 
-  @Get("seal")
-  @HttpCode(200)
-  async findAllBySeal() {
-    return await this.accessibilityStatementService.getBySeal();
-  }
 
-  @Get("state")
-  @HttpCode(200)  
-  async findAllByState() {
-    return await this.accessibilityStatementService.getByState();
-  }
-
+/* Not bounded contextual endpoints - to be used in the future for the directory
   @Get("directory/state")
   @HttpCode(200)
   async findAllByDirectoryState() {
@@ -78,11 +71,5 @@ export class AccessibilityStatementController {
   async findAllByDirectoryWebsite() {
     return await this.accessibilityStatementService.getOPAWTable();
   }
-
-  @Get("evaluations")
-  @HttpCode(200)
-  async findNumberOfEvaluationByType() {
-    return await this.accessibilityStatementService.getNumberOfEvaluationByType();
-
-  }
+*/
 }
