@@ -1,0 +1,43 @@
+import { Inject, Injectable } from '@nestjs/common';
+import Redis from 'ioredis';
+import { REDIS_CLIENT,REDIS_STREAMS } from 'src/redis/types'; 
+
+
+@Injectable()
+export class EvaluationProducer {
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+
+  // TODO: define type for result
+  async publishEvaluation(result:any) {
+    const resultId = await this.redis.xadd(
+      REDIS_STREAMS.ANALYTICS_EVALUATION_BUFFER,
+      // TODO: define unique id strategy for idempotency
+      '*',
+      'url', result.url,
+      'score', String(result.score),
+      'timestamp', new Date().toISOString(),
+    );
+    if (!resultId) {
+      throw new Error('Failed to publish evaluation result');
+    }
+    return resultId;
+  }
+
+  async publishEvaluations(results:string[]) {
+    const resultIds: string[] = [];
+    for (const result of results) {
+      const resultId = await this.redis.xadd(
+        REDIS_STREAMS.ANALYTICS_EVALUATION_BUFFER,
+        // TODO: define unique id strategy for idempotency
+        '*',
+        'data', result
+      );
+      if (!resultId) {
+        throw new Error('Failed to publish evaluation result');
+      }
+      resultIds.push(resultId);
+    }
+    return resultIds;
+  }
+  
+}

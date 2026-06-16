@@ -7,28 +7,34 @@ import { BullModule } from "@nestjs/bullmq";
 import { Page } from "src/domains/inventory/page/page.entity";
 import { AccessibilityStatementModule } from "src/domains/compliance/accessibility-statement/accessibility-statement.module";
 import { EvaluationRepository } from "./repositories/evaluation.repository";
-import {
-  EvaluationResult,
-  EvaluationResultSchema,
-} from "./entities/evaluation-result.entity";
-import { MongooseModule } from "@nestjs/mongoose";
+
 import { EvaluationPublicWorker } from "./queue/processors/evaluation-public.processor";
 import { EvaluationPrivateWorker } from "./queue/processors/evaluation-private.processor";
 import { EvaluationStorageService } from "./evaluation-storage.service";
+import { RedisModule } from "src/redis/redis.module";
+import { EvaluationProducer } from "./evaluation.producer";
+import { EvaluationConsumer } from "./evaluation.consumer";
+import { ClickhouseModule } from "src/core/clickhouse/clickhouse.module";
 
 @Module({
   imports: [
     BullModule.registerQueue({ name: "evaluation-queue-private" }),
     BullModule.registerQueue({ name: "evaluation-queue-public" }),
     TypeOrmModule.forFeature([Page, Evaluation]),
-    MongooseModule.forFeature([
-      { name: EvaluationResult.name, schema: EvaluationResultSchema },
-    ]),
+    RedisModule,
     AccessibilityStatementModule,
+    ClickhouseModule,
+
   ],
   exports: [EvaluationService],
-  providers: [EvaluationService, EvaluationRepository,EvaluationPrivateWorker, EvaluationPublicWorker, Logger,
-     EvaluationStorageService],
+  providers: [EvaluationService, 
+    EvaluationRepository,
+    EvaluationPrivateWorker,
+     EvaluationPublicWorker,
+     Logger,
+     EvaluationStorageService,
+     EvaluationProducer,
+     EvaluationConsumer],
   controllers: [EvaluationController],
 })
 export class EvaluationModule {}

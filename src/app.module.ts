@@ -2,8 +2,6 @@ import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ServeStaticModule } from "@nestjs/serve-static";
-import { GraphQLModule } from '@nestjs/graphql';
-import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from "path";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
@@ -16,23 +14,17 @@ import { PersistenceModule } from "./core/database/persistence.module";
 import { AuthorizationModule } from "./core/authorization/authorization.module";
 import { MaxOffsetLimitConstraint } from "./core/validators/max-limit-pag.validator";
 import { ClickhouseModule } from "./core/clickhouse/clickhouse.module"; 
-import { DashboardModule } from "./dashboard/dashboard.module";
 import { HybridRateLimiterGuard } from "./common/guards/hybrid-rate-limiter.guard";
 import { ThrottlerModule } from "@nestjs/throttler/dist/throttler.module";
 import { ConfigService } from '@nestjs/config';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { RedisModule } from './redis/redis.module';
 @Module({
   imports: [
     ConfigAppModule,
     EventEmitterModule.forRoot(),
 
     PersistenceModule,
-    GraphQLModule.forRoot<ApolloDriverConfig>({
-      driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
-      sortSchema: true,
-      playground: process.env.NODE_ENV !== 'production',
-      context: ({ req }) => ({ req }),
-    }),
     ScheduleModule.forRoot(),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, "..", "public"),
@@ -56,12 +48,14 @@ import { ConfigService } from '@nestjs/config';
         };
       },
     }),
+    RedisModule,
     CoreModule,
     DomainsModule,
     IntegrationsModule,
     AuthorizationModule,
     ClickhouseModule,
-    DashboardModule,
+    AnalyticsModule,
+   
   ],
   controllers: [AppController],
   providers: [
