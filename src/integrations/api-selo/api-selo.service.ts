@@ -1,19 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
-
-type WebsiteInfo = {
-  id: number;
-  Name: string;
-  url: string;
-  entidade: string;
-  selo: string;
-  data_selo: string;
-  declaracao: string;
-  data_declaracao: string;
-  url_observatorio: string;
-};
-
+import { DECLARATION_MAP, STAMP_MAP, StampRow, WebsiteInfo } from "./types";
 @Injectable()
 export class ApiSeloService {
   constructor(
@@ -21,66 +9,40 @@ export class ApiSeloService {
     private readonly connection: DataSource,
   ) {}
 
-  async getAllStamps(): Promise<any> {
-    const sitesWithStamp = await this.connection.query(`
+  async getAllStamps(): Promise<WebsiteInfo[]> {
+    const sites  = await this.connection.query<StampRow[]>(`
         SELECT DISTINCT
-          w.WebsiteId as 'id',
-          w.Name as 'Name',
-          w.StartingUrl as 'url',
-          e.Long_Name as 'entidade',
-          w.Stamp as 'selo',
-          w.Stamp_Update_Date as 'data_selo',
-          w.Declaration as 'declaracao',
-          w.Declaration_Update_Date as 'data_declaracao',
-          dt.DirectoryID as 'id_diretorio'
+          w.id,
+          w.title as 'Name',
+          w.baseUrl as 'url',
+          e.longName as 'entidade',
+          w.stampStatus as 'selo',
+          w.stampUpdatedAt as 'data_selo',
+          w.declarationStatus as 'declaracao',
+          w.declarationUpdatedAt as 'data_declaracao',
+          dt.id as 'id_diretorio'
         FROM
-          Website w,
-          EntityWebsite ew,
-          Entity e,
-          TagWebsite tw,
-          DirectoryTag dt
+          websites w
+        INNER JOIN website_organizations ew ON w.id = ew.website_id
+        INNER JOIN organizations e ON ew.organization_id = e.entity_id
+        INNER JOIN tag_website tw ON w.id = tw.website_id
+        INNER JOIN directory_tag dt ON tw.tag_id = dt.tag_id
         WHERE
-          w.WebsiteId = ew.WebsiteId AND
-          ew.EntityId = e.EntityId AND 
-          w.WebsiteId = tw.WebsiteId AND
-          tw.TagId = dt.TagId AND
-          w.Stamp IS NOT NULL
+          w.stamp IS NOT NULL
       `);
 
-    const siteList: WebsiteInfo[] = [];
 
-    for (const site of sitesWithStamp) {
-      const siteInfo: WebsiteInfo = {
+    return sites.map((site: StampRow):WebsiteInfo => ({
         id: site.id,
         Name: site.Name,
         url: site.url,
         entidade: site.entidade,
-        selo: site.selo,
+        selo:  STAMP_MAP[site.selo] || "Sem selo",
         data_selo: site.data_selo,
-        declaracao: site.declaracao,
+        declaracao: DECLARATION_MAP[site.declaracao] || "Não declarada",
         data_declaracao: site.data_declaracao,
-        url_observatorio: `/directories/${site.id_diretorio}/${site.id}`,
-      };
-      // convert selo according to the mapping 1 -> "Bronze", 2 -> "Prata", 3 -> "Ouro"
-      if (siteInfo.selo == "1") {
-        siteInfo.selo = "Bronze";
-      } else if (siteInfo.selo == "2") {
-        siteInfo.selo = "Prata";
-      } else if (siteInfo.selo == "3") {
-        siteInfo.selo = "Ouro";
-      }
-      // convert declaracao according to the mapping 1 -> "Não conforme", 2 -> "Parcialmente conforme", 3 -> "Conforme"
-      if (siteInfo.declaracao == "1") {
-        siteInfo.declaracao = "Não conforme";
-      } else if (siteInfo.declaracao == "2") {
-        siteInfo.declaracao = "Parcialmente conforme";
-      } else if (siteInfo.declaracao == "3") {
-        siteInfo.declaracao = "Conforme";
-      }
+        url_observatorio: `/directories/${site.id_diretorio}/${site.id}`
+    }));
 
-      siteList.push(siteInfo);
-    }
-
-    return JSON.stringify(siteList);
   }
 }

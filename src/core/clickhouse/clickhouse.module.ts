@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClickHouseLogLevel, createClient } from '@clickhouse/client';
+import { CLICKHOUSE_CLIENT } from './clickhouse.constants';
 @Module({
     imports: [],
     providers: [
     
         {
-            provide: 'CLICKHOUSE_CONNECTION',
+            provide: CLICKHOUSE_CLIENT ,
             useFactory: async (configService: ConfigService) => {
                 const client = createClient({
                     host: configService.get<string>('CLICKHOUSE_URI'),
@@ -25,7 +26,7 @@ import { ClickHouseLogLevel, createClient } from '@clickhouse/client';
     ],
 
     
-    exports: ['CLICKHOUSE_CONNECTION'],
+    exports: [CLICKHOUSE_CLIENT],
 })
 export class ClickhouseModule {
     
