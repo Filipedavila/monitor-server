@@ -7,9 +7,12 @@ import {
   Index,
   ManyToOne,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
 } from "typeorm";
 import { createHash } from "node:crypto";
 import { AuditableEntity } from "../../../common/entities/auditable.entity";
+import { Team } from "src/domains/identity/team/team.entity";
 
 @Entity("pages")
 @Index("idx_pages_visibility", ["websiteId", "showInPublic", "showInAms", "showInMonitor"])
@@ -49,7 +52,13 @@ export class Page extends AuditableEntity {
   @ManyToOne(() => Website, { onDelete: "CASCADE" })
   @JoinColumn({ name: "website_id" })
   website: Website;
-
+  @ManyToMany("Team", (team: Team) => team.pages)
+  @JoinTable({
+      name: "page_teams",
+      joinColumn: { name: "page_id", referencedColumnName: "id" },
+      inverseJoinColumn: { name: "team_id", referencedColumnName: "id" },
+    })
+    teams: Team[];
   @BeforeInsert()
   @BeforeUpdate()
   generateHash() {

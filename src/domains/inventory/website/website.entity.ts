@@ -10,6 +10,7 @@ import {
 import { Tag } from "../tag/tag.entity";
 import type { Organization } from "../organization/organization.entity";
 import { AuditableEntity } from "../../../common/entities/auditable.entity";
+import { Team } from "src/domains/identity/team/team.entity";
 
 @Entity("websites")
 @Index("idx_websites_base_url", ["baseUrl"], { unique: true })
@@ -48,6 +49,15 @@ export class Website extends AuditableEntity {
     inverseJoinColumn: { name: "organization_id", referencedColumnName: "id" },
   })
   organizations: Organization[];
+
+  @ManyToMany("Team", (team: Team) => team.websites)
+  @JoinTable({
+    name: "website_teams",
+    joinColumn: { name: "website_id", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "team_id", referencedColumnName: "id" },
+  })
+  teams: Team[];
+
 
   @Column( { name: "is_in_observatory", type: "boolean", default: false })
   isInObservatory: boolean;
