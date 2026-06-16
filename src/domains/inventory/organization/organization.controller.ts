@@ -1,10 +1,13 @@
 import {
   Controller, InternalServerErrorException, Post, Get, Param, UseGuards, UseInterceptors, Body,
+  Delete,
+  HttpCode,
+  Patch,
+  Query,
 } from "@nestjs/common";
 import { OrganizationService } from "./organization.service";
 import { Organization } from "./organization.entity";
 import { LoggingInterceptor } from "src/core/log/log.interceptor";
-import { ReevaluateEntityDto } from "./dto/reevalute-entity.dto";
 import { CreateEntityDto } from "./dto/create-entity.dto";
 import { UpdateEntityDto } from "./dto/update-entity.dto";
 import { DeleteEntityDto } from "./dto/delete-entity.dto";
@@ -13,6 +16,8 @@ import { OrganizationDocs } from "./organization.swagger";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
+import { RoleSlug } from "src/core/authentication/interfaces/types";
+import { OrganizationRequestDTO } from "./dto/request/organization-request.dto";
 
 @OrganizationDocs.controller()
 @Controller("organizations")
@@ -21,82 +26,40 @@ import { Roles } from "src/core/authorization/decorators/roles.decorator";
 export class OrganizationController {
   constructor(private readonly entityService: OrganizationService) {}
 
-  @OrganizationDocs.reEvaluate()
-  @Roles("admin")
-  @Post("reEvaluate")
-  async reEvaluateWebsitePages(@Body() reevaluateEntityDto: ReevaluateEntityDto): Promise<any> {
-    const entitiesId = reevaluateEntityDto.entitiesId;
-    const option = reevaluateEntityDto.option;
-    return await this.entityService.addPagesToEvaluate(entitiesId, option);
-  }
 
-  @OrganizationDocs.totalObservatory()
-  @Roles("admin")
-  @Get("observatory/total")
-  async getNumberOfObservatoryEntities(): Promise<any> {
-    return await this.entityService.findNumberOfObservatory();
-  }
 
-  @OrganizationDocs.count()
-  @Roles("admin")
-  @Get("all/count/:search")
-  async getAdminEntityCount(@Param("search") search: string): Promise<any> {
-    return await this.entityService.adminCount(decodeURIComponent(search.substring(7)));
-  }
-
+ 
   @OrganizationDocs.findAllPaged()
   @Roles("admin")
-  @Get("all/:size/:page/:sort/:direction/:search")
-  async getAllEntities(
-    @Param("size") size: string,
-    @Param("page") page: string,
-    @Param("sort") sort: string,
-    @Param("direction") direction: string,
-    @Param("search") search: string,
-  ): Promise<any> {
-    return await this.entityService.findAll(
-      parseInt(size),
-      parseInt(page),
-      sort.substring(5),
-      direction.substring(10),
-      decodeURIComponent(search.substring(7)),
-    );
+  @Get("")
+  @HttpCode(200)
+  async getAllEntities(@Query() organizationRequestDTO:OrganizationRequestDTO): Promise<any> {
+    return await this.entityService.findAll( organizationRequestDTO );
   }
 
-  @OrganizationDocs.info()
-  @Roles("admin")
-  @Get("info/:entityId")
-  async getEntityInfo(@Param("entityId") entityId: number): Promise<any> {
-    return await this.entityService.findInfo(entityId);
-  }
+
 
   @OrganizationDocs.create()
-  @Roles("admin")
-  @Post("create")
-  async createEntity(@Body() createEntityDto: CreateEntityDto): Promise<any> {
-    const entity = new Organization();
-    entity.shortName = createEntityDto.shortName;
-    entity.longName = createEntityDto.longName;
+  @Roles(RoleSlug.ADMIN)
+  @Post("")
+  @HttpCode(201)
+  async createEntity(@Body() createEntityDto: CreateEntityDto): Promise<Organization> {
+ 
+    return await this.entityService.createOne(createEntityDto );
 
-    const websites = createEntityDto.websites;
-    const createSuccess = await this.entityService.createOne(entity, websites);
-    if (!createSuccess) {
-      throw new InternalServerErrorException();
-    }
-    return true;
   }
 
   @OrganizationDocs.update()
-  @Roles("admin")
-  @Post("update")
+  @Roles(RoleSlug.ADMIN)
+  @Patch("")
+  @HttpCode(200)
   async updateEntity(@Body() updateEntityDto: UpdateEntityDto): Promise<any> {
     const entityId = updateEntityDto.entityId;
     const shortName = updateEntityDto.shortName;
     const longName = updateEntityDto.longName;
-    const defaultWebsites = updateEntityDto.defaultWebsites;
     const websites = updateEntityDto.websites;
 
-    const updateSuccess = await this.entityService.update(entityId, shortName, longName, websites, defaultWebsites);
+    const updateSuccess = await this.entityService.update(entityId, shortName, longName, websites);
     if (!updateSuccess) {
       throw new InternalServerErrorException();
     }
@@ -104,66 +67,14 @@ export class OrganizationController {
   }
 
   @OrganizationDocs.delete()
-  @Roles("admin")
-  @Post("delete")
-  async deleteEntity(@Body() deleteEntityDto: DeleteEntityDto): Promise<any> {
-    const entityId = deleteEntityDto.entityId;
-    const deleteSuccess = await this.entityService.delete(entityId);
-    if (!deleteSuccess) {
-      throw new InternalServerErrorException();
-    }
-    return true;
+  @Roles(RoleSlug.ADMIN)
+  @Delete("")
+  @HttpCode(200)
+  async deleteEntity(@Body() deleteEntityDto: DeleteEntityDto): Promise<void> {
+  const entityId = deleteEntityDto.entityId;
+  await this.entityService.delete(entityId);
+    
   }
 
-  @OrganizationDocs.deleteBulk()
-  @Roles("admin")
-  @Post("deleteBulk")
-  async deleteEntities(@Body() deleteBulkEntityDto: DeleteBulkEntityDto): Promise<any> {
-    const entitiesId = deleteBulkEntityDto.entitiesId;
-    const deleteSuccess = await this.entityService.deleteBulk(entitiesId);
-    if (!deleteSuccess) {
-      throw new InternalServerErrorException();
-    }
-    return true;
-  }
-
-  @OrganizationDocs.deletePagesBulk()
-  @Roles("admin")
-  @Post("pages/deleteBulk")
-  async deleteEntitiesPages(@Body() deleteBulkEntityDto: DeleteBulkEntityDto): Promise<any> {
-    const entitiesId = deleteBulkEntityDto.entitiesId;
-    const deleteSuccess = await this.entityService.pagesDeleteBulk(entitiesId);
-    if (!deleteSuccess) {
-      throw new InternalServerErrorException();
-    }
-    return true;
-  }
-
-  @OrganizationDocs.existsShortName()
-  @Roles("admin")
-  @Get("exists/shortName/:shortName")
-  async checkIfShortNameExists(@Param("shortName") shortName: string): Promise<any> {
-    return !!(await this.entityService.findByShortName(shortName));
-  }
-
-  @OrganizationDocs.existsLongName()
-  @Roles("admin")
-  @Get("exists/longName/:longName")
-  async checkIfLongNameExists(@Param("longName") longName: string): Promise<any> {
-    return !!(await this.entityService.findByLongName(longName));
-  }
-
-  @OrganizationDocs.websites()
-  @Roles("admin")
-  @Get("websites/:entity")
-  async getListOfEntityWebsites(@Param("entity") entity: string): Promise<any> {
-    return await this.entityService.findAllWebsites(entity);
-  }
-
-  @OrganizationDocs.pages()
-  @Roles("admin") 
-  @Get("websites/pages/:entity")
-  async getListOfEntityWebsitePages(@Param("entity") entity: string): Promise<any> {
-    return await this.entityService.findAllWebsitesPages(entity);
-  }
+ 
 }
