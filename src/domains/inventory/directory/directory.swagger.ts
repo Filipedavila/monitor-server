@@ -18,10 +18,10 @@ export const DirectoryDocs = {
       ApiResponse({ status: 403, description: "Forbidden" })
     ),
 
-  reEvaluate: () =>
+  getDirectory: () =>
     applyDecorators(
-      ApiOperation({ summary: "Reevaluate all pages from a directory" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
+      ApiOperation({ summary: "Get a specific directory" }),
+      ApiResponse({ status: 200, description: "Success", type: Directory }),
       HttpCode(200)
     ),
 
@@ -114,12 +114,7 @@ export const DirectoryDocs = {
       ApiOperation({ summary: "Count directories by search term" }),
       ApiResponse({ status: 200, description: "Success", type: Number }),
       HttpCode(200)
-    ),
+    )
 
-  findAllPaged: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find all directories with pagination and search" }),
-      ApiResponse({ status: 200, description: "Success", type: Array }),
-      HttpCode(200)
-    ),
+
 };
