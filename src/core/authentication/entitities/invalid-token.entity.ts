@@ -8,16 +8,14 @@ export class InvalidToken extends BaseModel {
     name: "token",
     type: "varchar",
     length: 1024,
-    nullable: false,
-    charset: "ascii",
-    collation: "ascii_general_ci",
+    nullable: false
   })
   token: string;
 
   @Column({
     name: "expires_at",
     type: "timestamp",
-    nullable: false,
+    nullable: false
   })
   expiresAt: Date;
 }

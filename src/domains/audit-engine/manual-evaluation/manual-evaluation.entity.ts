@@ -8,6 +8,16 @@ export enum EvaluationAspect {
   TRANSACTION = 'transaction'
 }
 
+export interface TestResultEntry {
+  group: number;
+  test: number;
+  results: string | undefined;
+  evidences: string | undefined;
+  notes: string | undefined;
+}
+
+export type RawEvaluationResult = Record<string, TestResultEntry[]>;
+
 @Entity("manual_evaluations") 
 @Index(["websiteId", "aspect"]) 
 export class ManualEvaluation extends BaseModel {
@@ -16,7 +26,7 @@ export class ManualEvaluation extends BaseModel {
   @JoinColumn({ name: "websiteId" })
   website: Website;
 
-  @Column({ name: "websiteId", type: "int", unsigned: true })
+  @Column({ name: "websiteId", type: "integer" })
   websiteId: number;
 
   @Column({
@@ -26,12 +36,17 @@ export class ManualEvaluation extends BaseModel {
   })
   aspect: EvaluationAspect;
 
-  @Column({ type: "datetime", nullable: false })
+  @Column({ type: "timestamptz", nullable: false })
   evaluationDate: Date;
 
-  @Column({ type: "double", precision: 5, scale: 2, nullable: false })
-  complianceScore: number;
+@Column({ 
+    name: "compliance_score", 
+    type: "numeric", 
+    precision: 5, 
+    scale: 2, 
+    nullable: false 
+  })  complianceScore: number;
 
-  @Column({ type: "longtext", nullable: false })
-  rawResult: string; 
+  @Column({ name: "raw_result", type: "jsonb", nullable: false })
+  rawResult: RawEvaluationResult; 
 }

@@ -147,7 +147,7 @@ async updateUser(userId: number, dto: UpdateUserDto): Promise<UserDTO> {
      */
   }
 
-  public async getUsers(securityContext: SecurityContext, query:UserQueryDTO ): Promise<{ data: UserDTO[]; count: number }> {
+  public async getUsers(securityContext: SecurityContext, query:UserQueryDTO ): Promise<{ data: UserDTO[]; meta: { totalItems: number; currentPage: number; totalPages: number; itemsPerPage: number } }> {
          return await this.userRepository.findManyCustom<UserDTO>({ filters: query.filters, sortings: query.sorts, pagination: query.pagination, securityContext },
            ["id", "username", "fullName", "email","createdAt", "updatedAt" ,  "lastLogin"], { role: [{ field: "displayName"}, { field: "description" }] });
     }

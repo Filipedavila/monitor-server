@@ -1,13 +1,13 @@
 
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {  Repository } from 'typeorm';
+import {  In, Repository } from 'typeorm';
 import { BaseTransactionalRepository } from 'src/common/repositories/base-transactional.repository';
 import { FilterMap, SortingMap } from 'src/common/repositories/base.repository';
 import { AppLoggerService } from 'src/core/app-logger/app-logger.service';
 import { ConfigService } from '@nestjs/config';
 import { BaseFilter, BaseSort, SortCriteria } from 'src/common/interfaces/types';
-import { Tag } from './tag.entity';
+import { Tag, TagContext } from './tag.entity';
  
 
 export interface TagFilter extends BaseFilter {
@@ -17,11 +17,14 @@ export interface TagFilter extends BaseFilter {
   websites?: number[];
   directories?: number[];
   isOfficial?: boolean;
+  context?: TagContext;
+  searchTerm?: string;
 }
 
 export interface TagSort extends BaseSort {
   name?: SortCriteria;
   createdAt?: SortCriteria;
+  context?: SortCriteria;
 }
 
 @Injectable()
@@ -62,6 +65,12 @@ export class TagRepository extends BaseTransactionalRepository<
     },
     isOfficial: (query, value) => {
       query.andWhere(`${this.alias}.isOfficial = :isOfficial`, { isOfficial: value });
+    },
+    context: (query, value) => {
+      query.andWhere(`${this.alias}.context = :context`, { context: value });
+    },
+    searchTerm: (query, value) => {
+      query.andWhere(`${this.alias}.name LIKE :searchTerm`, { searchTerm: `%${value}%` });
     }
   };
 
@@ -69,11 +78,16 @@ export class TagRepository extends BaseTransactionalRepository<
     id: (query, order) => this.addSort(query, 'id', order),
     name: (query, order) => this.addSort(query, 'name', order),
     createdAt: (query, order) => this.addSort(query, 'createdAt', order),
+    context: (query, order) => this.addSort(query, 'context', order),
 
   };
+  
 
   async copyExistingTagsIds(tag: Tag, type: string, tagsId: number[]): Promise<any> {
   if (type !== "official" && type !== "user") {
+    return false;
+  }
+  if (!tagsId || tagsId.length === 0) {
     return false;
   }
   this.runInTransaction(async (queryRunner) => {
@@ -81,13 +95,21 @@ export class TagRepository extends BaseTransactionalRepository<
     const newTag = await queryRunner.manager.save(Tag, tag);
 
 
-    await queryRunner.manager.query(`
-      INSERT INTO website_tags (tag_id, website_id)
-      SELECT DISTINCT ?, tw.website_id
-      FROM website_tags tw
-      WHERE tw.tag_id IN (?)
-      ON CONFLICT DO NOTHING
-    `, [newTag.id, tagsId]);
+    await queryRunner.manager
+      .createQueryBuilder()
+      .insert()
+      .into('website_tags') 
+      .values((subQuery) => {
+        return subQuery
+          .select('DISTINCT :tagId', 'tag_id')
+          .addSelect('tw.website_id', 'website_id')
+          .from('website_tags', 'tw')
+          .where('tw.tag_id IN (:...tagsId)');
+      })
+      .orIgnore() 
+      .setParameter('tagId', newTag.id)
+      .setParameter('tagsId', tagsId)
+      .execute();
       
   });
 }
@@ -124,4 +146,14 @@ async deleteBulk(tagsId: Array<number>): Promise<boolean> {
     throw new InternalServerErrorException(errorMessage);
   }
 }
+
+  async validateContextAndOwnership(tagId: number[], context: TagContext, userId: number): Promise<boolean> {
+    const result = await this.executeBatchCount(tagId, async (batch) => {  
+      const count = await this.ormRepo.count({
+        where: { id: In(batch), context: context, createdById: userId },
+      });
+      return count;
+    });
+    return result > 0;
+  }
 }

@@ -25,7 +25,7 @@ export class AccessibilityStatement extends AuditableEntity {
   @Column({ type: "varchar", length: 255, nullable: false })
   seal: string;
 
-  @Column({ name: "statement_date", type: "datetime", nullable: true })
+  @Column({ name: "statement_date", type: "timestamptz", nullable: true })
   statementDate: Date;
 
   @Column({ type: "enum", enum: State })
@@ -34,7 +34,7 @@ export class AccessibilityStatement extends AuditableEntity {
   @Column({ type: "varchar", length: 255 })
   hash: string;
 
-  @Column({ name: "last_consulted_at", type: "datetime", nullable: true })
+  @Column({ name: "last_consulted_at", type: "timestamptz", nullable: true })
   lastConsultedAt: Date;
 
 }

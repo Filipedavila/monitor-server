@@ -1,10 +1,10 @@
 import { Entity, Column, JoinTable, ManyToMany } from "typeorm";
 import { AuditableEntity } from "../../../common/entities/auditable.entity";
-export enum TagMatchingStrategy {
-  MATCH_ALL = 0, 
-  
-  MATCH_ANY = 1
-}
+
+export const TAG_MATCHING_STRATEGIES = {'MATCH_ALL': 'MATCH_ALL', 'MATCH_ANY': 'MATCH_ANY'} as const;
+
+export type TagMatchingStrategyType = typeof TAG_MATCHING_STRATEGIES[keyof typeof TAG_MATCHING_STRATEGIES];
+
 interface TagBase {
   id: number;
   name: string;
@@ -21,18 +21,16 @@ export class Directory extends AuditableEntity {
 
   @Column({
     name: "show_in_observatory",
-    type: "tinyint",
-    width: 1,
-    default: 0,
+    default: false,
   })
-  showInObservatory: number;
+  showInObservatory: boolean;
 
   @Column({
-    type: "tinyint",
-    width: 1,
-    default: 0,
+    type: "enum",
+    enum: ['MATCH_ALL', 'MATCH_ANY'],
+    default: 'MATCH_ALL',
   })
-  tagMatchingStrategy: TagMatchingStrategy;
+  tagMatchingStrategy: TagMatchingStrategyType;
 
   @ManyToMany("Tag", "Directory")
   @JoinTable({

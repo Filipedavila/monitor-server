@@ -1,7 +1,6 @@
 import { Entity, Column, ManyToMany } from "typeorm";
 import { AuditableEntity } from "../../../common/entities/auditable.entity";
-import {DeletionMetadata} from "../../../common/entities/soft-deletable.entity";
-import { BaseUser, BaseWebsite } from "src/common/types";
+import { BaseWebsite } from "src/common/types";
 
 @Entity("organizations")
 export class Organization extends AuditableEntity {

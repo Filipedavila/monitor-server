@@ -2,7 +2,6 @@ import { Role } from "../role/roles.entity";
 import { Entity, Column, ManyToMany, JoinColumn, ManyToOne, OneToOne, JoinTable } from "typeorm";
 import { AuditableEntity } from "../../../common/entities/auditable.entity";
 import {DeletionMetadata} from "../../../common/entities/soft-deletable.entity";
-import { Organization } from "../../inventory/organization/organization.entity";
 import { Team } from "../team/team.entity";
 
 @Entity("users")
@@ -75,13 +74,8 @@ export class User extends AuditableEntity {
   ccNumber: string;
   
   @ManyToMany(() => Team, (team: Team) => team.users)
-  @JoinTable({
-      name: "team_users",
-      joinColumn: { name: "user_id", referencedColumnName: "id" },
-      inverseJoinColumn: { name: "team_id", referencedColumnName: "id" },
-    })
   teams: Team[];
-
+  
   @Column(() => DeletionMetadata , { prefix: false })
   deletionMetadata: DeletionMetadata;
 }

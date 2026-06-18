@@ -25,9 +25,7 @@ export class Page extends AuditableEntity {
     name: "url_hash",
     type: "varchar",
     length: 64,
-    nullable: false,
-    charset: "ascii",
-    collation: "ascii_general_ci",
+    nullable: false
   })
   url_hash: string;
 

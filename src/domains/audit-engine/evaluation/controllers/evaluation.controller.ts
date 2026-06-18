@@ -150,7 +150,14 @@ export class EvaluationController {
     const securityContext = { user: user };
     await this.evaluationService.evaluateWebsite(websiteId, securityContext);
   }
-
-
+/* Revaluation a whole directory, requires carefull aproach, cause it can trigger thousands of evaluations, and can be a heavy load for the system.
+  @OrganizationDocs.reEvaluate()
+  @Roles("admin")
+  @Post("reEvaluate")
+  async reEvaluateWebsitePages(@Body() reevaluateEntityDto: ReevaluateEntityDto): Promise<any> {
+    const entitiesId = reevaluateEntityDto.entitiesId;
+    const option = reevaluateEntityDto.option;
+    return await this.entityService.addPagesToEvaluate(entitiesId, option);
+  }*/
 }
   

@@ -8,7 +8,7 @@ export enum EvaluationContext {
 }
 export enum SubjectType {
   ROLE = 1,
-  ORGANIZATION = 2,
+  TEAM = 2,
   USER = 3,
 }
 
@@ -64,7 +64,7 @@ export class Evaluation extends AuditableEntity {
   })
   AAA: number;
 
-  @Column({ type: 'enum', enum: EvaluationContext })
+  @Column({ name: "context", type: 'enum', enum: EvaluationContext })
   context: EvaluationContext;
 
   @Column({
@@ -83,7 +83,11 @@ export class Evaluation extends AuditableEntity {
   @Column({ name: "owner_subject_id", type: "int", unsigned: true})
   ownerSubjectId: number;
 
-  @Column({ name: "owner_type", type: "tinyint", unsigned: true })
-  ownerType: SubjectType;
+@Column({
+  name: 'owner_type',
+  type: 'enum',
+  enum: SubjectType,
+})
+ownerType: SubjectType;
 
 }

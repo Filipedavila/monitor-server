@@ -2,7 +2,7 @@ import { Injectable, ForbiddenException, NotFoundException, Inject, BadRequestEx
 
 import { Website } from "./website.entity";
 import { SecurityContext } from "src/core/authorization/SecurityContext";
-import { QueryRequest, QueryResponse } from "src/common/repositories/base.repository";
+import { QueryRequest, PaginationResponse } from "src/common/repositories/base.repository";
 import { WebsiteFilter, WebsitePagination, WebsiteRepository, WebsiteSort } from "./repositories/website.repository";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
@@ -23,7 +23,7 @@ export class WebsiteService extends BaseService {
 
   async findMany<Q extends QueryRequest<WebsiteFilter, WebsiteSort, WebsitePagination>>(
     queryArgs: Q,
-  ): Promise<QueryResponse<Website>> {
+  ): Promise<PaginationResponse<Website>> {
     
     const userId = queryArgs.securityContext?.user.id;
 

@@ -1,11 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import {
   Repository,
   DeleteResult,
   SelectQueryBuilder,
   In,
   FindOptionsWhere,
-  QueryBuilder,
+  EntityTarget,
 } from "typeorm";
 import { chunkArray } from "../utils/utils";
 import {
@@ -38,9 +38,14 @@ export interface QueryRequest<F, S, P> {
   pagination?: Partial<P>;
   securityContext?: SecurityContext; 
 }
-export interface QueryResponse<T> {
+export interface PaginationResponse<T> {
   data: T[];
-  count: number;
+  meta: {
+    currentPage: number;
+    itemsPerPage: number;
+    totalItems: number;
+    totalPages: number;
+  };
 }
 
 @Injectable()
@@ -66,6 +71,7 @@ export abstract class EntityRepository<
   protected abstract readonly alias: string;
   protected abstract readonly filterMap: FilterMap<F, T>;
   protected abstract readonly sortMap: SortingMap<S, T>;
+  protected readonly DEFAULT_BATCH_SIZE = 500;
 
 
     public getOrmRepository(): Repository<T> {
@@ -87,16 +93,30 @@ export abstract class EntityRepository<
      * @returns { data: T[]; count: number }
      */
   
-    async findMany(queryArgs: QueryRequest<F, S, P>): Promise<QueryResponse<T>> {
+    async findMany(queryArgs: QueryRequest<F, S, P>): Promise<PaginationResponse<T>> {
     const query = this.orm.createQueryBuilder(this.alias);
     this.applyDynamicFilters(query, queryArgs.filters);
     this.applyDynamicSorting(query, queryArgs.sortings);
     this.applyPagination(query, queryArgs.pagination);
     const [data, count] = await query.getManyAndCount();
-    return { data, count };
+    const metadataPagination = this.calculatePaginationMeta(
+      count,
+      queryArgs.pagination?.page ?? 1,
+      queryArgs.pagination?.limit ?? 10,
+    );
+    return { data: data, meta: metadataPagination };
   }
 
-  async findManyProjected<R>(queryArgs: QueryRequest<F, S, P>, projection: (keyof T)[]): Promise<QueryResponse<R>> {
+  calculatePaginationMeta(count: number, page: number, pageSize: number) {
+    const totalPages = Math.ceil(count / pageSize);
+    return {
+      currentPage: page,
+      itemsPerPage: pageSize,
+      totalItems: count,
+      totalPages,
+    };
+  }
+  async findManyProjected<R>(queryArgs: QueryRequest<F, S, P>, projection: (keyof T)[]): Promise<PaginationResponse<R>> {
     const query = this.orm.createQueryBuilder(this.alias);
     this.applyDynamicFilters(query, queryArgs.filters);
     this.applyDynamicSorting(query, queryArgs.sortings);
@@ -107,10 +127,15 @@ export abstract class EntityRepository<
     );
     query.select(selectColumns);
     const [entities, count] = await query.getManyAndCount();    
-    return { data: entities as unknown as R[], count };
+    const metadataPagination = this.calculatePaginationMeta(
+      count,
+      queryArgs.pagination?.page ?? 1,
+      queryArgs.pagination?.limit ?? 10,
+    );
+    return { data: entities as unknown as R[], meta: metadataPagination };
   }
 
-    async findManyCustom<R>(queryArgs: QueryRequest<F, S, P>, projection: (keyof T)[],relations: RelationProjection<T>): Promise<QueryResponse<R>> {
+    async findManyCustom<R>(queryArgs: QueryRequest<F, S, P>, projection: (keyof T)[],relations: RelationProjection<T>): Promise<PaginationResponse<R>> {
     const query = this.orm.createQueryBuilder(this.alias);
     this.applyDynamicFilters(query, queryArgs.filters);
     this.applyDynamicSorting(query, queryArgs.sortings);
@@ -133,7 +158,12 @@ export abstract class EntityRepository<
     }
   }
     const [entities, count] = await query.getManyAndCount();    
-    return { data: entities as unknown as R[], count };
+    const metadataPagination = this.calculatePaginationMeta(
+      count,
+      queryArgs.pagination?.page ?? 1,
+      queryArgs.pagination?.limit ?? 10,
+    );
+    return { data: entities as unknown as R[], meta: metadataPagination };
   }
 
 
@@ -280,4 +310,67 @@ export abstract class EntityRepository<
 
     query.addOrderBy(columnName, order);
   }
+
+async executeBatchWrite<B>(
+  items: B[],
+  processor: (batch: B[]) => Promise<void>,
+  batchSize: number = this.DEFAULT_BATCH_SIZE,
+                                    ): Promise<void> {
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+  
+    await processor(batch);
+  }
+}
+
+
+async executeBatchCount<B>(
+  items: B[],
+  processor: (batch: B[]) => Promise<number>,
+  batchSize: number = this.DEFAULT_BATCH_SIZE,
+                                    ): Promise<number> {
+  let total = 0;  
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+  
+    total += await processor(batch);
+  }
+  return total;
+}
+/*Defective TODO: FIX
+async findManyByProperties(properties: Partial<T>): Promise<T[]> {
+  const query = this.orm.createQueryBuilder(this.alias);
+
+  Object.entries(properties).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      this.addFilter(query, key as keyof T, value);
+    }
+  });
+
+  return query.getMany();
+}*/
+async validateIdsEntity<E extends BaseModel>(
+  entityClass: EntityTarget<E>, 
+  ids: number[]
+): Promise<void> {
+  if (!ids || ids.length === 0) return;
+
+  const uniqueIds = [...new Set(ids)];
+
+  await this.executeBatchCount(
+    uniqueIds,
+    async (batch: number[]): Promise<number> => {
+  
+      const count = await this.getOrmRepository().manager.getRepository(entityClass).count({
+        where: { id: In(batch) } as any, 
+      });
+
+      if (count !== batch.length) {
+        throw new BadRequestException("One or more provided IDs do not exist.");
+      }
+      return count;
+    },
+  );
+}
+    
 }

@@ -14,16 +14,16 @@ export abstract class BaseModel {
 
   @CreateDateColumn({
     name: "created_at",
-    type: "timestamp",
-    default: () => "CURRENT_TIMESTAMP(6)",
+    type: "timestamptz",
+    default: () => "CURRENT_TIMESTAMP",
   })
   createdAt: Date;
 
   @UpdateDateColumn({
     name: "updated_at",
-    type: "timestamp",
-    default: () => "CURRENT_TIMESTAMP(6)",
-    onUpdate: "CURRENT_TIMESTAMP(6)",
+    type: "timestamptz",
+    default: () => "CURRENT_TIMESTAMP",
+    onUpdate: "CURRENT_TIMESTAMP",
   })
   updatedAt: Date;
 }

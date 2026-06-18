@@ -1,10 +1,10 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { Organization } from "./organization.entity";
 import { OrganizationRequestDTO } from "./dto/request/organization-request.dto";
 import { OrganizationRepository } from "./organization.repository";
 import { OrganizationFilterDTO } from "./dto/request/organization-filter.dto";
-import { CreateEntityDto } from "./dto/create-entity.dto";
 import { FieldConflictException } from "src/common/exceptions/conflict.exception";
+import { CreateOrganizationDTO } from "./dto/create-organization.dto";
 
 
 @Injectable()
@@ -22,28 +22,33 @@ export class OrganizationService {
 
 
   async findByProperties(properties: Partial<OrganizationFilterDTO>): Promise<any> {
-    return this.organizationRepository.findOneBy(properties);
+    const organization = await this.organizationRepository.findOneBy(properties);
+    if (!organization) {
+      throw new NotFoundException("Organization not found");
+    }
+    return organization;
   }
 
 
-  async createOne(createEntityDto: CreateEntityDto): Promise<Organization> {
-    const existingOrganization = await this.organizationRepository.getOrmRepository().findOne({ where: [{ shortName: createEntityDto.shortName }, { longName: createEntityDto.longName }] });
+  async createOne(createOrganization: CreateOrganizationDTO, actorId: number): Promise<Organization> {
+    const existingOrganization = await this.organizationRepository.getOrmRepository().findOne({ where: [{ shortName: createOrganization.shortName }, { longName: createOrganization.longName }] });
     if (existingOrganization) {
       const mapConflict: Record<string, string> = {};
-      if (existingOrganization.shortName === createEntityDto.shortName) {
-        mapConflict['shortName'] = `Organization with shortName '${createEntityDto.shortName}' already exists.`;
+      if (existingOrganization.shortName === createOrganization.shortName) {
+        mapConflict['shortName'] = `Organization with shortName '${createOrganization.shortName}' already exists.`;
       }
-      if (existingOrganization.longName === createEntityDto.longName) {
-        mapConflict['longName'] = `Organization with longName '${createEntityDto.longName}' already exists.`;
+      if (existingOrganization.longName === createOrganization.longName) {
+        mapConflict['longName'] = `Organization with longName '${createOrganization.longName}' already exists.`;
       }
       throw new FieldConflictException(mapConflict);
     }
     const organization = new Organization();
-    organization.shortName = createEntityDto.shortName;
-    organization.longName = createEntityDto.longName;
-    const websites = createEntityDto.websites;
+    organization.shortName = createOrganization.shortName;
+    organization.longName = createOrganization.longName;
+    organization.createdById = actorId;
+    const websiteIds = createOrganization.websiteIds || [];
 
-    const result = await this.organizationRepository.saveWithWebsites(organization, websites);
+    const result = await this.organizationRepository.saveWithWebsites(organization, websiteIds);
     return result;
   }
 
@@ -51,9 +56,10 @@ export class OrganizationService {
     entityId: number,
     shortName: string,
     longName: string,
-    websites: number[],
+    websiteIds: number[],
+    actorId: number
   ): Promise<Organization> {
-    return this.organizationRepository.updateWithWebsites(entityId, { shortName, longName }, websites);
+    return this.organizationRepository.updateWithWebsites(entityId, { shortName, longName, updatedById: actorId }, websiteIds);
   }
 
   async delete(entityId: number): Promise<any> {

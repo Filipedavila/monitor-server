@@ -1,6 +1,6 @@
 import { IsArray, IsNotEmpty, IsNumber, IsString, Min } from "class-validator";
 
-export class ImportTagDto {
+export class ImportTagDTO {
   @IsNotEmpty({ message: "tagsId is required" })
   @IsArray({ message: "tagsId must be an array of numbers" })
   @IsNumber({}, { each: true, message: "each tagId must be a number" })

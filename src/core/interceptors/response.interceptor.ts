@@ -17,9 +17,7 @@ export interface Response<T> {
 @Injectable()
 export class ResponseTransformInterceptor<T> implements NestInterceptor<T, Response<T>> {
 intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    if (context.getType().toString() === 'graphql') {
-      return next.handle();
-    }
+
     return next.handle().pipe(
       map(result => {
         const response = context.switchToHttp().getResponse();
@@ -31,20 +29,23 @@ intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
           return { timestamp: new Date().toISOString(), data: result };
         }
 
-        const isPaginated = 'data' in result && 'count' in result;
-
+      if (result && typeof result === 'object' && 'data' in result && 'meta' in result) {        
         return {
           timestamp: new Date().toISOString(),
-          data: isPaginated ? result.data : result,
-          ...(isPaginated && {
+          data: result.data,
+          ...(result.meta && {
             pagination: {
-              total: result.count,
-//              page: result.page, 
-  //            limit: result.limit
+              totalItems: result.meta.totalItems,
+              itemCount: result.meta.itemCount,
+              itemsPerPage: result.meta.itemsPerPage,
+              totalPages: result.meta.totalPages,
+              currentPage: result.meta.currentPage,
             },
           }),
         };
-      }),
+      }
+      return { timestamp: new Date().toISOString(), data: result };
+      })
     );
   }
 }

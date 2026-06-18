@@ -1,6 +1,5 @@
 import { Entity, Column, ManyToMany, JoinTable } from "typeorm";
 import { AuditableEntity } from "../../../common/entities/auditable.entity";
-import {DeletionMetadata} from "../../../common/entities/soft-deletable.entity";
 import { BaseUser, BaseWebsite } from "src/common/types";
 
 @Entity("teams")
@@ -37,8 +36,5 @@ export class Team extends AuditableEntity {
     inverseJoinColumn: { name: "user_id", referencedColumnName: "id" },
   })
   users: BaseUser[];
-
-  @Column(() => DeletionMetadata , { prefix: false })
-  deletionMetadata: DeletionMetadata;
 
 }

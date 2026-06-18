@@ -9,7 +9,7 @@ import { TagService } from "./tag.service";
 import { Tag } from "./tag.entity";
 import { LoggingInterceptor } from "src/core/log/log.interceptor";
 
-import { ImportTagDto } from "./dto/import-tag.dto";
+import { ImportTagDTO } from "./dto/import-tag.dto";
 import { TagDocs } from "./tag.swagger";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
@@ -17,10 +17,10 @@ import { CurrentUser } from "src/core/authorization/decorators/current-user.deco
 import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 import { TagRequestDTO } from "./dto/request/tag-request.dto";
 import { BaseController } from "src/common/controllers/base.controller";
-import { CreateTagDto } from "./dto/create-tag.dto";
-import { UpdateTagDto } from "./dto/update-tag.dto";
+import { CreateTagDTO } from "./dto/create-tag.dto";
+import { UpdateTagDTO } from "./dto/update-tag.dto";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
-import { DeleteTagsDto } from "./dto/delete-tag.dto";
+import { DeleteTagsDTO } from "./dto/delete-tag.dto";
 
 @TagDocs.controller()
 @Controller("tags")
@@ -34,33 +34,40 @@ export class TagController extends BaseController {
   
   @TagDocs.findAll()
   @Get("")
-  async find(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Query() query: TagRequestDTO): Promise<any> {
-    const securityContext = { user: user };
+  @Roles(RoleSlug.ADMIN, RoleSlug.STUDY)
+  async findAllAdmin(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Query() query: TagRequestDTO): Promise<any> {
     return await this.tagService.findAll(query, user);
   }
   
+  @Get(":id")
+  @Roles(RoleSlug.ADMIN)
+  async getTag(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Param("id") tagId: number): Promise<Tag> {
+    return await this.tagService.findById(tagId, user);
+  }
+
   @TagDocs.create()
   @Post("")
-  async create(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Body() createTagDto: CreateTagDto): Promise<any> {
+  @Roles(RoleSlug.ADMIN, RoleSlug.STUDY)
+  async create(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Body() createTagDto: CreateTagDTO): Promise<any> {
+   return await this.tagService.createOne(createTagDto,user);
 
-    const createSuccess = await this.tagService.createOne(createTagDto);
-    if (!createSuccess) throw new InternalServerErrorException();
-    return true;
   }
 
   @TagDocs.update()
   @Patch("")
-  async update(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Body() updateTagDto: UpdateTagDto): Promise<Tag> {
-    return await this.tagService.update(updateTagDto);
+  @Roles(RoleSlug.ADMIN, RoleSlug.STUDY)
+  async update(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Body() updateTagDto: UpdateTagDTO): Promise<Tag> {
+
+    return await this.tagService.update(updateTagDto, user);
 
   }
 
   @TagDocs.deleteBulk()
-  @Roles(RoleSlug.ADMIN)
-  @Delete("")
+  @Roles(RoleSlug.ADMIN, RoleSlug.STUDY)
+  @Delete(":id")
   @HttpCode(204)
-  async delete(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Body() deleteTagDto: DeleteTagsDto): Promise<void> {
-    await this.tagService.deleteBulk(deleteTagDto.tagsId);
+  async delete(@CurrentUser() user: AuthenticatedUser, @Param("id") tagId: number): Promise<void> {
+    await this.tagService.deleteBulk([tagId], user);
 
   }
 
@@ -68,7 +75,7 @@ export class TagController extends BaseController {
   @TagDocs.clone()
   @Roles(RoleSlug.ADMIN)
   @Post("clone")
-  async cloneTags(@Body() importTagDto: ImportTagDto): Promise<any> {
+  async cloneTags(@Body() importTagDto: ImportTagDTO): Promise<any> {
     return await this.tagService.import(importTagDto.tagsId, importTagDto.tagName);
   }
 

@@ -68,10 +68,14 @@ export class CrawlerService extends BaseService {
         enableImplicitConversion: true,
       },
     );
-
+    const metaPagination = this.crawlWebsiteRepository.calculatePaginationMeta(
+      websitesCrawled.meta.totalItems,
+      pagination?.page ?? 1,
+      pagination?.limit ?? 10,
+    );
     return {
       data: responseDtos,
-      count: websitesCrawled.count,
+      meta: metaPagination,
     };
   }
 
@@ -194,7 +198,7 @@ export class CrawlerService extends BaseService {
       );
     }
     const crawlPages = await this.crawlPageRepository.findMany({ securityContext, filters: filter });
-    if (!crawlPages.count) {
+    if (!crawlPages.meta.totalItems) {
       throw new NotFoundException(
         "No crawl pages found for the given criteria",
       );

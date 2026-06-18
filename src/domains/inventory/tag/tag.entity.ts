@@ -4,6 +4,11 @@ import { AuditableEntity } from "../../../common/entities/auditable.entity";
 import { BaseWebsite } from "src/common/types";
 import { Directory } from "../directory/directory.entity";
 
+export enum TagContext {
+  ADMIN_AMS = 'AMS',        
+  MY_MONITOR = 'MONITOR',   
+  STUDY_MONITOR = 'STUDY'    
+}
 @Entity("tags")
 export class Tag extends AuditableEntity {
   
@@ -28,8 +33,15 @@ export class Tag extends AuditableEntity {
 
   @Column({
     name: "is_official",
-    type: "tinyint",
-    default: 0,
+    type: "boolean",
+    default: false,
   })
   isOfficial: boolean;
+
+  @Column({
+    name: "context",
+    type: "varchar",
+    length: 255,
+  })
+  context: TagContext;
 }

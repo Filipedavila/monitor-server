@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Brackets, QueryBuilder, Repository, SelectQueryBuilder } from "typeorm"; 
 import  {EntityRepository, FilterMap, 
   QueryRequest, 
-  QueryResponse, 
+  PaginationResponse, 
   SortingMap 
 } from "src/common/repositories/base.repository"; // Ajuste o path conforme sua estrutura
 import { Website } from "../website.entity";

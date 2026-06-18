@@ -3,118 +3,79 @@ import {
   ApiOperation, 
   ApiResponse, 
   ApiTags, 
-  ApiBasicAuth, 
-  ApiParam 
+  ApiBearerAuth, 
+  ApiParam,
+  ApiBody,
+  ApiQuery
 } from "@nestjs/swagger";
-import { Organization } from "./organization.entity";
-import { Website } from "src/domains/inventory/website/website.entity";
-import { Page } from "src/domains/inventory/page/page.entity";
+import { OrganizationDTO } from "./dto/organization.dto";
+import { OrganizationRequestDTO } from "./dto/request/organization-request.dto";
+import { CreateOrganizationDTO } from "./dto/create-organization.dto";
+import { UpdateOrganizationDTO } from "./dto/update-organization.dto";
 
 export const OrganizationDocs = {
   controller: () =>
     applyDecorators(
-      ApiTags("entity"),
-      ApiBasicAuth(),
-      ApiResponse({ status: 403, description: "Forbidden" })
-    ),
-
-  reEvaluate: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Reevaluate all pages from an entity list" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  totalObservatory: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find number of entities in Observatory" }),
-      ApiResponse({ status: 200, description: "Success", type: Number }),
-      HttpCode(200)
-    ),
-
-  count: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find entity by search term in AMS" }),
-      ApiResponse({ status: 200, description: "Success", type: Number }),
-      HttpCode(200)
+      ApiTags("Organizations"),
+      ApiBearerAuth(),
+      ApiResponse({ status: 401, description: "Unauthorized - Token inválido ou ausente" }),
+      ApiResponse({ status: 403, description: "Forbidden - Falta de permissões de Role" })
     ),
 
   findAllPaged: () =>
     applyDecorators(
       ApiOperation({
-        summary: "Find entity by search term, size, page, sort and sort direction in AMS",
+        summary: "Find entities by search term with pagination and sorting in AMS",
       }),
-      ApiResponse({ status: 200, description: "Success", type: Number }),
+      ApiQuery({ type: OrganizationRequestDTO }),
+      ApiResponse({ 
+        status: 200, 
+        description: "Success", 
+        schema: {
+          properties: {
+            items: { type: "array", items: { $ref: "#/components/schemas/OrganizationDTO" } },
+            total: { type: "number" },
+            page: { type: "number" },
+            size: { type: "number" }
+          }
+        }
+      }),
       HttpCode(200)
     ),
 
-  info: () =>
+  getOne: () =>
     applyDecorators(
-      ApiOperation({ summary: "Find entity info by id" }),
-      ApiResponse({ status: 200, description: "Success", type: Organization }),
+      ApiOperation({ summary: "Find entity info by ID" }),
+      ApiParam({ name: "organizationId", type: "number", description: "ID único da organização" }),
+      ApiResponse({ status: 200, description: "Success", type: OrganizationDTO }),
+      ApiResponse({ status: 404, description: "Organization not found" }),
       HttpCode(200)
     ),
 
   create: () =>
     applyDecorators(
       ApiOperation({ summary: "Create a new entity" }),
-      ApiResponse({ status: 200, description: "A new entity was created", type: Organization }),
-      HttpCode(200)
+      ApiBody({ type: CreateOrganizationDTO, description: "Dados necessários para criar uma organização" }),
+      ApiResponse({ status: 201, description: "A new entity was created successfully", type: OrganizationDTO }),
+      ApiResponse({ status: 400, description: "Bad Request - Erro de validação de DTO" }),
+      HttpCode(201)
     ),
 
   update: () =>
     applyDecorators(
       ApiOperation({ summary: "Update a specific entity" }),
-      ApiResponse({ status: 200, description: "The entity was updated", type: Organization }),
+      ApiBody({ type: UpdateOrganizationDTO, description: "Campos modificáveis da organização" }),
+      ApiResponse({ status: 200, description: "The entity was updated successfully", type: OrganizationDTO }),
+      ApiResponse({ status: 404, description: "Organization not found" }),
       HttpCode(200)
     ),
 
   delete: () =>
     applyDecorators(
       ApiOperation({ summary: "Delete a specific entity" }),
-      ApiResponse({ status: 200, description: "The entity was deleted", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  deleteBulk: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Delete a list of entities" }),
-      ApiResponse({ status: 200, description: "The entity list was deleted", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  deletePagesBulk: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Delete all pages from a list of entities" }),
-      ApiResponse({ status: 200, description: "The page list was deleted", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  existsShortName: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Check if entity exists by short-name" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  existsLongName: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Check if entity exists by long-name" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  websites: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find all the websites in a specific entity" }),
-      ApiResponse({ status: 200, description: "Success", type: [Website] }),
-      HttpCode(200)
-    ),
-
-  pages: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Find all the pages in a specific entity" }),
-      ApiResponse({ status: 200, description: "Success", type: [Page] }),
+      ApiParam({ name: "organizationId", type: "number", description: "ID único da organização" }),
+      ApiResponse({ status: 200, description: "The entity was deleted successfully" }),
+      ApiResponse({ status: 404, description: "Organization not found" }),
       HttpCode(200)
     ),
 };
