@@ -35,8 +35,6 @@ export type SubjectType = typeof FGA_RESOURCE[keyof typeof FGA_RESOURCE];
 export type ResourceType = typeof FGA_RESOURCE[keyof typeof FGA_RESOURCE];
 export type RelationType = typeof FGA_RELATION[keyof typeof FGA_RELATION];
 
-
-
 export type FgaModelMap = {
   [FGA_RESOURCE.ROLE]: 'member';
   [FGA_RESOURCE.TEAM]: 'admin' | 'member' | 'can_manage' | 'can_edit' | 'can_view';
@@ -68,15 +66,3 @@ export interface FgaTuple<T extends ResourceType> {
 }
 
 
-export function makeFgaTuple<T extends ResourceType>(
-  type: T,
-  id: string,
-  relation: FgaModelMap[Extract<T, keyof FgaModelMap>],
-  user: FgaUserIdentifier<T>
-): FgaTuple<T> {
-  return {
-    user,
-    relation,
-    object: `${type}:${id}`,
-  };
-}

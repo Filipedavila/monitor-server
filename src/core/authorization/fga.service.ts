@@ -8,12 +8,25 @@ import {
   FgaObjectIdentifier, 
   FGA_RESOURCE,
   FGA_RELATION,
+  FgaModelMap,
 } from './types/fga.types'; 
 
 @Injectable()
 export class FgaService {
   constructor(@Inject(FGA_CLIENT) private readonly fgaClient: OpenFgaClient) {}
 
+  public makeFgaTuple<T extends ResourceType>(
+  type: T,
+  id: string,
+  relation: FgaModelMap[Extract<T, keyof FgaModelMap>],
+  user: FgaUserIdentifier<T>
+): FgaTuple<T> {
+  return {
+    user,
+    relation,
+    object: `${type}:${id}`,
+  };
+}
  
   async listObjects<T extends ResourceType>(params: { 
     user: FgaUserIdentifier<T>; 
@@ -33,7 +46,7 @@ export class FgaService {
     const { allowed } = await this.fgaClient.check({ user, relation, object });
     return allowed ?? false;
   }
-
+  
 
   async createRelationship<T extends ResourceType>(
     tuple: FgaTuple<T>
@@ -54,6 +67,12 @@ export class FgaService {
   async createBatchesRelationships<T extends ResourceType>(tuples: FgaTuple<T>[]): Promise<any> {
     return this.fgaClient.write({
       writes: tuples,
+    });
+  }
+
+  async deleteBatchesRelationships<T extends ResourceType>(tuples: FgaTuple<T>[]): Promise<any> {
+    return this.fgaClient.write({
+      deletes: tuples,
     });
   }
 
