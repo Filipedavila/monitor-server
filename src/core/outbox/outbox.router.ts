@@ -36,7 +36,7 @@ export class OutboxRouter implements OnModuleInit {
 
     await queue.add(eventType, {
       outboxId,
-      ...payload
+      payload
     }, {
       jobId: outboxId
     });

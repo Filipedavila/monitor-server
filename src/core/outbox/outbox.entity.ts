@@ -16,7 +16,7 @@ export class Outbox {
   aggregateType: string;
 
   @Column({ name: 'aggregate_id' })
-  aggregateId: string;
+  aggregateId: number;
 
   @Column({ name: 'event_type' })
   eventType: string; 
