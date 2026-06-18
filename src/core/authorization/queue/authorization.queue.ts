@@ -4,45 +4,28 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm/repository/Repository.js";
 import { Outbox, OutboxStatus } from "src/core/outbox/outbox.entity";
 import { FgaService } from "../fga.service";
-interface AuthorizationJobData {
+import {   ResourcePayloadMap } from "./payload.types";
+import { AuthorizationRegistry } from "../registry/authorization.registry";
+export interface AuthorizationJobData<T extends keyof ResourcePayloadMap> {
   outboxId: string;
-  action: string;
-  fgaTuple: {
-    user: string;
-    relation: string;
-    object: string;
-  };
+  action: 'create' | 'delete'; 
+  payload: ResourcePayloadMap[T];
+  resourceType: T;
 }
 @Processor("authorization-queue")
 export class AuthorizationWorker extends WorkerHost {
   constructor(
         @InjectRepository(Outbox) private readonly outboxRepository: Repository<Outbox>,
-        private readonly fgaService: FgaService
+        private readonly registry: AuthorizationRegistry
   ) {
     super();
   }
  
-  async process(job: Job<AuthorizationJobData, any, string>): Promise<any> {
-    switch (job.data.action) {
-      case "create":
-        await this.fgaService.createRelationship({
-          user: job.data.fgaTuple.user,
-          relation: job.data.fgaTuple.relation,
-          object: job.data.fgaTuple.object,
-        } as any);
-        break;
-      case "delete":
-        await this.fgaService.deleteRelationship({
-          user: job.data.fgaTuple.user,
-          relation: job.data.fgaTuple.relation,
-          object: job.data.fgaTuple.object,
-        } as any);
-        break;
-     
+  async process(job: Job<AuthorizationJobData<keyof ResourcePayloadMap>, any, string>): Promise<any> {
+    console.log(`Processing job ${job.id} with data:`, JSON.stringify(job.data, null, 2));
+    const payload = job.data.payload;
+    await this.registry.execute(payload.resourceType, payload, );
 
-      default:
-        throw new Error(`No handler for job ${job.name}`);
-    }
     return { success: true };
   }
 

@@ -5,6 +5,7 @@ import { BullModule } from "@nestjs/bullmq";
 import { Outbox } from "../outbox/outbox.entity";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthorizationWorker } from "./queue/authorization.queue";
+import { AuthorizationRegistry } from "./registry/authorization.registry";
 
 @Global()
 @Module({
@@ -14,7 +15,7 @@ import { AuthorizationWorker } from "./queue/authorization.queue";
       name: "authorization-queue",
     }),
   ],
-  providers: [ FgaService, FgaClientProvider,AuthorizationWorker],
+  providers: [ FgaService, FgaClientProvider,AuthorizationWorker, AuthorizationRegistry ],
   exports: [ FgaService, FgaClientProvider ],
 })
 export class AuthorizationModule {}
