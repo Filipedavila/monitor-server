@@ -23,7 +23,6 @@ export class CrawlerCreateDTO {
   maxPages: number = 9999;
 
   @ApiProperty({ type: [Number], required: false })
-  @IsOptional()
   @IsArray()
   @IsInt({ each: true })
   @Type(() => Number)

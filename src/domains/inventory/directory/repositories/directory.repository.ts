@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, In, Repository } from 'typeorm';
-import { Directory, TagMatchingStrategy } from '../directory.entity';
+import { Directory, TAG_MATCHING_STRATEGIES } from '../directory.entity';
 import { BaseTransactionalRepository } from 'src/common/repositories/base-transactional.repository';
 import { FilterMap, SortingMap } from 'src/common/repositories/base.repository';
 import { BaseFilter, BaseSort, SortCriteria } from 'src/common/interfaces/types';
@@ -17,7 +17,7 @@ import { UpdateDirectory } from '../dto/update-diretory.dto';
 export interface DirectoryFilter extends BaseFilter {
   id?: number;
   name?: string;
-  showInObservatory?: number;
+  showInObservatory?: boolean;
   searchTerm?: string;
 }
 
@@ -117,7 +117,7 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
       .where('tag.id IN (:...tagIds)', { tagIds })
       .select(['w.id AS id', 'w.title AS title', 'w.baseUrl AS baseUrl']);
 
-    if (directory.tagMatchingStrategy === TagMatchingStrategy.MATCH_ALL) {
+    if (directory.tagMatchingStrategy === TAG_MATCHING_STRATEGIES.INTERSECTION) {
       query.groupBy('w.id').having('COUNT(DISTINCT tag.id) = :tagCount', { tagCount: tagIds.length });
     } else {
       query.distinct(true);
@@ -127,7 +127,6 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
     return { data: rawData, count: rawData.length };
   }
 
-  // --- Page finder ---
 
   async findPagesByDirectoryName(name: string): Promise<any[]> {
     const directory = await this.ormRepo.findOne({ where: { name }, relations: ['tags'] });
@@ -142,27 +141,26 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
       .where('p.showInMonitor = :show', { show: true })
       .groupBy('p.websiteId, p.id');
 
-    if (directory.tagMatchingStrategy === TagMatchingStrategy.MATCH_ALL) {
+    if (directory.tagMatchingStrategy === TAG_MATCHING_STRATEGIES.INTERSECTION) {
       query.having('COUNT(DISTINCT wt.tag_id) = :tagCount', { tagCount: tagIds.length });
     }
 
     return query.getMany();
   }
 
-  // --- Mutations ---
 
   async createWithTags(dto: CreateDirectory): Promise<Directory> {
     return this.runInTransaction(async (qr) => {
       const directory = this.ormRepo.create({
         name: dto.name,
-        showInObservatory: dto.observatory,
-        tagMatchingStrategy: dto.tagMatchingStrategy,
+        showInObservatory: dto.showInObservatory,
+        tagMatchingStrategy: dto.strategy,
       });
       const saved = await qr.manager.save(Directory, directory);
 
       if (dto.tags?.length) {
         const tags = await qr.manager.findBy(Tag, { id: In(dto.tags) });
-        saved.tags = tags;
+        saved.tags = tags as any[];
         await qr.manager.save(Directory, saved);
       }
 
@@ -171,28 +169,28 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
   }
 
   async updateWithTags(updateDto: UpdateDirectory): Promise<Directory> {
-  const { id, name, observatory, strategy, tags } = updateDto;
+  const { directoryId, name, showInObservatory, strategy, tags } = updateDto;
 
   return this.runInTransaction(async (qr) => {
     const updatePayload: Partial<Directory> = {};
     if (name !== undefined) updatePayload.name = name;
-    if (observatory !== undefined) updatePayload.showInObservatory = observatory;
+    if (showInObservatory !== undefined) updatePayload.showInObservatory = showInObservatory;
     if (strategy !== undefined) updatePayload.tagMatchingStrategy = strategy;
 
     if (Object.keys(updatePayload).length > 0) {
-      await qr.manager.update(Directory, { id }, updatePayload);
+      await qr.manager.update(Directory, { id: directoryId }, updatePayload);
     }
 
     const directory = await qr.manager.findOne(Directory, { 
-      where: { id }, 
+      where: { id: directoryId }, 
       relations: ['tags'] 
     });
 
-    if (!directory) throw new Error(`Directory ${id} not found`);
+    if (!directory) throw new NotFoundException(`Directory ${directoryId} not found`);
 
     if (tags !== undefined && Array.isArray(tags)) {
       const newTags = await qr.manager.findBy(Tag, { id: In(tags) });
-      directory.tags = newTags;
+      directory.tags = newTags as any[];
       await qr.manager.save(directory);
     }
 

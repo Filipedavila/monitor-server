@@ -13,7 +13,7 @@ import { Roles } from "./core/authorization/decorators/roles.decorator";
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-
+/*
   @AppDocs.getObservatoryStats()
   @Get("admin/stats/observatory")
   async getObservatoryStats(): Promise<any> {
@@ -31,7 +31,7 @@ export class AppController {
   async getMyMonitorStats(): Promise<any> {
     return await this.appService.getMyMonitorStats();
   }
-
+/*
   @AppDocs.getTotalsData()
   @Get("totals")
   async getTotalsData(): Promise<any> {
@@ -42,5 +42,5 @@ export class AppController {
   @Get("totals/practices")
   async getTotalsPracticesData(): Promise<any> {
     return await this.appService.getTotalsPracticesData();
-  }
+  }*/
 }

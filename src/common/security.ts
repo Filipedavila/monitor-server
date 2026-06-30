@@ -1,5 +1,5 @@
 import * as bcrypt from "bcrypt";
-import { createHash } from "crypto";
+import { createHash } from "node:crypto";
 
 export async function generatePasswordHash(password: string): Promise<string> {
   return bcrypt.hash(password.trim(), 10);

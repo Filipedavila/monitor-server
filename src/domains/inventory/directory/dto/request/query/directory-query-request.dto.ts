@@ -1,11 +1,11 @@
 import { IsOptional, ValidateNested } from "class-validator";
 import { DirectoryFilterDTO } from "./directory-filter.dto";
 import { DirectorySortDTO } from "./directory-sort.dto";
-import { DirectoryPaginationDTO } from "./directory-pagination.dto";
 import { Directory } from "../../../directory.entity";
 import { ResourceQueryDto } from "src/common/dto/request/query-request.dto";
+import { BasePaginationDTO } from "src/common/dto/request/base-pagination.dto";
 
-export class DirectoryQueryRequestDTO extends ResourceQueryDto<Directory, DirectoryFilterDTO, DirectorySortDTO, DirectoryPaginationDTO> {
+export class DirectoryQueryRequestDTO extends ResourceQueryDto<Directory, DirectoryFilterDTO, DirectorySortDTO, BasePaginationDTO> {
   @IsOptional()
   @ValidateNested()
   filters: DirectoryFilterDTO ;
@@ -16,5 +16,5 @@ export class DirectoryQueryRequestDTO extends ResourceQueryDto<Directory, Direct
 
   @IsOptional()
   @ValidateNested()
-  pagination: DirectoryPaginationDTO;
+  pagination: BasePaginationDTO;
 }

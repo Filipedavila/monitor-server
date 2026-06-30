@@ -1,7 +1,7 @@
 import { Factory } from "fishery";
 import { faker } from "@faker-js/faker";
 import { User } from "src/domains/identity/user/user.entity";
-import { Role } from "src/domains/identity/user/roles.entity";
+import { Role } from "src/domains/identity/role/roles.entity";
 
 interface PageTransient {
   role?: Role;

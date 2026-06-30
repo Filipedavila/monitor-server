@@ -23,7 +23,6 @@ import Joi from "joi";
         DB_PORT: Joi.number().default(3306),
         DB_USERNAME: Joi.string().required(),
         DB_PASSWORD: Joi.string().required(),
-        DB_DATABASE: Joi.string().required(),
 
         MONGO_URI: Joi.string().required(),
 

@@ -1,11 +1,12 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   Logger,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { QueryBuilder, Repository, SelectQueryBuilder } from "typeorm";
-import { CrawlerWebsite } from "../entities/crawler-website.entity";
+import { CrawlerStatus, CrawlerWebsite } from "../entities/crawler-website.entity";
 import { BaseTransactionalRepository } from "../../../../common/repositories/base-transactional.repository";
 import { FilterMap, SortingMap } from "src/common/repositories/base.repository";
 import {
@@ -16,6 +17,8 @@ import {
 } from "src/common/interfaces/types";
 import { AppLoggerService } from "src/core/app-logger/app-logger.service";
 import { ConfigService } from "@nestjs/config";
+import { ContextEnum, ContextMapByRole } from "src/domains/inventory/context/context.enum";
+import { SecurityContext } from "src/core/authentication/interfaces/types";
 
 export interface WebsiteCrawlerFilter extends BaseFilter {
   id: number;
@@ -25,16 +28,22 @@ export interface WebsiteCrawlerFilter extends BaseFilter {
   tagsId: number[];
   websiteId: number;
   websiteIds: number[];
-  isDone: boolean;
+  status: CrawlerStatus;
   searchTerm: string;
 }
 export interface WebsiteCrawlerSorting extends BaseSort {
   id: SortCriteria;
   tagId: SortCriteria;
   websiteId: SortCriteria;
-  isDone: SortCriteria;
+  status: SortCriteria;
 }
-
+type WebsiteCrawlerQueryRequest = {
+  filters: Partial<WebsiteCrawlerFilter>;
+  sortings: Partial<WebsiteCrawlerSorting>;
+  pagination: Partial<BasePagination>;
+  contexts: ContextEnum[];
+  securityContext: SecurityContext;
+};
 @Injectable()
 export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
   CrawlerWebsite,
@@ -52,7 +61,7 @@ export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
     super(ormRepo, logger, configService);
   }
   protected readonly alias = "crawlerWebsite";
-
+  protected readonly contextAlias = "crawler_website_context";
   protected readonly filterMap: FilterMap<WebsiteCrawlerFilter, CrawlerWebsite> =
     {
       id: (q, val) => this.addFilter(q, "id", val),
@@ -63,7 +72,7 @@ export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
       tagsId: (q, val) => this.addFilter(q, "tagId", val, "in"),
       websiteId: (q, val) => this.addFilter(q, "websiteId", val),
       websiteIds: (q, val) => this.addFilter(q, "websiteId", val, "in"),
-      isDone: (q, val) => this.addFilter(q, "isDone", val),
+      status: (q, val) => this.addFilter(q, "status", val),
     };
 
   protected readonly sortMap: SortingMap<WebsiteCrawlerSorting, CrawlerWebsite> =
@@ -71,9 +80,33 @@ export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
       id: (q, order) => this.addSort(q, "id", order),
       tagId: (q, order) => this.addSort(q, "tagId", order),
       websiteId: (q, order) => this.addSort(q, "websiteId", order),
-      isDone: (q, order) => this.addSort(q, "isDone", order),
+      status: (q, order) => this.addSort(q, "status", order),
     };
 
+  private applyContextIsolation(query: SelectQueryBuilder<CrawlerWebsite>, contexts: ContextEnum[], securityContext: SecurityContext): void {
+        if (contexts && contexts.length > 0) {
+          query.innerJoin(`${this.alias}.contexts`, this.contextAlias)
+               .andWhere(`${this.contextAlias}.code IN (:...contextCodes)`, { contextCodes: contexts });
+        }else{
+          const contextUser = ContextMapByRole[securityContext.user.role_slug];
+          if (!contextUser) {
+            throw new BadRequestException("User role does not have an associated context");
+          }
+          query.innerJoin(`${this.alias}.contexts`, this.contextAlias)
+               .andWhere(`${this.contextAlias}.code = :contextCode`, { contextCode: contextUser });
+        }
+      }
+  
+    public async getAllCrawlersWebsites(queryArgs:WebsiteCrawlerQueryRequest ): Promise<{ data: CrawlerWebsite[]; count: number }> {
+      const query = this.ormRepo.createQueryBuilder(`${this.alias}`);
+      this.applyContextIsolation(query, queryArgs.contexts, queryArgs.securityContext);
+      this.applyDynamicFilters(query, queryArgs.filters);
+      this.applyDynamicSorting(query, queryArgs.sortings);
+      this.applyPagination(query, queryArgs.pagination);
+  
+      const [data, count] = await query.getManyAndCount();
+      return { data, count };
+    }
   findAllWithPageCounter(): Promise<CrawlerWebsite[]> {
     return this.ormRepo
       .createQueryBuilder()
@@ -81,36 +114,7 @@ export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
       .loadRelationCountAndMap(`${this.alias}.pageCount`, `${this.alias}.pages`)
       .getMany();
   }
-  async findNextPendingByUserId(userId: number): Promise<CrawlerWebsite | null> {
-    return this.ormRepo
-      .createQueryBuilder()
-      .select()
-      .where("UserId = :userId", { userId })
-      .andWhere("Done = :done", { done: false })
-      .orderBy("Creation_Date", "ASC")
-      .limit(1)
-      .getOne();
-  }
  
-
-  async deleteByUserIdAndWebsiteId(
-    userId: number,
-    websiteId: number,
-  ): Promise<boolean> {
-    const result = await this.ormRepo
-      .createQueryBuilder()
-      .delete()
-      .from(CrawlerWebsite)
-      .where("UserId = :userId", { userId })
-      .andWhere("WebsiteId = :websiteId", { websiteId })
-      .execute();
-
-    if (result && result.affected) {
-      return result.affected > 0;
-    } else {
-      throw new InternalServerErrorException("Failed to delete crawl website");
-    }
-  }
 
   async atomicSaveMany(crawlWebsites: CrawlerWebsite[]): Promise<CrawlerWebsite[]> {
     if (!crawlWebsites?.length) return [];
@@ -129,7 +133,4 @@ export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
     return results.map((result) => ({ id: result.id, baseUrl: result.baseUrl }));
   }
 
-  applyAuthorization(query: QueryBuilder<CrawlerWebsite>, rules: any, operation: string): Promise<void> {
-      throw new Error("Method not implemented."); 
-  }
 }

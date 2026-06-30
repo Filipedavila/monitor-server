@@ -12,3 +12,9 @@ export interface BasePagination {
   page?: number;
   limit?: number;
 }
+
+
+export interface UserReference {
+  id: number;
+  username: string;
+}

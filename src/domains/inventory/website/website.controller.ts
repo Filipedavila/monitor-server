@@ -14,7 +14,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { WebsiteQueryRequestDTO } from "./dto/request/query/website-query-request.dto";
 import { WebsiteService } from "./website.service";
-import { AuthenticatedUser } from "src/core/authentication/interfaces/types";
+import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
@@ -22,6 +22,9 @@ import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { WebsiteDocs } from "./website.swagger";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
+import { UpdateWebsiteContextDto } from "./dto/update.website-context.dto";
+import { WebsiteDTO } from "./dto/website.dto";
+import { DeleteBulkWebsiteDto } from "./dto/delete-bulk-website.dto";
 
 
 @WebsiteDocs.controller()
@@ -40,7 +43,7 @@ export class WebsiteController {
     return this.websiteService.findMany({
       securityContext: { user },
       pagination: { limit: queryDto.pagination?.limit, page: queryDto.pagination?.page },
-      sorting: queryDto.sorts?.toSafeOrder(),
+      sortings: queryDto.sorts?.toSafeOrder(),
       filters: queryDto.filters,
 
     });
@@ -56,6 +59,7 @@ export class WebsiteController {
   }
 
   @WebsiteDocs.create()
+  @Roles(RoleSlug.ADMIN)
   @Post()
   async create(
     @Body() dto: CreateWebsiteDto,
@@ -63,8 +67,9 @@ export class WebsiteController {
   ) {
     return this.websiteService.createWebsite(dto, { user });
   }
-
+  
   @WebsiteDocs.update()
+  @Roles(RoleSlug.ADMIN)
   @Patch(":id")
   async update(
     @Param("id", ParseIntPipe) id: number,
@@ -78,21 +83,23 @@ export class WebsiteController {
   @WebsiteDocs.delete()
   @Delete()
   async delete(
-    @Body("ids") ids: number[],
+    @Body() deleteBulkDto: DeleteBulkWebsiteDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.websiteService.delete(ids, { user });
+    return this.websiteService.delete(deleteBulkDto.ids, { user });
   }
 
 
-  @ApiOperation({ summary: "Transfer website pages to Observatory" })
-  @Roles("monitor", "admin")
-  @Post(":id/publish")
+  @ApiOperation({ summary: "Update context of Website" })
+  @Roles(RoleSlug.ADMIN)
+  @Put(":id/contexts")
   async transfer(
     @Param("id", ParseIntPipe) id: number,
+    @Body() updateWebsiteContextDto: UpdateWebsiteContextDto,
     @CurrentUser() user: AuthenticatedUser
-  ) {
-       await this.websiteService.publishToObservatory(id, { user });
+  ): Promise<WebsiteDTO> {
+       return await this.websiteService.changeWebsiteContexts(id, updateWebsiteContextDto.contexts, user.id);
     
   }
+
 }

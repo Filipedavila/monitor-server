@@ -56,7 +56,7 @@ export class UserController {
   }
 
   @UserDocs.updateMe  
-  @Roles(RoleSlug.ADMIN, RoleSlug.MONITOR, RoleSlug.STUDY)
+  @Roles(RoleSlug.ADMIN, RoleSlug.MONITOR)
   @Patch("me") 
   async updateMe(
     @CurrentUser() user: AuthenticatedUser, 

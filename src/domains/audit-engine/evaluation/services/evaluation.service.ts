@@ -1,32 +1,28 @@
-import { ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
-import { Evaluation, EvaluationContext } from "../entities/evaluation.entity";
+import {  Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
+import { Evaluation } from "../entities/evaluation.entity";
 import { EvaluationRepository } from "../repositories/evaluation.repository";
 import { InjectQueue } from "@nestjs/bullmq";
 import { EvaluationQueryDTO } from "../dto/request/evaluation-request.dto";
 import { Page } from "src/domains/inventory/page/page.entity";
-import {
-  EvaluationResult,
-  EvaluationResultDocument,
-} from "../entities/evaluation-result.entity";
-import { Model } from "mongoose";
-import { InjectModel } from "@nestjs/mongoose";
+
 import { InjectRepository } from "@nestjs/typeorm";
 import { AppLoggerService } from "src/core/app-logger/app-logger.service";
 import { SecurityContext } from "src/core/authorization/SecurityContext";
-import { FgaService } from "src/core/authorization/fga.service";
 
 import { EvaluationStorageService } from "../evaluation-storage.service";
 import { In } from "typeorm/find-options/operator/In.js";
 import { EvaluationRequestDTO } from "../dto/EvaluationRequest.dto";
 import { RoleSlug } from "src/core/authentication/interfaces/types";
+import { EvaluationProducer } from "../evaluation.producer";
+import { ContextEnum, ContextMap } from "src/domains/inventory/context/context.enum";
 
 @Injectable()
 export class EvaluationService {
   constructor(
     private readonly evaluationRepository: EvaluationRepository,
-    @InjectModel(EvaluationResult.name)
-    private readonly resultModel: Model<EvaluationResultDocument>,
+
     @InjectRepository(Page) private readonly pageRepository: any,
+    private readonly evaluationProducer: EvaluationProducer,
     @InjectQueue("evaluation-queue-public") 
     private readonly publicEvaluationQueue: any,
     @InjectQueue("evaluation-queue-private")
@@ -40,7 +36,7 @@ export class EvaluationService {
 
   public async getEvaluations(pageId: number,securityContext: SecurityContext, query: EvaluationQueryDTO ): Promise<{ data: Evaluation[]; count: number }> {
     
-      return await this.evaluationRepository.getManyEvaluationsAMS(pageId, { filters: query.filters, sortings: query.sorts, pagination: query.pagination, securityContext });
+      return await this.evaluationRepository.getManyEvaluations(pageId, { filters: query.filters, sortings: query.sorts, pagination: query.pagination, securityContext , contexts: query.contexts });
   }
 
   
@@ -82,12 +78,12 @@ export class EvaluationService {
     const WebsiteEvaluations: Evaluation[] = pages.map((page) => {
       const newEvaluation = new Evaluation();
       newEvaluation.pageId = page.id;
-      newEvaluation.context = EvaluationContext.ADMIN_AMS
+      newEvaluation.contexts = [{id: ContextMap[ContextEnum.AMS]}] as any[];
       newEvaluation.createdById = request.userId!;
-      newEvaluation.ownerSubjectId = request.userId!;
-      newEvaluation.ownerType = 1; 
+
       return newEvaluation;
     });
+    
    const result = await this.evaluationRepository.saveMany(WebsiteEvaluations);
    if (!result) throw new InternalServerErrorException("Failed to create evaluations for the website pages");
 
@@ -123,7 +119,6 @@ export class EvaluationService {
       );
     }
 
-    await this.saveEvaluationMetadata(evaluationId, result);
 
 
     evaluation.pageTitle = result.data.title
@@ -135,21 +130,53 @@ export class EvaluationService {
     evaluation.AA = conform[1];
     evaluation.AAA = conform[2];
     evaluation.createdAt = new Date(result.data.date);
-
-    await this.evaluationRepository.save(evaluation);
-  
-
-    
-    this.evaluationStorageService.saveEvaluation(
-      {
-        evaluationId: evaluation.id,
-        websiteId: websiteId.toString(),
-        pageId: evaluation.pageId.toString(),
-        date: evaluation.createdAt.toISOString().split('T')[0],
+    const metrics: string[] = Object.entries(result.data.metrics).map(([key, value]) => (JSON.stringify({
+      evaluationId: evaluationId,
+      directoryId: 0,
+      websiteId: websiteId,
+      page_id: pageId,
+      entity_id: 0,
+      evaluationDate: new Date(result.data.date).toISOString().slice(0, 19).replace('T', ' '),
+      rule_code: key,
+      results: {
+      passed: Number(value),
+      failed: 0,
+      warning: 0,
       },
-      result.pagecode,
-      result.data.nodes,
-    );
+      score: 0,
+    })));
+
+    console.log("Métricas calculadas:", JSON.stringify(metrics, null, 2));
+
+    // transaction to save evaluation and metadata
+    await this.evaluationRepository.runInTransaction(async (queryRunner) => {
+      const savedEvaluation = await queryRunner.manager.save(Evaluation, evaluation);
+      if (!savedEvaluation) {
+        throw new InternalServerErrorException(
+          `Failed to save evaluation for page ID ${pageId}`,
+        );
+      }
+      await this.evaluationStorageService.saveEvaluation(
+        {
+          evaluationId: savedEvaluation.id,
+          websiteId: websiteId.toString(),
+          pageId: pageId.toString(),
+          date: savedEvaluation.createdAt.toISOString().split('T')[0],
+        },
+        result.pagecode,
+        result.data.nodes,
+      );
+      const idPublish =await this.evaluationProducer.publishEvaluations(
+       metrics
+      );
+      console.log("Published evaluation result with ID:", idPublish);
+      if (!idPublish) {
+        throw new InternalServerErrorException(
+          `Failed to publish evaluation result for evaluation ID ${savedEvaluation.id}`,
+        );
+      }
+    });
+  
   }
 
 
@@ -245,25 +272,6 @@ export class EvaluationService {
     };
   }
 
-  private async saveEvaluationMetadata(
-    evaluationId: number,
-    result: any,
-  ): Promise<void> {
-    const mongoDoc: any = await this.resultModel.create({
-      evaluationId,
-      url: result.data.rawUrl,
-      tot: result.data.tot,
-      errors: result.data.elems,
-      elements: result.data.elems,
-      tagCount: result.data.tot.info.cTags,
-    });
-    const resultmongoDoc = await mongoDoc.save();
-    if (!resultmongoDoc) {
-      throw new NotFoundException(
-        `Failed to save evaluation result for Evaluation ID ${evaluationId}`,
-      );
-    }
-  }
 
   async evaluatePublicRequest( url: string ): Promise<any> {
     throw new NotFoundException("Not implemented yet");

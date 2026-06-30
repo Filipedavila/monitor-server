@@ -9,14 +9,23 @@ import {
   JoinColumn,
   JoinTable,
   ManyToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+  PrimaryGeneratedColumn,
 } from "typeorm";
 import { createHash } from "node:crypto";
-import { AuditableEntity } from "../../../common/entities/auditable.entity";
-import { Team } from "src/domains/identity/team/team.entity";
+import { Auditable } from "src/common/interfaces/auditable.interface";
+import { IdentifiableModel } from "src/common/interfaces/Identifiable.interface";
+import { Context } from "../context/context.identity";
+import { User } from "src/domains/identity/user/user.entity";
+
 
 @Entity("pages")
-@Index("idx_pages_visibility", ["websiteId", "showInPublic", "showInAms", "showInMonitor"])
-export class Page extends AuditableEntity {
+export class Page  implements IdentifiableModel, Auditable {
+
+  @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
+  id: number;
+    
   @Column({ type: "text", nullable: false })
   url: string;
 
@@ -25,40 +34,26 @@ export class Page extends AuditableEntity {
     name: "url_hash",
     type: "varchar",
     length: 64,
-    nullable: false,
-    charset: "ascii",
-    collation: "ascii_general_ci",
+    nullable: false
   })
   url_hash: string;
-
-  @Column({ name: "website_id", type: "int", unsigned: true, nullable: false })
-  websiteId: number;
-
-  @Column({ name: "show_in_ams", type: "boolean", default: false })
-  showInAms: boolean;
-
-  @Column({ name: "show_in_monitor", type: "boolean", default: false })
-  showInMonitor: boolean;
-
-  @Column({ name: "show_in_public", type: "boolean", default: false })
-  showInPublic: boolean;
-
-  @Column({ name: "average_score", type: "decimal", precision: 4, scale: 1, default: 0 })
-  averageScore: number;
-
-  @Column({ name: "total_evaluations", type: "int", unsigned: true, default: 0 })
-  totalEvaluations: number;
-
+  
   @ManyToOne(() => Website, { onDelete: "CASCADE" })
   @JoinColumn({ name: "website_id" })
   website: Website;
-  @ManyToMany("Team", (team: Team) => team.pages)
+  
+  @Column({ name: "website_id", type: "int", unsigned: true, nullable: false })
+  websiteId: number;
+
+  @ManyToMany(() => Context)  
   @JoinTable({
-      name: "page_teams",
+      name: "page_contexts",
       joinColumn: { name: "page_id", referencedColumnName: "id" },
-      inverseJoinColumn: { name: "team_id", referencedColumnName: "id" },
+      inverseJoinColumn: { name: "context_id", referencedColumnName: "id" },
     })
-    teams: Team[];
+  contexts: Context[];
+
+
   @BeforeInsert()
   @BeforeUpdate()
   generateHash() {
@@ -66,4 +61,39 @@ export class Page extends AuditableEntity {
       this.url_hash = createHash("sha256").update(this.url).digest("hex");
     }
   }
+
+  
+  @CreateDateColumn({
+        name: "created_at",
+        type: "timestamptz",
+        default: () => "CURRENT_TIMESTAMP",
+      })
+  createdAt: Date;
+    
+  @UpdateDateColumn({
+        name: "updated_at",
+        type: "timestamptz",
+        default: () => "CURRENT_TIMESTAMP",
+        onUpdate: "CURRENT_TIMESTAMP",
+  })
+  updatedAt: Date;
+      
+  @Index()
+  @Column({ name: "created_by_id", type: "int", unsigned: true, nullable: true }) 
+  createdById: number;
+    
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "created_by_id" })
+  createdBy: User;
+  
+  @Index()
+  @Column({ name: "updated_by_id", type: "int", unsigned: true, nullable: true })
+  updatedById: number | null;
+  
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "updated_by_id" })
+  updatedBy: User |  null;
+  
+  
+  
 }

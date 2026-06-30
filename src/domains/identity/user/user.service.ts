@@ -12,13 +12,11 @@ import {
   createRandomUniqueHash,
   generatePasswordHash,
 } from "../../../common/security";
-import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
+import { AuthenticatedUser, RoleSlug, SecurityContext } from "src/core/authentication/interfaces/types";
 import { UserQueryDTO } from "./dto/request/user-request.dto";
-import { SecurityContext } from "src/domains/audit-engine/evaluation/controllers/evaluation.controller";
 import { UserDTO } from "./dto/user.dto";
 import { UserRepository } from "./repositories/user.repository";
 import { FgaService } from "src/core/authorization/fga.service";
-import { FGA_RESOURCE } from "src/core/authorization/types/fga.types";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { RoleService } from "../role/role.service";
@@ -147,7 +145,7 @@ async updateUser(userId: number, dto: UpdateUserDto): Promise<UserDTO> {
      */
   }
 
-  public async getUsers(securityContext: SecurityContext, query:UserQueryDTO ): Promise<{ data: UserDTO[]; count: number }> {
+  public async getUsers(securityContext: SecurityContext, query:UserQueryDTO ): Promise<{ data: UserDTO[]; meta: { totalItems: number; currentPage: number; totalPages: number; itemsPerPage: number } }> {
          return await this.userRepository.findManyCustom<UserDTO>({ filters: query.filters, sortings: query.sorts, pagination: query.pagination, securityContext },
            ["id", "username", "fullName", "email","createdAt", "updatedAt" ,  "lastLogin"], { role: [{ field: "displayName"}, { field: "description" }] });
     }

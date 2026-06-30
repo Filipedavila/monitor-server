@@ -1,8 +1,8 @@
-import { IsNotEmpty, IsNumber, IsString, IsArray, IsOptional, IsDateString } from "class-validator";
+import { IsNotEmpty, IsNumber, IsString, IsArray, IsOptional, IsDateString, Min } from "class-validator";
 import { Website } from "../website.entity";
 import { PickType } from "@nestjs/mapped-types";
 
-export class CreateWebsiteDto  extends PickType(Website, ['title', 'baseUrl', 'tags'] as const) {
+export class CreateWebsiteDto  extends PickType(Website, ['title', 'baseUrl'] as const) {
     
 
 @IsNotEmpty()
@@ -13,13 +13,13 @@ title: string;
 @IsString()
 baseUrl: string;
 
-@IsArray()
 @IsOptional()
-@IsNumber({}, { each: true })
-organizationIds: number[];
+@IsNumber({}, { message: "organizationId must be a number" })
+@Min(1, { message: "organizationId must be greater than 0" })
+organizationId:number;
 
 @IsArray()
-@IsString({ each: true })
+@IsNumber({}, { each: true, message: "each tag ID must be a number" })
 @IsOptional()
-tagsIds: string[];
+tagsIds: number[];
 }

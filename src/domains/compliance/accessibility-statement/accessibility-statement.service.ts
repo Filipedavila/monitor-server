@@ -3,7 +3,7 @@ import { State } from "./state";
 import { AccessibilityStatementDto } from "./dto/accessibility-statement.dto";
 import { AccessibilityStatementRepository } from "./accessibility-statement.repository";
 import { AccessibilityStatement } from "./entities/accessibility-statement.entity";
-import * as hash from "object-hash"; 
+import objectHash from "object-hash";
 import { AuthenticatedUser } from "src/core/authentication/interfaces/types";
 import { AccessibilityStatementQueryDTO } from "./dto/request/accessibility-statement-request.dto";
 
@@ -56,20 +56,25 @@ export class AccessibilityStatementService {
   return await this.repo.save(statement);
 }
 
-private generateHash(dto: AccessibilityStatementDto): string {
+  private generateHash(dto: AccessibilityStatementDto): string {
 
-  return hash({
-    conformance: dto.conformance,
-    evidence: dto.evidence,
-    seal: dto.seal,
-    statementDate: dto.statementDate
-  });
-}
+    return objectHash({
+      conformance: dto.conformance,
+      evidence: dto.evidence,
+      seal: dto.seal,
+      statementDate: dto.statementDate
+    });
+
+  }
+
   private calculateFlag(dto: AccessibilityStatementDto): State {
+    
     const hasConformance = !!dto.conformance;
     const hasDate = !!dto.statementDate;
+
     if (hasConformance && hasDate) return State.completeStatement;
     if (!hasConformance && !hasDate) return State.possibleStatement;
+
     return State.incompleteStatement;
   }
  

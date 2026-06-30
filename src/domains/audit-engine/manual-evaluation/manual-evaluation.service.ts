@@ -3,7 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 
 import { Website } from "../../inventory/website/website.entity";
-import { EvaluationAspect, ManualEvaluation } from "./manual-evaluation.entity";
+import { EvaluationAspect, ManualEvaluation, TestResultEntry } from "./manual-evaluation.entity";
 
 @Injectable()
 export class ManualEvaluationService {
@@ -34,7 +34,7 @@ export class ManualEvaluationService {
           ? new Date(formData["site-evaluation-date"]) 
           : new Date(),
         complianceScore: conformance, 
-        rawResult: JSON.stringify(results), 
+        rawResult: results, 
       });
       await this.aspectRepository.save(aspectResult);
       return true;
@@ -45,8 +45,8 @@ export class ManualEvaluationService {
     }
   }
 
-  private processGroups(type: EvaluationAspect, formData: any) {
-    const results = {};
+  private processGroups(type: EvaluationAspect, formData: any): { results: Record<string, TestResultEntry[]>; conformance: number } {
+    const results: Record<string, TestResultEntry[]> = {};
     let conform = 0;
     let applicable = 0;
 

@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
-import { CrawlerWebsite } from "../entities/crawler-website.entity";
+import { CrawlerStatus, CrawlerWebsite } from "../entities/crawler-website.entity";
 import { CrawlerPageRepository } from "../repositories/crawler-page.repository";
 import { CrawlerWebsiteRepository } from "../repositories/crawler-website.repository";
 import { InjectQueue } from "@nestjs/bullmq";
@@ -68,21 +68,24 @@ export class CrawlerService extends BaseService {
         enableImplicitConversion: true,
       },
     );
-
+    const metaPagination = this.crawlWebsiteRepository.calculatePaginationMeta(
+      websitesCrawled.meta.totalItems,
+      pagination?.page ?? 1,
+      pagination?.limit ?? 10,
+    );
     return {
       data: responseDtos,
-      count: websitesCrawled.count,
+      meta: metaPagination,
     };
   }
 
-  async deleteCrawler(userId: number, websiteId: number): Promise<boolean> {
+  async deleteCrawler( websiteId: number): Promise<boolean> {
     try {
       const result =
-        await this.crawlWebsiteRepository.deleteByUserIdAndWebsiteId(
-          userId,
+        await this.crawlWebsiteRepository.delete(
           websiteId,
         );
-      return result;
+      return (result?.affected ?? 0) > 0;
     } catch (err) {
       return false;
     }
@@ -194,7 +197,7 @@ export class CrawlerService extends BaseService {
       );
     }
     const crawlPages = await this.crawlPageRepository.findMany({ securityContext, filters: filter });
-    if (!crawlPages.count) {
+    if (!crawlPages.meta.totalItems) {
       throw new NotFoundException(
         "No crawl pages found for the given criteria",
       );
@@ -209,14 +212,14 @@ export class CrawlerService extends BaseService {
   }
 
   public async handleCrawl(crawlerWebsiteId: number) {
-    const website =
+    const websiteCrawler =
       await this.crawlWebsiteRepository.findById(crawlerWebsiteId);
-    if (!website) {
+    if (!websiteCrawler) {
       return;
     }
-    const urls = await this.startCrawlerWebsite(website);
+    const urls = await this.startCrawlerWebsite(websiteCrawler);
 
-    if (!website.tagId) {
+    if (!websiteCrawler.tagId) {
       for (const url of urls || []) {
         try {
           const newCrawlPage = new CrawlerPage();
@@ -228,8 +231,8 @@ export class CrawlerService extends BaseService {
           console.log(e);
         }
       }
-      website.isDone = true;
-      const websiteCrawled = await this.crawlWebsiteRepository.save(website);
+      websiteCrawler.status = CrawlerStatus.COMPLETED
+      const websiteCrawled = await this.crawlWebsiteRepository.save(websiteCrawler);
       const responseDto = plainToInstance(
         CrawlWebsiteResponseDTO,
         websiteCrawled,
@@ -237,7 +240,7 @@ export class CrawlerService extends BaseService {
       );
       this.eventEmitter.emit(
         "crawler.finished",
-        website.createdBy,
+        websiteCrawler.createdBy,
         responseDto,
       );
     }

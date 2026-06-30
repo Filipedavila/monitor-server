@@ -6,7 +6,7 @@ import { BaseFilter } from "../../interfaces/types";
 import { BaseFilterDTO } from "./base-filter.dto";
 
 
-export abstract class ResourceQueryDto<T = any, F = BaseFilterDTO<T>, S  = BaseSortDto<T>, P = BasePaginationDTO<T>> {
+export abstract class ResourceQueryDto<T = any, F = BaseFilterDTO<T>, S  = BaseSortDto<T>, P = BasePaginationDTO> {
   @IsOptional()
   @ValidateNested()
   abstract filters?: F;

@@ -1,27 +1,18 @@
-import { AuditableEntity } from "@common/entities/auditable.entity";
-import { Entity, Column, Index } from "typeorm";
+import { Auditable } from "src/common/interfaces/auditable.interface";
+import { IdentifiableModel } from "src/common/interfaces/Identifiable.interface";
+import { User } from "src/domains/identity/user/user.entity";
+import { Context } from "src/domains/inventory/context/context.identity";
+import { Entity, Column, Index, JoinColumn, ManyToOne, UpdateDateColumn, CreateDateColumn, PrimaryGeneratedColumn, ManyToMany, JoinTable, PrimaryColumn } from "typeorm";
 
-export enum EvaluationContext {
-  ADMIN_AMS = 'AMS',        
-  MY_MONITOR = 'MONITOR',   
-  STUDY_MONITOR = 'STUDY'    
-}
-export enum SubjectType {
-  ROLE = 1,
-  ORGANIZATION = 2,
-  USER = 3,
-}
 
 @Entity("evaluations")
-@Index('idx_pagination_visibility', [
-  'pageId', 
-  'isVisiblePublic', 
-  'isVisibleOrganizations', 
-  'ownerSubjectId', 
-  'ownerType'
-])
-export class Evaluation extends AuditableEntity {
+@Index('idx_evaluations_created_at', ['createdAt'])
+export class Evaluation implements IdentifiableModel,  Auditable  {
 
+  @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
+  id: number;
+  
+ 
   @Column({
     name: "page_id",
     type: "int",
@@ -64,8 +55,6 @@ export class Evaluation extends AuditableEntity {
   })
   AAA: number;
 
-  @Column({ type: 'enum', enum: EvaluationContext })
-  context: EvaluationContext;
 
   @Column({
     name: "tag_count",
@@ -74,16 +63,43 @@ export class Evaluation extends AuditableEntity {
   })
   tagCount: number;
 
-  @Column({ name: "is_visible_organizations", type: "boolean", default: false })
-  isVisibleOrganizations: boolean;
+  @ManyToMany(() => Context)
+  @JoinTable({
+    name: "evaluation_contexts",
+    joinColumn: { name: "evaluation_id", referencedColumnName: "id" },
+    inverseJoinColumn:{ name: "context_id", referencedColumnName: "id" },
+  })
+  contexts: Context[];
+  
+  @CreateDateColumn({
+         name: "created_at",
+         type: "timestamptz",
+         default: () => "CURRENT_TIMESTAMP",
+  })
+  createdAt: Date;
 
-  @Column({ name: "is_visible_public", type: "boolean", default: false })
-  isVisiblePublic: boolean;
+  @UpdateDateColumn({
+      name: "updated_at",
+      type: "timestamptz",
+      default: () => "CURRENT_TIMESTAMP",
+      onUpdate: "CURRENT_TIMESTAMP",
+  })
+  updatedAt: Date;
+    
+  @Index()
+  @Column({ name: "created_by_id", type: "int", unsigned: true, nullable: true }) 
+  createdById: number;
+  
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "created_by_id" })
+  createdBy: User;
 
-  @Column({ name: "owner_subject_id", type: "int", unsigned: true})
-  ownerSubjectId: number;
+  @Index()
+  @Column({ name: "updated_by_id", type: "int", unsigned: true, nullable: true })
+  updatedById: number | null;
 
-  @Column({ name: "owner_type", type: "tinyint", unsigned: true })
-  ownerType: SubjectType;
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "updated_by_id" })
+  updatedBy: User |  null;
 
 }

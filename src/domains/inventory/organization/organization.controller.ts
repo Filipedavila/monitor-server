@@ -4,26 +4,29 @@ import {
   HttpCode,
   Patch,
   Query,
+  Logger,
 } from "@nestjs/common";
 import { OrganizationService } from "./organization.service";
 import { Organization } from "./organization.entity";
 import { LoggingInterceptor } from "src/core/log/log.interceptor";
-import { CreateEntityDto } from "./dto/create-entity.dto";
-import { UpdateEntityDto } from "./dto/update-entity.dto";
-import { DeleteEntityDto } from "./dto/delete-entity.dto";
-import { DeleteBulkEntityDto } from "./dto/delete-bulk-entity.dto";
+import { CreateOrganizationDto } from "./dto/create-organization.dto";
+import { UpdateOrganizationDto } from "./dto/update-organization.dto";
+import { DeleteOrganizationDto } from "./dto/delete-organization.dto";
+import { DeleteBulkOrganizationDto } from "./dto/delete-bulk-organization.dto";
 import { OrganizationDocs } from "./organization.swagger";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { RoleSlug } from "src/core/authentication/interfaces/types";
 import { OrganizationRequestDTO } from "./dto/request/organization-request.dto";
+import { LoggableController } from "src/common/controllers/loggable.interface";
 
 @OrganizationDocs.controller()
 @Controller("organizations")
 @UseGuards(JwtAuthGuard,RolesGuard)
 @UseInterceptors(LoggingInterceptor)
-export class OrganizationController {
+export class OrganizationController implements LoggableController {
+  readonly logger = new Logger("OrganizationController");
   constructor(private readonly entityService: OrganizationService) {}
 
 
@@ -43,9 +46,9 @@ export class OrganizationController {
   @Roles(RoleSlug.ADMIN)
   @Post("")
   @HttpCode(201)
-  async createEntity(@Body() createEntityDto: CreateEntityDto): Promise<Organization> {
+  async createOrganization(@Body() createOrganizationDto: CreateOrganizationDto): Promise<Organization> {
  
-    return await this.entityService.createOne(createEntityDto );
+    return await this.entityService.createOne(createOrganizationDto );
 
   }
 
@@ -53,13 +56,12 @@ export class OrganizationController {
   @Roles(RoleSlug.ADMIN)
   @Patch("")
   @HttpCode(200)
-  async updateEntity(@Body() updateEntityDto: UpdateEntityDto): Promise<any> {
-    const entityId = updateEntityDto.entityId;
-    const shortName = updateEntityDto.shortName;
-    const longName = updateEntityDto.longName;
-    const websites = updateEntityDto.websites;
+  async updateOrganization(@Body() updateOrganizationDto: UpdateOrganizationDto): Promise<any> {
+    const organizationId = updateOrganizationDto.organizationId;
+    const shortName = updateOrganizationDto.shortName;
+    const longName = updateOrganizationDto.longName;
 
-    const updateSuccess = await this.entityService.update(entityId, shortName, longName, websites);
+    const updateSuccess = await this.entityService.update(organizationId, shortName, longName);
     if (!updateSuccess) {
       throw new InternalServerErrorException();
     }
@@ -70,9 +72,9 @@ export class OrganizationController {
   @Roles(RoleSlug.ADMIN)
   @Delete("")
   @HttpCode(200)
-  async deleteEntity(@Body() deleteEntityDto: DeleteEntityDto): Promise<void> {
-  const entityId = deleteEntityDto.entityId;
-  await this.entityService.delete(entityId);
+  async deleteOrganization(@Body() deleteOrganizationDto: DeleteOrganizationDto): Promise<void> {
+  const organizationId = deleteOrganizationDto.organizationId;
+  await this.entityService.delete(organizationId);
     
   }
 

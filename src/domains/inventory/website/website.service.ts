@@ -1,16 +1,16 @@
-import { Injectable, ForbiddenException, NotFoundException, Inject, BadRequestException } from "@nestjs/common";
+import { Injectable, ForbiddenException, NotFoundException } from "@nestjs/common";
 
 import { Website } from "./website.entity";
 import { SecurityContext } from "src/core/authorization/SecurityContext";
-import { QueryRequest, QueryResponse } from "src/common/repositories/base.repository";
+import { QueryRequest, PaginationResponse } from "src/common/repositories/base.repository";
 import { WebsiteFilter, WebsitePagination, WebsiteRepository, WebsiteSort } from "./repositories/website.repository";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { FgaService } from "src/core/authorization/fga.service";
 import { FGA_RELATION, FgaObjectIdentifier, FgaUserIdentifier } from "src/core/authorization/types/fga.types";
 import { BaseService } from "src/common/services/base.service";
-import { FieldConflictException } from "src/common/exceptions/conflict.exception";
-
+import { ContextEnum , ContextMap} from "../context/context.enum";
+import { WebsiteDTO } from "./dto/website.dto";
 @Injectable()
 export class WebsiteService extends BaseService {
   constructor(
@@ -21,9 +21,9 @@ export class WebsiteService extends BaseService {
   }
 
 
-  async findMany<Q extends QueryRequest<WebsiteFilter, WebsiteSort, WebsitePagination>>(
-    queryArgs: Q,
-  ): Promise<QueryResponse<Website>> {
+  async findMany(
+    queryArgs: QueryRequest<WebsiteFilter, WebsiteSort, WebsitePagination>,
+  ): Promise<PaginationResponse<Website>> {
     
     const userId = queryArgs.securityContext?.user.id;
 
@@ -49,13 +49,6 @@ export class WebsiteService extends BaseService {
 
     if (!isAdmin) {
       throw new ForbiddenException("You do not have permission to create a website");
-    }
-    const normalizedBaseUrl = this.normalizeBaseUrl(createDto.baseUrl);
-    const existingWebsite = await this.repository.findOneBy({ baseUrl: normalizedBaseUrl });
-    if (existingWebsite) {
-      throw new FieldConflictException({
-        baseUrl: "url already exists",
-      });
     }
 
     const website = this.repository.orm.create();
@@ -142,6 +135,28 @@ export class WebsiteService extends BaseService {
     } 
   }
 
+  async changeWebsiteContexts(
+    websiteId: number,
+    contexts: ContextEnum[],
+     actorId: number): Promise<WebsiteDTO> {
+    const permitted = await this.fgaService.check(
+      `user:${actorId}`,
+      'can_edit',
+      `website:${websiteId}`
+    );
+    if (!permitted) {
+      throw new ForbiddenException("You do not have permission to edit this website"); 
+
+    }
+    const website = await this.repository.findById(websiteId);
+    if (!website) {
+      throw new NotFoundException(`Website with ID ${websiteId} not found`);
+    }
+    website.contexts = contexts.map(context => ({ id: ContextMap[context] })) as any[];
+    await this.repository.save(website);
+    return website;
+  }
+
   async publishToObservatory(id: number, securityContext: SecurityContext): Promise<void> {
     const permitted = await this.fgaService.check(
       `user:${securityContext.user.id}`,
@@ -155,7 +170,7 @@ export class WebsiteService extends BaseService {
     if (!website) {
       throw new NotFoundException(`Website with ID ${id} not found`);
     }
-    website.isInObservatory = true;
+    website.contexts  =  [{id: 2}] as any[];
     await this.repository.save(website);
   }
   async isSystemAdmin(userId: string): Promise<boolean> {
@@ -166,15 +181,5 @@ export class WebsiteService extends BaseService {
   );
 }
 
-private normalizeBaseUrl(baseUrl: string): string {
-    if (baseUrl) {
-      return baseUrl
-        .trim()
-        .toLowerCase()
-        .replace(/\/+$/, "");
-    }
-    return baseUrl;
-
-    }
   
 }

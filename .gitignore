@@ -11,6 +11,6 @@ coverage/
 storage/
 migrations/
 documentation/
-
+migration/
 qualweb-errors-*.log
 tmux*.log

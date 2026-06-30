@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { ArrayMaxSize, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from "class-validator";
 
 export class UpdateTeamDTO {
   @IsOptional()
@@ -7,10 +7,13 @@ export class UpdateTeamDTO {
   @MaxLength(250)
   teamName: string;
   @IsOptional()
-  @IsString({ each: true })
-  websiteIds: string[];
+  @IsNumber({ allowNaN: false, allowInfinity: false }, { message: "Website IDs must be numbers.", each: true })
+  @ArrayMaxSize(500, { message: "Cannot add more than 500 websites at each request." })
+  @Min(1, { message: "Website IDs must be positive integers.", each: true })
+  websiteIds: number[];
   @IsOptional()
-  @IsString({ each: true })
-  userIds: string[];
-
+  @IsNumber({ allowNaN: false, allowInfinity: false }, { message: "User IDs must be numbers.", each: true })
+  @ArrayMaxSize(500, { message: "Cannot add more than 500 users at each request." })
+  @Min(1, { message: "User IDs must be positive integers.", each: true })
+  userIds: number[];
 }

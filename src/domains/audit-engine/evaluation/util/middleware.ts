@@ -34,8 +34,8 @@ function calculateConform(results: any): string {
 }
 
 function parseEvaluation(evaluation: any): any {
-  const { elements, results, nodes } = getElementsMapping(evaluation);
- 
+  const { elements, results, nodes ,metrics } = getElementsMapping(evaluation);
+  console.log("Results mapping:", JSON.stringify(elements, null, 2));
   const report: any = {};
 
   report.pagecode = evaluation.system.page.dom.html;
@@ -71,6 +71,8 @@ function parseEvaluation(evaluation: any): any {
 
   report["data"].score = generateScore(report);
   report["data"].tot.info.score = report["data"].score;
+  report["data"].metrics = metrics;
+  console.log("METRICS MAPPING:", JSON.stringify(metrics, null, 2));
   return report;
 }
 

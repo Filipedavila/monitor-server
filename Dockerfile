@@ -45,6 +45,7 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont
+    
 RUN mkdir -p error-log && chown -R node:node /app
 RUN mkdir -p storage && chown -R node:node /app/storage
 RUN mkdir -p storage/evaluations && chown -R node:node /app/storage/evaluations

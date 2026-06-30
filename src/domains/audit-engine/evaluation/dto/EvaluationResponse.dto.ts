@@ -1,6 +1,4 @@
 import { IsEnum, IsNumber, IsOptional, IsString } from "class-validator";
-import { Evaluation } from "../entities/evaluation.entity";
-import { EvaluationResult } from "../entities/evaluation-result.entity";
 
 export class EvaluationFinishedDTO {
   @IsNumber()

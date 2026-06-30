@@ -3,7 +3,7 @@ import { Page } from "./page.entity";
 import { PageRepository,PageFilter, PageSort, PagePagination } from "./page.repository";
 import { SecurityContext } from "src/core/authorization/SecurityContext";
 
-import { QueryRequest, QueryResponse } from "src/common/repositories/base.repository";
+import { QueryRequest, PaginationResponse } from "src/common/repositories/base.repository";
 import { CreatePageDto } from "./dto/create-page.dto";
 import { FgaService } from "src/core/authorization/fga.service";
 
@@ -17,7 +17,7 @@ export class PageService {
 
   async findAll(
     queryArgs: QueryRequest<PageFilter, PageSort, PagePagination>
-  ): Promise<QueryResponse<Page>> {
+  ): Promise<PaginationResponse<Page>> {
     // TODO  : Authorization logic with FGA
     const userId = queryArgs.securityContext?.user.id;
 
@@ -50,7 +50,7 @@ export class PageService {
     url,
   }));
   if (rawPages.length === 0) return [];
-  return await this.pageRepo.createPagesWithOutbox(dto.websiteId.toString(), dto.pagesUrl);
+  return await this.pageRepo.createPagesWithOutbox(dto.websiteId, dto.pagesUrl);
   }
 
   async findPageById(id: number, securityContext: SecurityContext): Promise<Page> {

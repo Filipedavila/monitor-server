@@ -46,16 +46,18 @@ async function bootstrap() {
   app.useLogger(logger);
 
   const config = new DocumentBuilder()
+  
     .setTitle("Monitor server")
     .setDescription("The Monitor Server API description")
     .setVersion("2.0")
     .addTag("website")
     .build();
-  const document = SwaggerModule.createDocument(app, config);
+
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: "2",
   });
+  const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("api", app, document);
   app.useGlobalFilters(
     new GlobalExceptionFilter(logger),   

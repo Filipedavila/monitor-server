@@ -1,6 +1,7 @@
 import { BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
-import { IsArray, IsBoolean, IsDate, IsNumber, IsOptional, IsString } from "class-validator";
-import { Tag } from "../../tag.entity";
+import { IsArray, IsBoolean, IsDate, IsEnum, IsNumber, IsOptional, IsString } from "class-validator";
+import { Tag} from "../../tag.entity";
+import { ContextEnum } from "src/domains/inventory/context/context.enum";
 
 export class TagFilterDTO extends BaseFilterDTO<Tag> implements Partial<Pick<Tag, 'id' | 'name' | 'createdAt' | 'createdById' | 'updatedAt'>> {
 
@@ -28,6 +29,10 @@ export class TagFilterDTO extends BaseFilterDTO<Tag> implements Partial<Pick<Tag
   directories?: number[];
 
   @IsOptional()
-  @IsBoolean({ message: "isOfficial must be a boolean" })
-  isOfficial?: boolean;
+  @IsEnum(ContextEnum, { message: "context must be a valid TagContext" })
+  context: ContextEnum;
+
+  @IsOptional()
+  @IsString({ message: "searchTerm must be a string" })
+  searchTerm?: string;
 }

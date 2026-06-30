@@ -1,16 +1,14 @@
 import {
-  Controller, InternalServerErrorException, Post, Get, Param, UseGuards, UseInterceptors, Body, HttpCode,
+  Controller,  Post, Get, Param, UseGuards, UseInterceptors, Body, HttpCode,
   Query,
   Patch,
   Delete,
   ParseIntPipe,
 } from "@nestjs/common";
 import { DirectoryService } from "./directory.service";
-import { Directory } from "./directory.entity";
 import { LoggingInterceptor } from "src/core/log/log.interceptor";
 import { CreateDirectory } from "./dto/create-diretory.dto";
 import { UpdateDirectory } from "./dto/update-diretory.dto";
-import { DeleteDirectory } from "./dto/delete-diretory.dto";
 import { DirectoryDocs } from "./directory.swagger";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
@@ -18,9 +16,10 @@ import { DirectoryQueryRequestDTO } from "./dto/request/query/directory-query-re
 import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
 import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
-
+import { DirectoryDTO } from "./dto/directory.dto";
+import { PaginationResponse } from "src/common/repositories/base.repository";
 @DirectoryDocs.controller()
-@Controller("directory")
+@Controller("directories")
 @UseGuards(JwtAuthGuard,RolesGuard)
 @UseInterceptors(LoggingInterceptor)
 export class DirectoryController {
@@ -32,28 +31,34 @@ export class DirectoryController {
   async getAllDirectoriesPaginated(
     @CurrentUser( ) user: AuthenticatedUser,
     @Query() query: DirectoryQueryRequestDTO,
-  ): Promise<any> {
+  ): Promise<PaginationResponse<DirectoryDTO>> {
     const securityContext = { user: user };
     return await this.directoryService.findAll(
      query,
      securityContext
     );
+  } 
+ 
+  @DirectoryDocs.getDirectory()
+  @Roles(RoleSlug.ADMIN)
+  @Get(":directoryId")
+  async getDirectoryInfo(@Param("directoryId", ParseIntPipe) directoryId: number): Promise<DirectoryDTO> {
+    return await this.directoryService.getDirectory(directoryId);
   }
   @DirectoryDocs.create()
   @Roles(RoleSlug.ADMIN)
   @Post("")
-  async createDirectory(@Body() createDirectory: CreateDirectory): Promise<Directory> {
+  async createDirectory(@Body() createDirectory: CreateDirectory): Promise<DirectoryDTO> {
     
     return await this.directoryService.createOne(createDirectory);
 
   }
 
 
-
   @DirectoryDocs.update()
   @Roles(RoleSlug.ADMIN)
   @Patch("")
-  async updateDirectory(@Body() updateDirectory: UpdateDirectory): Promise<any> {
+  async updateDirectory(@Body() updateDirectory: UpdateDirectory): Promise<DirectoryDTO> {
 
     return await this.directoryService.update(updateDirectory);
 
@@ -61,21 +66,14 @@ export class DirectoryController {
 
   @DirectoryDocs.delete()
   @Roles(RoleSlug.ADMIN)
-  @Delete("")
+  @Delete(":directoryId")
   @HttpCode(204)
-  async deleteDirectory(@Body() deleteDirectory: DeleteDirectory, @CurrentUser() user: AuthenticatedUser): Promise<any> {
+  async deleteDirectory(@Param("directoryId", ParseIntPipe) directoryId: number, @CurrentUser() user: AuthenticatedUser): Promise<void> {
     const securityContext = { user: user };
-    const directoryId = deleteDirectory.directoryId;
     await this.directoryService.delete([directoryId],securityContext);
   }
 
 
-  @DirectoryDocs.getDirectory()
-  @Roles(RoleSlug.ADMIN)
-  @Get(":directoryId")
-  async getDirectoryInfo(@Param("directoryId", ParseIntPipe) directoryId: number): Promise<any> {
-    return await this.directoryService.getDirectory(directoryId);
-  }
 
   
 }

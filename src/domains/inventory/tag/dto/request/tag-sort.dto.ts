@@ -4,7 +4,7 @@ import { Type } from "class-transformer";
 import { Tag } from "../../tag.entity";
 
 export class TagSortItem {
-  @IsIn(["id", "name", "createdAt", "createdById", "updatedAt"])
+  @IsIn(["id", "name", "createdAt", "createdById", "updatedAt", "contexts"])
   @IsString()
   field: keyof Tag; 
 
@@ -19,6 +19,6 @@ export class TagSortDTO extends BaseSortDto<Tag> {
   @Type(() => TagSortItem) 
   sorts?: TagSortItem[];
     getAllowedFields(): (keyof Tag)[] {
-        return ["id", "name", "createdAt", "createdById", "updatedAt"];
+        return ["id", "name", "createdAt", "createdById", "updatedAt", "contexts"];
     }
 }

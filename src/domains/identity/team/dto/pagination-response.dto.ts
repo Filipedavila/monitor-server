@@ -1,7 +1,12 @@
-import { PaginationResponse } from "src/core/types";
+import { PaginationResponse } from "@common/repositories/base.repository";
 import { TeamDTO } from "./team.dto";
 
 export class TeamPaginationResponse implements PaginationResponse<TeamDTO> {
   data: TeamDTO[];
-  count: number;
+  meta: {
+    totalItems: number;
+    currentPage: number;
+    totalPages: number;
+    itemsPerPage: number;
+  };  
 }

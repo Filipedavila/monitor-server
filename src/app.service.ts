@@ -1,7 +1,6 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { DirectoryService } from "./domains/inventory/directory/directory.service";
 import { TagService } from "./domains/inventory/tag/tag.service";
-import { OrganizationService } from "./domains/inventory/organization/organization.service";
 import { WebsiteService } from "./domains/inventory/website/website.service";
 import { PageService } from "./domains/inventory/page/page.service";
 import { UserService } from "./domains/identity/user/user.service";
@@ -145,15 +144,15 @@ export class AppService implements OnModuleInit {
     };
     */
   }
-
+/*
   async getTotalsData(): Promise<any> {
     // Return new comprehensive structure including ALL system data
     // (observatory + mymonitor + AMS-only data)
     return await this.observatoryService.buildComprehensiveTotals();
   }
-
+/*
   async getTotalsPracticesData(): Promise<any> {
     // Return practice table data from all system data
     return await this.observatoryService.buildComprehensivePracticesData();
-  }
+  }*/
 }

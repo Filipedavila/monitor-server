@@ -14,7 +14,7 @@ export class UpdateUserDto {
   email: string;
   @IsString({ message: "Role must be a string." })
   @IsOptional()
-  @IsIn([RoleSlug.ADMIN, RoleSlug.STUDY, RoleSlug.MONITOR],
+  @IsIn([RoleSlug.ADMIN, RoleSlug.MONITOR],
      { message: "Role must be one of the following values: nimda, study, monitor." })
   role: string;
     

@@ -14,8 +14,8 @@ export class CreateUserDto {
   email: string;
   @IsString({ message: "Role must be a string." })
   @IsNotEmpty({ message: "Role is required." })
-  @IsIn([RoleSlug.ADMIN, RoleSlug.STUDY, RoleSlug.MONITOR],
-     { message: "Role must be one of the following values: nimda, study, monitor." })
+  @IsIn([RoleSlug.ADMIN, RoleSlug.MONITOR],
+     { message: "Role must be one of the following values: nimda,  monitor." })
   role: string;
 
   @IsOptional()

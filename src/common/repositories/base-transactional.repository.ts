@@ -4,11 +4,11 @@ import { IsolationLevel } from "typeorm/driver/types/IsolationLevel.js";
 
 import { BaseFilter, BasePagination, BaseSort } from "../interfaces/types";
 import { AppLoggerService } from "@core/app-logger/app-logger.service";
-import { BaseModel } from "../entities/base.entity";
+import { IdentifiableModel } from "../interfaces/Identifiable.interface";
 import { ConfigService } from "@nestjs/config";
 
 export abstract class BaseTransactionalRepository<
-  T extends BaseModel,
+  T extends IdentifiableModel,
   F extends BaseFilter = BaseFilter,
   S extends BaseSort = BaseSort,
   P extends BasePagination = BasePagination,

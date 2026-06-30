@@ -1,22 +1,25 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { Brackets, QueryBuilder, Repository, SelectQueryBuilder } from "typeorm"; 
 import  {EntityRepository, FilterMap, 
   QueryRequest, 
-  QueryResponse, 
+  PaginationResponse, 
   SortingMap 
-} from "src/common/repositories/base.repository"; // Ajuste o path conforme sua estrutura
+} from "src/common/repositories/base.repository"; 
 import { Website } from "../website.entity";
 import { BaseFilter, BasePagination, BaseSort } from "src/common/interfaces/types";
 import { AppLoggerService } from "src/core/app-logger/app-logger.service";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { FgaService } from "src/core/authorization/fga.service";
+import { ContextEnum, ContextMap, ContextMapByRole } from "../../context/context.enum";
+import { WebsiteQueryRequestDTO } from "../dto/request/query/website-query-request.dto";
+import { SecurityContext } from "src/core/authorization/SecurityContext";
+import { RoleSlug } from "src/core/authentication/interfaces/types";
 
 
 export interface WebsiteFilter extends BaseFilter {
   searchTerm?: string;
   baseUrl?: string;
-  institutionId?: number;
 }
 
 export interface WebsiteSort extends BaseSort {
@@ -30,7 +33,13 @@ export interface WebsiteSort extends BaseSort {
 export interface WebsitePagination extends BasePagination {
 
 }
-
+type WebsiteQueryRequest = {
+  filters: Partial<WebsiteFilter>;
+  sortings: Partial<WebsiteSort>;
+  pagination: Partial<WebsitePagination>;
+  contexts: ContextEnum[];
+  securityContext: SecurityContext;
+};
 @Injectable()
 export class WebsiteRepository extends EntityRepository<
   Website,
@@ -39,6 +48,8 @@ export class WebsiteRepository extends EntityRepository<
   WebsitePagination
 > {
   protected readonly alias = 'w'; 
+    protected readonly contextAlias = "website_context";
+
   constructor(
     @InjectRepository(Website)
     public readonly orm: Repository<Website>,
@@ -62,11 +73,8 @@ export class WebsiteRepository extends EntityRepository<
     baseUrl: (query, value) => {
       query.andWhere(`${this.alias}.base_url = :baseUrl`, { baseUrl: value });
     },
-    institutionId: (query, value) => {
-      query.innerJoin(`${this.alias}.institutions`, 'inst')
-           .andWhere('inst.id = :instId', { instId: value });
-    },
-  };
+
+ };
 
   protected readonly sortMap: SortingMap<WebsiteSort, Website> = {
     id: (query, order) => this.addSort(query, 'id', order),
@@ -74,19 +82,57 @@ export class WebsiteRepository extends EntityRepository<
     score: (query, order) => query.addOrderBy(`${this.alias}.averageScore`, order),
     createdAt: (query, order) => this.addSort(query, 'createdAt', order),
     updatedAt: (query, order) => this.addSort(query, 'updatedAt', order),
-    createdBy: (query, order) => query.addOrderBy(`${this.alias}.createdById`, order)
+    createdBy: (query, order) => query.addOrderBy(`${this.alias}.createdById`, order),
   };
 
 
+    private applyPaginationConstraints(query: SelectQueryBuilder<Website>, contexts: ContextEnum[], securityContext: SecurityContext): void {
+      if (contexts && contexts.length > 0) {
+        query.innerJoin(`${this.alias}.contexts`, this.contextAlias)
+             .andWhere(`${this.contextAlias}.code IN (:...contextCodes)`, { contextCodes: contexts });
+      }else{
+        const contextUser = ContextMapByRole[securityContext.user.role_slug];
+        if (!contextUser) {
+          throw new BadRequestException("User role does not have an associated context");
+        }
+        query.innerJoin(`${this.alias}.contexts`, this.contextAlias)
+             .andWhere(`${this.contextAlias}.code = :contextCode`, { contextCode: contextUser });
+      }
+      if (securityContext.user.role_slug !== RoleSlug.ADMIN) {
+       const userId = securityContext.user.id;
+      query.andWhere(
+        new Brackets((qb) => {
+          qb.where(
+            `EXISTS (
+              SELECT 1 FROM user_websites uw 
+              WHERE uw.website_id = ${this.alias}.id AND uw.user_id = :userId
+            )`
+          )
+          .orWhere(
+            `EXISTS (
+              SELECT 1 FROM team_websites tw 
+              JOIN user_teams ut ON ut.team_id = tw.team_id 
+              WHERE tw.website_id = ${this.alias}.id AND ut.user_id = :userId
+            )`
+          );
+        }),
+        { userId }
+      );
 
-  public async applyAuthorization(query: SelectQueryBuilder<Website>, rules: any): Promise<void> {
-    const queryuserId = rules.principal.id;
-     const allowedIds = await this.fgaService.listObjects({
-      user: `user:${queryuserId}`,
-      relation: 'can_view',
-      type: 'website',
-      });
-    };
-  }
+      }
+    }
+  
+    public async getManyEvaluations(pageId: number, queryArgs: WebsiteQueryRequest ): Promise<{ data: Website[]; count: number }> {
+      const query = this.orm.createQueryBuilder(`${this.alias}`);
+      query.where({pageId : pageId});
+      this.applyPaginationConstraints(query, queryArgs.contexts, queryArgs.securityContext);
+      this.applyDynamicFilters(query, queryArgs.filters);
+      this.applyDynamicSorting(query, queryArgs.sortings);
+      this.applyPagination(query, queryArgs.pagination);
+  
+      const [data, count] = await query.getManyAndCount();
+      return { data, count };
+    }
+}
   
 

@@ -7,7 +7,12 @@ export class CrawlWebsitesResponseDTO {
   data: CrawlWebsiteResponseDTO[];
 
   @Expose()
-  count: number;
+  meta: {
+    totalItems: number;
+    currentPage: number;
+    totalPages: number;
+    itemsPerPage: number;
+  };
 }
 
 export class CrawlWebsiteResponseDTO {
