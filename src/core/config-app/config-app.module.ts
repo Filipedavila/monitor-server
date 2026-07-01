@@ -25,8 +25,6 @@ import Joi from "joi";
         DB_PASSWORD: Joi.string().required(),
         DB_DATABASE: Joi.string().required(),
 
-        MONGO_URI: Joi.string().required(),
-
         PAGINATION_MAX_LIMIT: Joi.number()
           .integer()
           .min(10)
