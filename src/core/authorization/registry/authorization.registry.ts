@@ -1,58 +1,190 @@
 import { Injectable } from "@nestjs/common";
 import { FgaService } from "../fga.service";
-import {  FGA_RESOURCE ,FgaTuple,ResourceType} from "../types/fga.types";
-import {  AuthAction, ResourcePayloadMap, TeamsPayload, UserPayload, WebsitePayload } from "../queue/payload.types";
+import { AssignationRelationType, FgaTupleAssign, FgaTupleEnquire} from "../types/fga.types";
+import {   MapPermissionsRoles, PermissionKey, RegistryHandlers, TeamsPayload, UserPayload, WebsiteCreatePayload, WebsitePayload, WebsiteUserPayload } from "../queue/payload.types";
+import { AUTHORIZATION_ACTION } from "./registry.keys";
+import { RoleSlug } from "src/core/authentication/interfaces/types";
+
 
 @Injectable()
 export class AuthorizationRegistry {
   constructor(private readonly fgaService: FgaService) {}
 
-  private readonly handlers: {
-      [K in keyof ResourcePayloadMap]: (payload: ResourcePayloadMap[K]) => Promise<void>
-    } = {
-      [FGA_RESOURCE.TEAM]: async (payload: TeamsPayload) => {
-        const { teamId, websiteIds, userIds, action } = payload;
-      
-        const tuples: FgaTuple<any>[] =  [
-        ];
-          if (websiteIds) {
-            for (const websiteId of websiteIds) {
-              const tuple = this.fgaService.makeFgaTuple( FGA_RESOURCE.WEBSITE, `${websiteId}` , 'parent', `team:${teamId}`);
-              tuples.push(tuple);
-            }
-          }
-          if (userIds) {
-            for (const userId of userIds) {
-              const tuple = this.fgaService.makeFgaTuple( FGA_RESOURCE.TEAM, `${teamId}` , 'member', `user:${userId}`);
-              tuples.push(tuple);
-            }
-          }
-          await this.applyBatch(action, tuples);
-            
-       },
-      [FGA_RESOURCE.USER]: async (payload: UserPayload,) => { 
-        
+  private readonly registry: {
+    [K in keyof RegistryHandlers]: (payload: RegistryHandlers[K]) => Promise<void>
+  } = {
+    [AUTHORIZATION_ACTION.USER_CREATE]: async (payload: UserPayload) => {
+      const permission = MapPermissionsRoles[payload.permission];
+      const role = payload.role === RoleSlug.MONITOR ? RoleSlug.MONITOR : 'ams';
 
-      },
-      [FGA_RESOURCE.WEBSITE]: async (payload: WebsitePayload) => { 
-        
+      if (!permission) throw new Error(`Invalid permission: ${payload.permission}`);
+      await this.fgaService.createRelationship(this.fgaService.makeFgaTuple(
+        'role',
+        role,
+        permission,
+        `user:${payload.userId}`
+      ));
+     },
+    [AUTHORIZATION_ACTION.USER_DELETE]: async (payload: UserPayload) => { 
 
-      },
-      
-      
-    };
+      await this.fgaService.purgeAllTuplesForUser(payload.userId);
+
+     },
+    [AUTHORIZATION_ACTION.USER_UPDATE]: async (payload: UserPayload) => { 
+     const permission = MapPermissionsRoles[payload.permission];
+     const role = payload.role === RoleSlug.MONITOR ? RoleSlug.MONITOR : 'ams';
+      await this.fgaService.removeUserRelations(
+              'role',
+              payload.userId.toString(),
+              role,
+              ['manager', 'editor', 'viewer']
+            )
+
+     if (!permission) throw new Error(`Invalid permission: ${payload.permission}`);
+     await this.fgaService.createRelationship(this.fgaService.makeFgaTuple(
+       'role',
+       role,
+       permission,
+       `user:${payload.userId}`
+     ));
+
+     },
+    [AUTHORIZATION_ACTION.TEAM_CREATE]: async (payload: TeamsPayload) => {  
+      await this.fgaService.createRelationship(this.fgaService.makeFgaTuple(
+        'team',
+        payload.teamId.toString(),
+        'team_role',
+        `role:monitor`
+      ));
+      await this.fgaService.createRelationship(this.fgaService.makeFgaTuple(
+        'team',
+        payload.teamId.toString(),
+        'admin_role',
+        `role:ams`
+      ));
+
+    },
+    [AUTHORIZATION_ACTION.TEAM_DELETE]: async (payload: TeamsPayload) => {
+      const tuples: FgaTupleEnquire<any>[] = [
+        this.fgaService.makeFgaTuple(
+          'team',
+          payload.teamId.toString(),
+          'team_role',
+          `role:monitor`
+        )
+      ];
+      await this.fgaService.deleteBatchesRelationships(tuples);
+      await this.fgaService.createRelationship(this.fgaService.makeFgaTuple(
+        'team',
+        payload.teamId.toString(),
+        'admin_role',
+        `role:ams`
+      ));
+    },
+    [AUTHORIZATION_ACTION.TEAM_ADD_MEMBER]: async (payload: TeamsPayload) => { 
+      const tuples: FgaTupleEnquire<any>[] = payload.userIds?.map(userId =>
+        this.fgaService.makeFgaTuple(
+          'team',
+          payload.teamId.toString(),
+          'member',
+          `user:${userId}`
+        )
+      ) || [];
+      await this.fgaService.createBatchesRelationships(tuples);
+    },
+    [AUTHORIZATION_ACTION.TEAM_REMOVE_MEMBER]: async (payload: TeamsPayload) => { 
+      const tuples: FgaTupleEnquire<any>[] = payload.userIds?.map(userId =>
+              this.fgaService.makeFgaTuple(
+                'team',
+                payload.teamId.toString(),
+                'member',
+                `user:${userId}`
+              )
+            ) || [];
+            await this.fgaService.deleteBatchesRelationships(tuples);
+
+     },
+    [AUTHORIZATION_ACTION.TEAM_ADD_WEBSITE]: async (payload: TeamsPayload) => { 
+      const tuples: FgaTupleEnquire<any>[] = payload.websiteIds?.map(websiteId =>
+              this.fgaService.makeFgaTuple(
+                'website',
+                websiteId.toString(),
+                'parent',
+                `team:${payload.teamId}`
+              )
+            ) || [];
+            await this.fgaService.createBatchesRelationships(tuples);
+
+     },
+    [AUTHORIZATION_ACTION.TEAM_REMOVE_WEBSITE]: async (payload: TeamsPayload) => { 
+      const tuples: FgaTupleEnquire<any>[] = payload.websiteIds?.map(websiteId =>
+              this.fgaService.makeFgaTuple(
+                'website',
+                websiteId.toString(),
+                'parent',
+                `team:${payload.teamId}`
+              )
+            ) || [];
+            await this.fgaService.deleteBatchesRelationships(tuples);
+
+     },
+    
+    [AUTHORIZATION_ACTION.USER_ADD_WEBSITE]: async (payload: WebsiteUserPayload) => { 
+             await Promise.all(
+          payload.websiteIds.map(websiteId =>
+            this.fgaService.removeUserRelations(
+              'website',
+              payload.userId.toString(),
+              websiteId.toString(),
+              ['viewer', 'editor', 'manager']
+            )
+          )
+        );
+
+        const tuples = payload.websiteIds.map(websiteId =>
+          this.fgaService.makeFgaTuple(
+            'website',
+            websiteId.toString(),
+            payload.permission,
+            `user:${payload.userId}`
+          )
+        );
+            await this.fgaService.createBatchesRelationships(tuples);
+
+     },
+
+    [AUTHORIZATION_ACTION.USER_REMOVE_WEBSITE]: async (payload: WebsiteUserPayload) => { 
+       await Promise.all(
+          payload.websiteIds.map(websiteId =>
+            this.fgaService.removeUserRelations(
+              'website',
+              payload.userId.toString(),
+              websiteId.toString(),
+              ['viewer', 'editor', 'manager']
+            )
+          )
+    );          
+
+     },
+    [AUTHORIZATION_ACTION.WEBSITE_CREATE]: async (payload: WebsiteCreatePayload) => { 
+        await this.fgaService.createRelationship(this.fgaService.makeFgaTuple(
+        'website',
+        payload.resourceId.toString(),
+        'admin_role',
+        `role:ams`
+      ));
+     },
+    [AUTHORIZATION_ACTION.WEBSITE_DELETE]: async (payload: WebsitePayload) => { 
+      await Promise.all(
+        payload.websiteIds.map((id)=>this.fgaService.deleteResourceTuples(`website:${id}`))
+      )
+     },
+  };
       
 
-  async execute(type: ResourceType, payload: any): Promise<void> {
-    const handler = this.handlers[type];
+  async execute<K extends keyof RegistryHandlers>(type: K, payload: RegistryHandlers[K]): Promise<void> {
+    const handler = this.registry[type];
     if (!handler) throw new Error(`No handler for resource: ${type}`);
     await handler(payload);
   }
-
-  private async applyBatch(action: AuthAction, tuples: FgaTuple<any>[]) {
-  if (tuples.length === 0) return;
-  return action === 'create' 
-    ? await this.fgaService.createBatchesRelationships(tuples)
-    : await this.fgaService.deleteBatchesRelationships(tuples);
-}
 }

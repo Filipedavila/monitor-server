@@ -1,4 +1,6 @@
-import {  FGA_RESOURCE,ResourceType } from "../types/fga.types";
+import { RoleSlug } from "src/core/authentication/interfaces/types";
+import { AUTHORIZATION_ACTION, RegistryKey } from "../registry/registry.keys";
+import {  AssignationRelationType, FGA_RESOURCE,ResourceType } from "../types/fga.types";
 
 
 export const AuthorizationEvent = {
@@ -7,28 +9,52 @@ export const AuthorizationEvent = {
 
 export type AuthorizationEventType = typeof AuthorizationEvent[keyof typeof AuthorizationEvent];
 
-export interface PublishEventAuthOptions<T extends keyof ResourcePayloadMap> {
-  aggregateType: T;
-  aggregateId: number;
-  eventType:  AuthorizationEventType;
-  payload: ResourcePayloadMap[T];
-}
-export interface ResourcePayloadMap {
-  [FGA_RESOURCE.TEAM]: TeamsPayload;
-  [FGA_RESOURCE.WEBSITE]: WebsitePayload;
-  [FGA_RESOURCE.USER]: UserPayload;
+export interface PublishEventAuthOptions<T extends keyof RegistryHandlers> {
+    aggregateType: string;
+    aggregateId: number;
+    action: RegistryKey;
+    eventType:  AuthorizationEventType;
+    payload: RegistryHandlers[T];
 }
 
-export type AuthAction = 'create' | 'update' | 'delete' | 'read';
+export type RegistryHandlers = {
+  [AUTHORIZATION_ACTION.USER_CREATE]: UserPayload;
+  [AUTHORIZATION_ACTION.USER_DELETE]: UserPayload;
+  [AUTHORIZATION_ACTION.USER_UPDATE]: UserPayload;
+  [AUTHORIZATION_ACTION.TEAM_CREATE]: TeamsPayload;
+  [AUTHORIZATION_ACTION.TEAM_DELETE]: TeamsPayload;
+  [AUTHORIZATION_ACTION.TEAM_ADD_MEMBER]: TeamsPayload;
+  [AUTHORIZATION_ACTION.TEAM_REMOVE_MEMBER]: TeamsPayload;
+  [AUTHORIZATION_ACTION.TEAM_ADD_WEBSITE]: TeamsPayload;
+  [AUTHORIZATION_ACTION.TEAM_REMOVE_WEBSITE]: TeamsPayload;
+  [AUTHORIZATION_ACTION.USER_ADD_WEBSITE]: WebsiteUserPayload;
+  [AUTHORIZATION_ACTION.USER_REMOVE_WEBSITE]: WebsiteUserPayload;
+  [AUTHORIZATION_ACTION.WEBSITE_CREATE]: WebsiteCreatePayload;
+  [AUTHORIZATION_ACTION.WEBSITE_DELETE]: WebsitePayload;
+};
 
-export type AuthPayload = TeamsPayload | WebsitePayload | UserPayload;
+
+export type AuthPayload = TeamsPayload | WebsitePayload | UserPayload | WebsiteUserPayload;
 
 export interface BaseAuthPayload<T  extends ResourceType> {
     resourceType: T;
     resourceId: number;
-    action: AuthAction;
+    action: RegistryKey;
 }
+export type PermissionKey = "manager" | "viewer" | "editor";
 
+export const MapPermissionsRoles: Record<PermissionKey, AssignationRelationType[typeof FGA_RESOURCE.ROLE]> = {
+  manager: "manager",
+  viewer: "viewer",
+  editor: "editor"
+};
+
+export interface UserPayload extends BaseAuthPayload<typeof FGA_RESOURCE.USER> {
+  resourceType:  typeof FGA_RESOURCE.USER;
+  userId: number;
+  role: RoleSlug;
+  permission: PermissionKey;
+}
 export interface TeamsPayload extends BaseAuthPayload<typeof FGA_RESOURCE.TEAM> {
   resourceType:  typeof FGA_RESOURCE.TEAM;
   teamId: number;
@@ -38,12 +64,15 @@ export interface TeamsPayload extends BaseAuthPayload<typeof FGA_RESOURCE.TEAM> 
 
 export interface WebsitePayload extends BaseAuthPayload<typeof FGA_RESOURCE.WEBSITE> {
   resourceType:  typeof FGA_RESOURCE.WEBSITE;
-  websiteId: number;
-  status: string;
+  websiteIds: number[];
 }
 
-export interface UserPayload extends BaseAuthPayload<typeof FGA_RESOURCE.USER> {
-  resourceType:  typeof FGA_RESOURCE.USER;
+export interface WebsiteCreatePayload extends BaseAuthPayload<typeof FGA_RESOURCE.WEBSITE> {
+}
+
+export interface WebsiteUserPayload extends BaseAuthPayload<typeof FGA_RESOURCE.WEBSITE> {
+  resourceType:  typeof FGA_RESOURCE.WEBSITE;
   userId: number;
-  role: string;
+  websiteIds: number[];
+  permission: PermissionKey;
 }
