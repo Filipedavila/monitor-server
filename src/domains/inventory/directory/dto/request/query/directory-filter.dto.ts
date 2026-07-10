@@ -23,7 +23,7 @@ export class DirectoryFilterDTO
 
   @IsBoolean()
   @IsOptional()
-  showInObservatory: number;
+  showInObservatory: boolean;
 
   @IsString()
   @IsOptional()
