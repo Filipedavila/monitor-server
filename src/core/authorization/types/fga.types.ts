@@ -3,54 +3,31 @@ export const FGA_RESOURCE = {
   USER: 'user',
   ROLE: 'role',
   TEAM: 'team',
-  WEBSITE: 'website',
-  PAGE: 'page',
-  CRAWLER_WEBSITE: 'crawler_website',
-  CRAWLER_PAGE: 'crawler_page',
-  EVALUATION: 'evaluation',
-  DIRECTORY: 'directory',
-  TAG: 'tag',
-  ACCESSIBILITY_STATEMENT: 'accessibility_statement',
-} as const;
-
-
-export const FGA_RELATION = {
-  // Roles Globais
-  ROLE: 'member',
-  // Atribuições e Contexto
-  ADMIN: 'admin',
-  MEMBER: 'member',
-  OWNER: 'owner',
-  STUDY_ASSIGNEE: 'study_assignee',
-  // Hierarquia (Parents)
-  PARENT: 'parent',
-  // Ações (Permissions)
-  CAN_MANAGE: 'can_manage',
-  CAN_EDIT: 'can_edit',
-  CAN_VIEW: 'can_view',
-
+  WEBSITE: 'website'
 } as const;
 
 export type SubjectType = typeof FGA_RESOURCE[keyof typeof FGA_RESOURCE];
 export type ResourceType = typeof FGA_RESOURCE[keyof typeof FGA_RESOURCE];
-export type RelationType = typeof FGA_RELATION[keyof typeof FGA_RELATION];
 
-export type FgaModelMap = {
-  [FGA_RESOURCE.ROLE]: 'member';
-  [FGA_RESOURCE.TEAM]: 'admin' | 'member' | 'can_manage' | 'can_edit' | 'can_view';
-  [FGA_RESOURCE.WEBSITE]: 'parent' | 'owner' | 'study_assignee' | 'can_manage' | 'can_edit' | 'can_view';
-  [FGA_RESOURCE.PAGE]: 'parent' | 'can_manage' | 'can_edit' | 'can_view';
-  [FGA_RESOURCE.CRAWLER_WEBSITE]: 'parent' | 'owner' | 'can_manage' | 'can_edit' | 'can_view';
-  [FGA_RESOURCE.CRAWLER_PAGE]: 'parent' | 'can_manage' | 'can_edit' | 'can_view';
-  [FGA_RESOURCE.EVALUATION]: 'parent' | 'owner' | 'can_manage' | 'can_view';
-  [FGA_RESOURCE.DIRECTORY]: 'admin' | 'can_manage' | 'can_view';
-  [FGA_RESOURCE.TAG]: 'admin' | 'can_view' | 'can_manage';
-  [FGA_RESOURCE.ACCESSIBILITY_STATEMENT]: 'admin' | 'can_manage' | 'can_view';
-};
+export type EnquireableResource = keyof EnquireRelationType;
+export type AssignableResource = keyof AssignationRelationType;
+
+export type AssignationRelationType = {
+  
+  [FGA_RESOURCE.ROLE]: 'manager' | 'editor' | 'viewer';
+  [FGA_RESOURCE.TEAM]: 'admin' | 'member' | 'team_role' | 'admin_role';
+  [FGA_RESOURCE.WEBSITE]: 'parent' | 'admin_role' | 'viewer' | 'editor' | 'manager';
+}
+
+export type EnquireRelationType = {
+  [FGA_RESOURCE.ROLE]: 'can_manage_users' | 'can_edit_users' | 'can_view_users';
+  [FGA_RESOURCE.TEAM]: 'admin' | 'member' | 'team_role' | 'admin_role' | 'can_manage' | 'can_edit' | 'can_view';
+  [FGA_RESOURCE.WEBSITE]: 'parent' | 'owner' | 'viewer' | 'editor' | 'manager' | 'can_manage' | 'can_edit' | 'can_view';
+}
 
 export interface AuthTuple {
   user: FgaUserIdentifier<ResourceType>;
-  relation: RelationType;
+  relation: EnquireRelationType[Extract<ResourceType, keyof EnquireRelationType>];
   object: FgaObjectIdentifier<ResourceType>;
 }
 
@@ -59,10 +36,16 @@ export type FgaUserIdentifier<T extends ResourceType> = `${T}:${string}`;
 export type FgaObjectIdentifier<T extends ResourceType> = `${T}:${string}`;
 
 
-export interface FgaTuple<T extends ResourceType> {
+export interface FgaTupleEnquire<T extends EnquireableResource> {
   user: FgaObjectIdentifier<T>;
-  relation: FgaModelMap[Extract<T, keyof FgaModelMap>]; 
+  relation: EnquireRelationType[Extract<T, keyof EnquireRelationType>]; 
   object: FgaObjectIdentifier<T>;
+}
+
+export interface FgaTupleAssign<T extends ResourceType, A extends AssignableResource> {
+  user: FgaUserIdentifier<T>;
+  relation: AssignationRelationType[Extract<A, keyof AssignationRelationType>]; 
+  object: FgaObjectIdentifier<A>;
 }
 
 

@@ -1,46 +1,93 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { OpenFgaClient, Tuple, TupleKeyWithoutCondition } from '@openfga/sdk';
+import { ClientListRelationsRequest, OpenFgaClient, Tuple, TupleKeyWithoutCondition } from '@openfga/sdk';
 import { FGA_CLIENT } from './fga.provider';
 import {  
-  FgaTuple, 
+  FgaTupleEnquire, 
   ResourceType, 
   FgaUserIdentifier, 
   FgaObjectIdentifier, 
   FGA_RESOURCE,
-  FGA_RELATION,
-  FgaModelMap,
+  FgaTupleAssign,
+  AssignableResource,
+  EnquireableResource
 } from './types/fga.types'; 
 
 @Injectable()
 export class FgaService {
   constructor(@Inject(FGA_CLIENT) private readonly fgaClient: OpenFgaClient) {}
 
-  public makeFgaTuple<T extends ResourceType>(
-  type: T,
+  public makeFgaTuple<T extends ResourceType, A extends AssignableResource>(
+  type: A,
   id: string,
-  relation: FgaModelMap[Extract<T, keyof FgaModelMap>],
+  relation: FgaTupleAssign<T, A>['relation'],
   user: FgaUserIdentifier<T>
-): FgaTuple<T> {
+): FgaTupleAssign<T, A> {
   return {
     user,
     relation,
     object: `${type}:${id}`,
   };
 }
- 
-  async listObjects<T extends ResourceType>(params: { 
+
+async removeUserRelations<T extends ResourceType, A extends AssignableResource>(
+  type: T,
+  userId: string,
+  objectId: string,
+  relationsToRemove?: FgaTupleAssign<T, A>['relation'][]
+): Promise<void> {
+  const user = `user:${userId}`;
+  const object = `${type}:${objectId}`; 
+  
+  let continuationToken: string | undefined = undefined;
+  const tuplesToDelete: Tuple[] = [];
+
+  do {
+    const response = await this.fgaClient.read({ user, object }, { continuationToken });
+    
+    if (response.tuples) {
+      const filtered = relationsToRemove && relationsToRemove.length > 0
+        ? response.tuples.filter(t => relationsToRemove.includes(t.key.relation as any))
+        : response.tuples;
+      
+      tuplesToDelete.push(...filtered);
+    }
+    
+    continuationToken = response.continuation_token;
+  } while (continuationToken);
+
+  if (tuplesToDelete.length === 0) return;
+
+  await this.fgaClient.write({
+    deletes: tuplesToDelete.map(t => ({
+      user: t.key.user,
+      relation: t.key.relation,
+      object: t.key.object,
+    }))
+  });
+}
+  async listObjects<T extends ResourceType, C extends EnquireableResource>(params: { 
     user: FgaUserIdentifier<T>; 
-    relation: FgaTuple<T>['relation']; 
+    relation: FgaTupleEnquire<C>['relation']; 
     type: T 
   }): Promise<string[]> {
     const response = await this.fgaClient.listObjects(params);
     return response.objects || [];
   }
 
+  async listObjectsWithRelations<T extends ResourceType,  A extends AssignableResource>( type: T, params: {
+    user: FgaUserIdentifier<T>,
+    relations: FgaTupleAssign<T, A>['relation'][],
+    object:FgaObjectIdentifier<T>}): Promise<string[]> {
+    
+      const response = await this.fgaClient.listRelations(params);
+    
+    return response.relations || [];
+  }
 
-  async check<T extends ResourceType>(
+
+  async check<T extends ResourceType,C extends EnquireableResource>(
     user: FgaUserIdentifier<T>, 
-    relation: FgaTuple<T>['relation'],
+    relation: FgaTupleEnquire<C>['relation'],
     object: FgaObjectIdentifier<T>
   ): Promise<boolean> {
     const { allowed } = await this.fgaClient.check({ user, relation, object });
@@ -48,57 +95,34 @@ export class FgaService {
   }
   
 
-  async createRelationship<T extends ResourceType>(
-    tuple: FgaTuple<T>
+  async createRelationship<T extends ResourceType, A extends AssignableResource>(
+    tuple: FgaTupleAssign<T, A>
   ): Promise<any> {
     return this.fgaClient.write({
       writes: [tuple],
     });
   }
 
-  async deleteRelationship<T extends ResourceType>(
-    tuple: FgaTuple<T>
+  async deleteRelationship<T extends ResourceType, A extends AssignableResource>(
+    tuple: FgaTupleAssign<T, A>
   ): Promise<any> {
     return this.fgaClient.write({
       deletes: [tuple],
     });
   }
   
-  async createBatchesRelationships<T extends ResourceType>(tuples: FgaTuple<T>[]): Promise<any> {
+  async createBatchesRelationships<T extends ResourceType, A extends AssignableResource>(tuples: FgaTupleAssign<T, A>[]): Promise<any> {
     return this.fgaClient.write({
       writes: tuples,
     });
   }
 
-  async deleteBatchesRelationships<T extends ResourceType>(tuples: FgaTuple<T>[]): Promise<any> {
+  async deleteBatchesRelationships<T extends ResourceType, A extends AssignableResource>(tuples: FgaTupleAssign<T, A>[]): Promise<any> {
     return this.fgaClient.write({
       deletes: tuples,
     });
   }
 
-  async isSystemAdmin(userId: number): Promise<boolean> {
-    return this.check(
-      `user:${userId}`,
-      FGA_RELATION.ROLE, 
-      `${FGA_RESOURCE.ROLE}:admin`
-    );
-  }
-
-  async isMonitor(userId: number): Promise<boolean> {
-    return this.check(
-      `user:${userId}`,
-      FGA_RELATION.ROLE, 
-      `${FGA_RESOURCE.ROLE}:monitor`
-    );
-  }
-
-  async isStudy(userId: number): Promise<boolean> {
-    return this.check(
-      `user:${userId}`,
-      FGA_RELATION.ROLE, 
-      `${FGA_RESOURCE.ROLE}:study`
-    );
-  } 
   async findAllTuplesRelatedToUser(userId: number): Promise<{
     asSubject: Tuple[];
     asObject: Tuple[];
@@ -129,7 +153,7 @@ export class FgaService {
     };
   }
 
-  async findObjectsRelated<T extends ResourceType>(userId: number, objectType?: ResourceType,relation?: FgaTuple<T>['relation']): Promise<{
+  async findObjectsRelated<T extends ResourceType, A extends AssignableResource>(userId: number, objectType?: A,relation?: FgaTupleAssign<T, A>['relation']): Promise<{
    related:string[];
   }> {
     const userIdentifier = `user:${userId}`;
@@ -209,20 +233,38 @@ export class FgaService {
   async deleteResourceTuples<T extends ResourceType>(
     object: FgaObjectIdentifier<T>
   ): Promise<void> {
-    const { tuples } = await this.fgaClient.read({
-      object: object,
-    });
 
-    if (!tuples || tuples.length === 0) return;
+    let continuationToken: string | undefined = undefined;
+    let totalDeleted = 0;
 
-    const deleteOps = tuples.map(tuple => ({
-      user: tuple.key.user,
-      relation: tuple.key.relation,
-      object: tuple.key.object,
-    }));
+    do {
+      const response = await this.fgaClient.read({
+        object: object,
+      }, {
+        continuationToken: continuationToken
+      });
 
-    await this.fgaClient.write({
-      deletes: deleteOps,
-    });
+      if (response.tuples && response.tuples.length > 0) {
+        const batchDeletes: TupleKeyWithoutCondition[] = response.tuples.map(tuple => ({
+          user: tuple.key.user,
+          relation: tuple.key.relation,
+          object: tuple.key.object,
+        }));
+
+ 
+        const chunkSize = 100;
+        for (let i = 0; i < batchDeletes.length; i += chunkSize) {
+          const chunk = batchDeletes.slice(i, i + chunkSize);
+          
+          await this.fgaClient.write({
+            deletes: chunk
+          });
+          
+          totalDeleted += chunk.length;
+        }
+      }
+
+      continuationToken = response.continuation_token;
+    } while (continuationToken);
   }
 }
