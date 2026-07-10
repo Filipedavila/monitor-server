@@ -86,29 +86,19 @@ export class OrganizationRepository extends BaseTransactionalRepository<
   }
 
 
-async saveWithWebsites(entity: Organization, websites: any[]): Promise<Organization> {
-    return this.runInTransaction(async (queryRunner) => {
-      entity.websites = websites; 
-      return await queryRunner.manager.save(Organization, entity);
-    });
-  }
-
-  async updateWithWebsites(
+  async update(
     id: number,
     data: Partial<Organization>,
-    websites: any[]
   ): Promise<Organization> {
-    return this.runInTransaction(async (queryRunner) => {
-      const entity = await queryRunner.manager.findOne(Organization, { 
+      const entity = await this.ormRepo.findOne({ 
         where: { id }, 
-        relations: ['websites'] 
       });
+
       if (!entity) throw new Error('Organization not found');
 
       Object.assign(entity, data);
-      entity.websites = websites; 
-      return await queryRunner.manager.save(Organization, entity);
-    });
+      return await this.ormRepo.save(entity);
+    
   }
 
   async deleteOrganization(organization_id: number): Promise<void> {
