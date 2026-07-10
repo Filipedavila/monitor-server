@@ -9,6 +9,7 @@ import {
   UseGuards,
   ParseIntPipe,
   Request,
+  Logger,
 } from "@nestjs/common";
 import { PageService } from "./page.service";
 import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
@@ -18,22 +19,23 @@ import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { CreatePageDto } from "./dto/create-page.dto";
 import {PageQueryRequestDTO} from "./dto/request/query/page-query-request.dto";
-import { BaseController } from "src/common/controllers/base.controller";
+import { LoggableController } from "src/common/controllers/loggable.interface";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
+import { ContextFilterGuard } from "src/core/authorization/guards/context.guard";
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 
 @Controller("pages")
-export class PageController extends BaseController{
-  constructor(private readonly pageService: PageService) {
-    super("PageController");
-  }
+export class PageController implements LoggableController{
+  readonly logger = new Logger("PageController");
+  constructor(private readonly pageService: PageService) {}
 
 
-  @Roles(RoleSlug.ADMIN)
+  
+  @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
+  @UseGuards(ContextFilterGuard)
   @Get()
   async find(
-    @Request() req: Request,
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: PageQueryRequestDTO
   ) {
@@ -45,10 +47,9 @@ export class PageController extends BaseController{
     });
   }
 
-  @Roles(RoleSlug.ADMIN)
+  @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
   @Get(":pageId")
   async findOne(
-    @Request() req: Request,
     @Param("pageId", ParseIntPipe) pageId: number,
     @CurrentUser() user: AuthenticatedUser,
 
@@ -76,7 +77,6 @@ export class PageController extends BaseController{
   async bulkDelete(@Body("ids") ids: number[], @CurrentUser() user: AuthenticatedUser) {
     return this.pageService.delete(ids, { user });
   }
-
 
 
   @Get("website/:websiteId")
