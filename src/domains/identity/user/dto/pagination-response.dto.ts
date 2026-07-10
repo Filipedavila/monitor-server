@@ -1,7 +1,12 @@
-import { PaginationResponse } from "src/core/types";
+import { PaginationResponse } from "@common/repositories/base.repository";
 import { UserDTO } from "./user.dto";
 
 export class UserPaginationResponse implements PaginationResponse<UserDTO> {
     data: UserDTO[];
-    count: number;
+    meta: {
+        totalItems: number;
+        currentPage: number;
+        totalPages: number;
+        itemsPerPage: number;
+    };
 }

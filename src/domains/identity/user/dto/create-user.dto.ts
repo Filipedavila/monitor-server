@@ -1,22 +1,16 @@
-import { IsIn,IsNotEmpty, IsStrongPassword,IsNumber,IsString, IsOptional, MaxLength, MinLength, IsEmail,} from "class-validator";
-import { RoleSlug } from "src/core/authentication/interfaces/types";
+import { IsIn,IsNotEmpty, IsStrongPassword,IsNumber,IsString, IsOptional, MaxLength, MinLength, IsEmail, IsEnum,} from "class-validator";
+import { RoleSlug, UserPermission } from "src/core/authentication/interfaces/types";
 
 export class CreateUserDto {
   @IsString({ message: "Username must be a string." })
   @IsNotEmpty({ message: "Username is required." })
   username: string;
-  @IsString({ message: "Names must be a string." })
-  @IsNotEmpty({ message: "Names are required." })
-  names: string;
-  @IsString({ message: "Email must be a string." })
-  @IsNotEmpty({ message: "Email is required." })
-  @IsEmail({}, { message: "Email must be a valid email address." })
-  email: string;
+
   @IsString({ message: "Role must be a string." })
   @IsNotEmpty({ message: "Role is required." })
-  @IsIn([RoleSlug.ADMIN, RoleSlug.STUDY, RoleSlug.MONITOR],
-     { message: "Role must be one of the following values: nimda, study, monitor." })
-  role: string;
+  @IsIn([RoleSlug.ADMIN, RoleSlug.MONITOR],
+     { message: `Role must be one of the following values: ${Object.values(RoleSlug).join(', ')}` })
+  role: RoleSlug;
 
   @IsOptional()
   @IsString({ message: "Citizen card number must be a string" })
@@ -39,5 +33,10 @@ export class CreateUserDto {
     }
   )
   password: string;
+  
+  @IsString({ message: "Permissions must be a string." })
+  @IsEnum(UserPermission, { message: `Permissions must be a valid permission. Valid permissions are: ${Object.values(UserPermission).join(', ')}` })
+  permission: UserPermission = UserPermission.VIEWER;
+
 
 }

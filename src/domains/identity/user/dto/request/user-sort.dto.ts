@@ -7,7 +7,7 @@ import { User } from '../../user.entity';
 
 type TargetKeys = keyof Pick<
   User, 
-  'id' | 'username' | 'email' | 'fullName' | 'createdAt' | 'updatedAt' | 'lastLogin'
+  'id' | 'username'  | 'createdAt' | 'updatedAt' | 'lastLogin'
 >;
 
 type UserSortContract = {
@@ -23,14 +23,6 @@ export class UserSortDTO implements UserSortContract {
   @IsOptional()
   @IsSortOrder()
   username: SortCriteria;
-
-  @IsOptional()
-  @IsSortOrder()
-  email: SortCriteria;
-
-  @IsOptional()
-  @IsSortOrder()
-  fullName: SortCriteria;
 
   @IsOptional()
   @IsSortOrder()

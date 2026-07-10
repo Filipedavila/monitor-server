@@ -1,5 +1,5 @@
-import { IsEmail, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, MinLength} from "class-validator";
-import { RoleSlug } from "src/core/authentication/interfaces/types";
+import { IsEmail, IsEnum, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, MinLength} from "class-validator";
+import { RoleSlug, UserPermission } from "src/core/authentication/interfaces/types";
 
 export class UpdateUserDto {
   @IsNumber({}, { message: "ID must be a number." })
@@ -14,7 +14,7 @@ export class UpdateUserDto {
   email: string;
   @IsString({ message: "Role must be a string." })
   @IsOptional()
-  @IsIn([RoleSlug.ADMIN, RoleSlug.STUDY, RoleSlug.MONITOR],
+  @IsIn([RoleSlug.ADMIN, RoleSlug.MONITOR],
      { message: "Role must be one of the following values: nimda, study, monitor." })
   role: string;
     
@@ -24,4 +24,8 @@ export class UpdateUserDto {
   @MaxLength(30, { message: "Citizen card number is too long" })
   ccNumber: string;
 
+    @IsOptional()
+    @IsString({ message: "Permissions must be a string." })
+    @IsEnum(UserPermission, { message: `Permissions must be a valid permission. Valid permissions are: ${Object.values(UserPermission).join(', ')}` })
+    permissions: string;
 }
