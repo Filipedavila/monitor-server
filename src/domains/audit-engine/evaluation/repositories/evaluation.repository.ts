@@ -1,7 +1,7 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, QueryBuilder, Repository, SelectQueryBuilder,In } from "typeorm";
-import { Evaluation, EvaluationContext, SubjectType } from "../entities/evaluation.entity";
+import { Evaluation } from "../entities/evaluation.entity";
 import { BaseTransactionalRepository } from "@common/repositories/base-transactional.repository";
 import { FilterMap, SortingMap } from "@common/repositories/base.repository";
 import {
@@ -13,19 +13,19 @@ import {
 import { AppLoggerService } from "@core/app-logger/app-logger.service";
 import { ConfigService } from "@nestjs/config";
 import { SecurityContext } from "src/core/authorization/SecurityContext";
+import { ContextEnum, ContextMapByRole, getContextIdByCode, getContextIdByRole } from "src/domains/inventory/context/context.enum";
+import { EvaluationContext } from "../entities/contexts-evaluation.entity";
 
 export interface EvaluationFilter extends BaseFilter {
   id: number;
   ids: number[] | string[];
   score: string;
-  context: EvaluationContext;
   pageId: number;
 }
 
 export interface EvaluationSorting extends BaseSort {
   id: SortCriteria;
   pageId: SortCriteria;
-  context: SortCriteria;
   createdAt: SortCriteria;
   updatedAt: SortCriteria;
   score: SortCriteria;
@@ -34,8 +34,10 @@ type EvaluationQueryRequest = {
   filters: Partial<EvaluationFilter>;
   sortings: Partial<EvaluationSorting>;
   pagination: Partial<BasePagination>;
+  contexts: ContextEnum[];
   securityContext: SecurityContext;
 };
+
 @Injectable()
 export class EvaluationRepository extends BaseTransactionalRepository<
   Evaluation,
@@ -53,7 +55,7 @@ export class EvaluationRepository extends BaseTransactionalRepository<
   }
   
   protected readonly alias = "evaluation";
-
+  protected readonly contextAlias = "evaluation_context";
   
   protected readonly filterMap: FilterMap<EvaluationFilter, Evaluation> = {
     id: (query, id) => query.andWhere({ id }),
@@ -61,7 +63,7 @@ export class EvaluationRepository extends BaseTransactionalRepository<
       ids?.length && query.andWhere({ id: In(ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id)) }),
     score: (query, score) => query.andWhere({ score }),
     pageId: (query, pageId) => query.andWhere({ pageId }),
-    context: (query, context) => query.andWhere({ context }),
+   
   };
 
   protected readonly sortMap: SortingMap<EvaluationSorting, Evaluation> = {
@@ -72,57 +74,40 @@ export class EvaluationRepository extends BaseTransactionalRepository<
     score: (query, order: SortCriteria) => query.addOrderBy(`${this.alias}.score`, order),
     createdAt: (query, order: SortCriteria) => query.addOrderBy(`${this.alias}.createdAt`, order),
     updatedAt: (query, order: SortCriteria) => query.addOrderBy(`${this.alias}.updatedAt`, order),
-    context: (query, order: SortCriteria) => query.addOrderBy(`${this.alias}.context`, order),
   };
 
-  public async getManyEvaluationsAMS(pageId: number, queryArgs: EvaluationQueryRequest ): Promise<{ data: Evaluation[]; count: number }> {
-    const query = this.ormRepo.createQueryBuilder(`${this.alias}`);
-    query.where({pageId : pageId});
-    query.andWhere(
-      new Brackets(qb => {
-        qb.where({ context: EvaluationContext.ADMIN_AMS })
-          .orWhere({ isVisiblePublic: true });
-      })
-    );
-    this.applyDynamicFilters(query, queryArgs.filters);
-    this.applyDynamicSorting(query, queryArgs.sortings);
-    this.applyPagination(query, queryArgs.pagination);
 
-    const [data, count] = await query.getManyAndCount();
-    return { data, count };
-  }
+    private applyContextFilter(
+      query: SelectQueryBuilder<Evaluation>, 
+      contexts: ContextEnum[] | undefined, 
+      securityContext: SecurityContext
+    ): void {
+      const targetContexts: number[] = (contexts && contexts.length > 0) 
+        ? contexts.map(context => getContextIdByCode(context)).filter((id): id is number => id !== undefined)
+        : [getContextIdByRole(securityContext.user.role_slug)].filter((id): id is number => id !== undefined);
+        if (!targetContexts || targetContexts.length === 0) {
+          throw new BadRequestException("User role does not have an associated context");
+        }
+      query.innerJoin(
+        "evaluation_contexts", 
+        this.contextAlias, 
+        `${this.contextAlias}.evaluation_id = ${this.alias}.id`
+      )
+      .andWhere(`${this.contextAlias}.context_id IN (:...contextIds)`, { 
+        contextIds: targetContexts 
+      });
+    }
 
-  public async getManyEvaluationsByPageIdORG(pageId: number, queryArgs: EvaluationQueryRequest): Promise<{ data: Evaluation[]; count: number }> {
-    const query = this.ormRepo.createQueryBuilder(`${this.alias}`);
-    query.where({ pageId });
-    query.andWhere(
-      new Brackets(qb => {
-        qb.where({ context: EvaluationContext.MY_MONITOR })
-          .orWhere({ isVisibleOrganizations: true });
-      })
-    );
-    this.applyDynamicFilters(query, queryArgs.filters);
-    this.applyDynamicSorting(query, queryArgs.sortings);
-    this.applyPagination(query, queryArgs.pagination);
 
-    const [data, count] = await query.getManyAndCount();
-    return { data, count };
-  }
-
-  public async getManyEvaluationsByPageIdSTUDY(pageId: number, queryArgs: EvaluationQueryRequest): Promise<{ data: Evaluation[]; count: number }> {
-    const query = this.ormRepo.createQueryBuilder(`${this.alias}`);
-    query.where({ pageId });
-    query.andWhere({ context: EvaluationContext.STUDY_MONITOR });
-    query.andWhere({ isVisiblePublic: false });
-    query.andWhere({ isVisibleOrganizations: false });
-    query.andWhere({ ownerSubjectId: queryArgs.securityContext.user.id });
-    query.andWhere({ ownerType: SubjectType.USER });
-    this.applyDynamicFilters(query, queryArgs.filters);
-    this.applyDynamicSorting(query, queryArgs.sortings);
-    this.applyPagination(query, queryArgs.pagination);
-
-    const [data, count] = await query.getManyAndCount();
-    return { data, count };
+  public async getManyEvaluations(pageId: number, queryArgs: EvaluationQueryRequest ): Promise<{ data: Evaluation[]; count: number }> {
+        const query = this.ormRepo.createQueryBuilder(`${this.alias}`);
+        query.where({pageId : pageId});
+        this.applyContextFilter(query, queryArgs.contexts, queryArgs.securityContext);
+        this.applyDynamicFilters(query, queryArgs.filters);
+        this.applyDynamicSorting(query, queryArgs.sortings);
+        this.applyPagination(query, queryArgs.pagination);
+        const [data, count] = await query.getManyAndCount();
+        return { data, count };
   }
 
   private getBaseQuery(): SelectQueryBuilder<Evaluation> {
@@ -132,6 +117,37 @@ export class EvaluationRepository extends BaseTransactionalRepository<
       .leftJoin("p.websites", "w");
   }
 
+  async createEvaluation(evaluation: Evaluation, contextId: number): Promise<Evaluation> {
+  return await this.dataSource.transaction(async (transactionalEntityManager) => {
+    const savedEval = await transactionalEntityManager.save(evaluation);
+
+    const evaluationContext = transactionalEntityManager.create(EvaluationContext, {
+      evaluationId: savedEval.id,
+      contextId: contextId,
+    });
+
+    await transactionalEntityManager.save(evaluationContext);
+
+    return savedEval;
+  });
+  }
+
+  async createManyEvaluations(evaluations: Evaluation[], contextId: number): Promise<Evaluation[]> {
+    return await this.dataSource.transaction(async (transactionalEntityManager) => {
+      const savedEvals = await transactionalEntityManager.save(evaluations);
+
+      const evaluationContexts = savedEvals.map(savedEval => {
+        return transactionalEntityManager.create(EvaluationContext, {
+          evaluationId: savedEval.id,
+          contextId: contextId,
+        });
+      });
+
+      await transactionalEntityManager.save(evaluationContexts);
+
+      return savedEvals;
+    });
+  }
   async findWithDetails(filters: EvaluationFilter): Promise<Evaluation[]> {
     const query = this.getBaseQuery();
     this.applyDynamicFilters(query, filters);
