@@ -22,8 +22,8 @@ export class EvaluationQueryDTO {
   @Type(() => BasePaginationDTO)
   pagination: BasePaginationDTO;
 
-  @IsNotEmpty({ message: "Contexts are required" })
+  @IsOptional(  )
   @IsArray({message: "Contexts must be an array"})
   @IsEnum(ContextEnum, { each: true, message: "Each context must be a valid Context Enum value." })
-  contexts!: ContextEnum[];
+  contexts?: ContextEnum[];
 }

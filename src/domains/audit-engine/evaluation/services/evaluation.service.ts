@@ -37,7 +37,7 @@ export class EvaluationService {
 
   public async getEvaluations(pageId: number,securityContext: SecurityContext, query: EvaluationQueryDTO ): Promise<{ data: Evaluation[]; count: number }> {
     
-      return await this.evaluationRepository.getManyEvaluations(pageId, { filters: query.filters, sortings: query.sorts, pagination: query.pagination, securityContext , contexts: query.contexts });
+      return await this.evaluationRepository.getManyEvaluations(pageId, { filters: query.filters, sortings: query.sorts, pagination: query.pagination, securityContext , contexts: query.contexts ? query.contexts : [] });
   }
   
   public async getEvaluationById(pageId: number, evaluationId: number, securityContext: SecurityContext): Promise<Evaluation> {

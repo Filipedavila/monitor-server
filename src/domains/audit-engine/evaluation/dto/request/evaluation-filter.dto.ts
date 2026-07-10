@@ -5,10 +5,7 @@ import { ContextEnum, ContextMap } from "src/domains/inventory/context/context.e
 import { Transform } from "class-transformer/types/decorators/transform.decorator";
 
 
-export class EvaluationFilterDTO extends BaseFilterDTO<Evaluation> implements Required<Pick<Evaluation, 'pageId' | 'pageTitle' | 'score' | 'A' | 'AA' | 'AAA'  | 'tagCount'>> {
-  @IsOptional()
-  @IsNumber()
-  pageId: number;
+export class EvaluationFilterDTO extends BaseFilterDTO<Evaluation> implements Required<Pick<Evaluation,  'pageTitle' | 'score' | 'A' | 'AA' | 'AAA'  | 'tagCount'>> {
 
   @IsOptional()
   @IsString()

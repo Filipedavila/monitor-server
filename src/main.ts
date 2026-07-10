@@ -11,7 +11,7 @@ import { AppLoggerService } from "./core/app-logger/app-logger.service";
 import { useContainer } from 'class-validator';
 import { GlobalExceptionFilter } from "./core/filters/all-exceptions.filter";
 import { FieldConflictExceptionFilter } from "./core/filters/conflict-execption.filter";
-
+import fs from "fs";
 
 async function bootstrap() {
   const expressApp = express();
@@ -46,16 +46,18 @@ async function bootstrap() {
   app.useLogger(logger);
 
   const config = new DocumentBuilder()
+  
     .setTitle("Monitor server")
     .setDescription("The Monitor Server API description")
     .setVersion("2.0")
     .addTag("website")
     .build();
-  const document = SwaggerModule.createDocument(app, config);
+
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: "2",
   });
+  const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("api", app, document);
   app.useGlobalFilters(
     new GlobalExceptionFilter(logger),   
@@ -71,6 +73,7 @@ async function bootstrap() {
       },
     }),
   );
+  fs.writeFileSync('./swagger-spec.json', JSON.stringify(document, null, 2));
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(` Server is running on: http://localhost:${port}/v2`);

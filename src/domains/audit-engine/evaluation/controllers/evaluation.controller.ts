@@ -24,6 +24,7 @@ import { Response } from 'express';
 import { createReadStream } from "node:fs";
 import { FgaGuard } from "src/core/authorization/guards/fda.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
+import { ContextFilterGuard } from "src/core/authorization/guards/context.guard";
 
 
 @EvaluationDocs.controller()
@@ -36,6 +37,7 @@ export class EvaluationController {
 
 
   @EvaluationDocs.findAll()
+  @UseGuards(ContextFilterGuard)
   @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
   @Get("page/:pageId")
   async findAllAMSEval(@CurrentUser() user: AuthenticatedUser, @Param("pageId") pageId: number, @Query() query: EvaluationQueryDTO): Promise<any> {
