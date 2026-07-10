@@ -1,10 +1,15 @@
-import { Entity, Column, ManyToMany, JoinTable } from "typeorm";
-import { AuditableEntity } from "../../../common/entities/auditable.entity";
-import {DeletionMetadata} from "../../../common/entities/soft-deletable.entity";
-import { BaseUser, BaseWebsite } from "src/common/types";
+import { Entity, Column, ManyToMany, JoinTable, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn, PrimaryGeneratedColumn } from "typeorm";
+import { Auditable } from "src/common/interfaces/auditable.interface";
+import { IdentifiableModel } from "src/common/interfaces/Identifiable.interface";
+import { User } from "../user/user.entity";
+
+
 
 @Entity("teams")
-export class Team extends AuditableEntity {
+export class Team  implements IdentifiableModel, Auditable {
+  @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
+  id: number;
+    
   @Column({
     name: "short_name",
     type: "varchar",
@@ -14,31 +19,36 @@ export class Team extends AuditableEntity {
   })
   teamName: string;
 
-  @ManyToMany("Website", (website: any) => website.teams)
-  @JoinTable({
-    name: "team_websites",
-    joinColumn: { name: "team_id", referencedColumnName: "id" },
-    inverseJoinColumn: { name: "website_id", referencedColumnName: "id" },
+  @CreateDateColumn({
+      name: "created_at",
+      type: "timestamptz",
+      default: () => "CURRENT_TIMESTAMP",
+    })
+  createdAt: Date;
+  
+  @UpdateDateColumn({
+      name: "updated_at",
+      type: "timestamptz",
+      default: () => "CURRENT_TIMESTAMP",
+      onUpdate: "CURRENT_TIMESTAMP",
   })
-  websites: BaseWebsite[];
+  updatedAt: Date;
+    
+  @Index()
+  @Column({ name: "created_by_id", type: "int", unsigned: true, nullable: true }) 
+  createdById: number;
+  
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "created_by_id" })
+  createdBy: User;
 
-  @ManyToMany("Page", (page: any) => page.teams)
-  @JoinTable({
-    name: "team_pages",
-    joinColumn: { name: "team_id", referencedColumnName: "id" },
-    inverseJoinColumn: { name: "page_id", referencedColumnName: "id" },
-  })
-  pages: any[];
+  @Index()
+  @Column({ name: "updated_by_id", type: "int", unsigned: true, nullable: true })
+  updatedById: number | null;
 
-  @ManyToMany("User", (user: any) => user.teams)
-  @JoinTable({
-    name: "team_users",
-    joinColumn: { name: "team_id", referencedColumnName: "id" },
-    inverseJoinColumn: { name: "user_id", referencedColumnName: "id" },
-  })
-  users: BaseUser[];
-
-  @Column(() => DeletionMetadata , { prefix: false })
-  deletionMetadata: DeletionMetadata;
-
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "updated_by_id" })
+  updatedBy: User |  null;
+  
 }
+

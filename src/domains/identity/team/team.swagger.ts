@@ -7,95 +7,77 @@ import {
   ApiParam, 
   ApiBody 
 } from "@nestjs/swagger";
+import { CreateTeamDTO } from "./dto/create-team.dto";
+import { TeamUserUpdateDTO } from "./dto/team-user-update.dto";
+import { TeamWebsiteUpdateDTO } from "./dto/team-website-update.dto";
+import { TeamDetailsDTO, TeamDTO } from "./dto/team.dto";
+import { PaginationResponse } from "src/common/repositories/base.repository";
+import { UserPaginationResponse } from "../user/dto/pagination-response.dto";
 
 export const TeamDocs = {
   controller: () => applyDecorators(
     ApiTags("Teams"),
-    ApiBearerAuth(), 
-    ApiResponse({ status: 401, description: "Unauthorized - Token inválido ou ausente." }),
-    ApiResponse({ status: 403, description: "Forbidden - Permissões insuficientes." }),
+    ApiBearerAuth(),
+    ApiResponse({ status: 401, description: "Unauthorized - Invalid or missing token." }),
+    ApiResponse({ status: 403, description: "Forbidden - Insufficient permissions." }),
     ApiResponse({ status: 500, description: "Internal Server Error." })
   ),
 
   createTeam: () => applyDecorators(
-    ApiOperation({ summary: "Criar uma nova equipa", description: "Apenas administradores podem criar equipas." }),
-    ApiBody({ 
-      schema: { 
-        type: "object", 
-        properties: { name: { type: "string", example: "Engineering Alpha" } }, 
-        required: ["name"] 
-      } 
-    }),
-    ApiResponse({ status: 201, description: "Equipa criada com sucesso." })
+    ApiOperation({ summary: "Create a new team" }),
+    ApiBody({ type: CreateTeamDTO }),
+    ApiResponse({ status: 201, type: TeamDetailsDTO, description: "Team created successfully." }),
+    ApiResponse({ status: 409, description: "Conflict - Team name already exists." })
   ),
 
   getTeamById: () => applyDecorators(
-    ApiOperation({ summary: "Obter equipa por ID" }),
-    ApiParam({ name: "id", type: "string", description: "UUID ou ID numérico da equipa" }),
-    ApiResponse({ status: 200, description: "Dados da equipa retornados com sucesso." }),
-    ApiResponse({ status: 404, description: "Equipa não encontrada." })
+    ApiOperation({ summary: "Get team by ID" }),
+    ApiParam({ name: "id", type: "integer", description: "Numerical team ID" }),
+    ApiResponse({ status: 200, type: TeamDetailsDTO, description: "Team details returned successfully." }),
+    ApiResponse({ status: 404, description: "Team not found." })
   ),
 
   getAllTeams: () => applyDecorators(
-    ApiOperation({ summary: "Listar todas as equipas" }),
-    ApiResponse({ status: 200, description: "Lista de equipas retornada com sucesso." })
+    ApiOperation({ summary: "List all teams" }),
+    ApiResponse({ status: 200, type: UserPaginationResponse, description: "List of teams returned successfully." })
   ),
 
   deleteTeam: () => applyDecorators(
-    ApiOperation({ summary: "Remover uma equipa", description: "Remove logicamente ou fisicamente a equipa pelo ID." }),
-    ApiParam({ name: "id", type: "string" }),
-    ApiResponse({ status: 200, description: "Equipa removida com sucesso." })
+    ApiOperation({ summary: "Delete a team" }),
+    ApiParam({ name: "id", type: "integer", description: "Target team ID" }),
+    ApiResponse({ status: 204, description: "Team deleted successfully." }),
+    ApiResponse({ status: 404, description: "Team not found." })
   ),
 
   addUserToTeam: () => applyDecorators(
-    ApiOperation({ summary: "Adicionar utilizador a uma equipa" }),
-    ApiParam({ name: "id", type: "string", description: "ID da equipa" }),
-    ApiBody({ 
-      schema: { 
-        type: "object", 
-        properties: { userId: { type: "string", example: "usr_12345" } }, 
-        required: ["userId"] 
-      } 
-    }),
-    ApiResponse({ status: 200, description: "Utilizador associado com sucesso." })
+    ApiOperation({ summary: "Add users to a team" }),
+    ApiParam({ name: "id", type: "integer", description: "Target team ID" }),
+    ApiBody({ type: TeamUserUpdateDTO }),
+    ApiResponse({ status: 200, type: TeamDetailsDTO, description: "Users associated successfully." }),
+    ApiResponse({ status: 400, description: "Bad Request - Invalid team or user ID." })
   ),
 
-  removeUserFromTeam: () => applyDecorators(
-    ApiOperation({ summary: "Remover utilizador de uma equipa" }),
-    ApiParam({ name: "id", type: "string" }),
-    ApiBody({ 
-      schema: { 
-        type: "object", 
-        properties: { userId: { type: "string" } }, 
-        required: ["userId"] 
-      } 
-    }),
-    ApiResponse({ status: 200, description: "Utilizador removido com sucesso." })
+  removeUsersFromTeam: () => applyDecorators(
+    ApiOperation({ summary: "Remove users from a team" }),
+    ApiParam({ name: "id", type: "integer", description: "Target team ID" }),
+    ApiBody({ type: TeamUserUpdateDTO }),
+    ApiResponse({ status: 200, type: TeamDetailsDTO, description: "Users removed successfully." }),
+    ApiResponse({ status: 400, description: "Bad Request - User not found in team." })
   ),
 
-  addWebsiteToTeam: () => applyDecorators(
-    ApiOperation({ summary: "Adicionar website à equipa" }),
-    ApiParam({ name: "id", type: "string" }),
-    ApiBody({ 
-      schema: { 
-        type: "object", 
-        properties: { websiteId: { type: "string" } }, 
-        required: ["websiteId"] 
-      } 
-    }),
-    ApiResponse({ status: 200, description: "Website associado com sucesso." })
+  addWebsitesToTeam: () => applyDecorators(
+    ApiOperation({ summary: "Add websites to a team" }),
+    ApiParam({ name: "id", type: "integer", description: "Target team ID" }),
+    ApiBody({ type: TeamWebsiteUpdateDTO }),
+    ApiResponse({ status: 200, type: TeamDetailsDTO, description: "Websites associated successfully." }),
+    ApiResponse({ status: 400, description: "Bad Request - Invalid website ID." })
   ),
 
-  removeWebsiteFromTeam: () => applyDecorators(
-    ApiOperation({ summary: "Remover website da equipa" }),
-    ApiParam({ name: "id", type: "string" }),
-    ApiBody({ 
-      schema: { 
-        type: "object", 
-        properties: { websiteId: { type: "string" } }, 
-        required: ["websiteId"] 
-      } 
-    }),
-    ApiResponse({ status: 200, description: "Website removido com sucesso." })
+  removeWebsitesFromTeam: () => applyDecorators(
+    ApiOperation({ summary: "Remove websites from a team" }),
+    ApiParam({ name: "id", type: "integer", description: "Target team ID" }),
+    ApiBody({ type: TeamWebsiteUpdateDTO }),
+    ApiResponse({ status: 200, type: TeamDetailsDTO, description: "Websites removed successfully." }),
+    ApiResponse({ status: 400, description: "Bad Request - Website not found in team." })
   ),
 };
