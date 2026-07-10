@@ -7,7 +7,7 @@ import { SortCriteria } from 'src/common/interfaces/types';
 
 type TargetKeys = keyof Pick<
   Evaluation, 
-  'pageId' | 'pageTitle' | 'score' | 'A' | 'AA' | 'AAA' | 'context' | 'tagCount' | 'createdAt' | 'updatedAt'
+  'pageId' | 'pageTitle' | 'score' | 'A' | 'AA' | 'AAA' | 'tagCount' | 'createdAt' | 'updatedAt'
 >;
 
 type EvaluationSortContract = {
@@ -42,7 +42,7 @@ export class EvaluationSortDTO implements EvaluationSortContract {
   
   @IsOptional()
   @IsSortOrder()
-  context: SortCriteria;
+  contexts: SortCriteria;
   
   @IsOptional()
   @IsSortOrder()
