@@ -2,7 +2,7 @@ import { BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
 import { IsDateString, IsEnum, IsNumber, IsOptional, IsString } from "class-validator";
 import { AccessibilityStatement } from "../../entities/accessibility-statement.entity";
 import { State } from "../../state";
-export class AccessibilityStatementFilterDTO extends BaseFilterDTO<AccessibilityStatement> implements Required<Pick<AccessibilityStatement, "id" | "websiteId" | "conformance" | "evidence" | "seal" | "statementDate" | "state" |"createdAt" | "lastConsultedAt" >> {
+export class AccessibilityStatementFilterDTO extends BaseFilterDTO<AccessibilityStatement> implements Required<Pick<AccessibilityStatement, "id" | "websiteId" | "conformance" | "evidence" | "seal" | "statementDate" | "state" | "createdAt">> {
  
   @IsOptional()
   @IsNumber({ allowNaN: false, allowInfinity: false })

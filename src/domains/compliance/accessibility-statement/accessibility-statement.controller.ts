@@ -8,68 +8,68 @@ import {
   ParseIntPipe,
   Post,
   Query,
+  UseGuards,
 } from "@nestjs/common";
 import { AccessibilityStatementService } from "./accessibility-statement.service";
 import { AccessibilityStatementQueryDTO } from "./dto/request/accessibility-statement-request.dto";
 import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
-import { AuthenticatedUser } from "src/core/authentication/interfaces/types";
+import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 import { AccessibilityStatementDto } from "./dto/accessibility-statement.dto";
+import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
+import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { RolesGuard } from "src/core/authorization/guards/roles.guard";
+import { Roles } from "src/core/authorization/decorators/roles.decorator";
+import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @Controller("accessibility-statement")
+@UseGuards(JwtAuthGuard,RolesGuard,FgaGuard)
 export class AccessibilityStatementController {
   constructor(
     private readonly accessibilityStatementService: AccessibilityStatementService,
   ) {}
 
   @Get()
+  @Roles(RoleSlug.ADMIN)
   @HttpCode(200)
   async findAll( @CurrentUser() user: AuthenticatedUser, @Query() query: AccessibilityStatementQueryDTO) {
     return await this.accessibilityStatementService.getAll(user, query);
   }
 
   @Get(":id")
+  @Roles(RoleSlug.ADMIN)
+  @FgaAuthorized({
+          objectType: "role",
+          action: "can_view_users",
+          resourceIdResolver: () => "ams"
+  })
   @HttpCode(200)
   async findOneById(@Param("id", ParseIntPipe) id: number) {
     return await this.accessibilityStatementService.findById(id);
   }
 
   @Post("")
+  @Roles(RoleSlug.ADMIN)
+  @FgaAuthorized({
+          objectType: "role",
+          action: "can_edit_users",
+          resourceIdResolver: () => "ams"
+  })
   @HttpCode(200)
   async upsert(@Body() dto: AccessibilityStatementDto) {
     return await this.accessibilityStatementService.upsertStatement(dto);
   }
 
+
+  @Roles(RoleSlug.ADMIN)
+  @FgaAuthorized({
+          objectType: "role",
+          action: "can_manage_users",
+          resourceIdResolver: () => "ams"
+    })
   @Delete(":id")
   @HttpCode(204)
   async deleteById(@Param("id", ParseIntPipe) id: number) {
     await this.accessibilityStatementService.deleteById(id);
   }
 
-
-/* Not bounded contextual endpoints - to be used in the future for the directory
-  @Get("directory/state")
-  @HttpCode(200)
-  async findAllByDirectoryState() {
-    return await this.accessibilityStatementService.getByDirectoryState();
-  }
-
-  @Get("directory/seal")
-  @HttpCode(200)
-  async findAllByDirectorySeal() {
-    return await this.accessibilityStatementService.getByDirectorySeal(); 
-    
-  }
-
-  @Get("directory/conformance")
-  @HttpCode(200)
-  async findAllByDirectoryConformity() {
-    return await this.accessibilityStatementService.getByDirectoryConformity();
-  }
-
-  @Get("directory/OPAW")
-  @HttpCode(200)
-  async findAllByDirectoryWebsite() {
-    return await this.accessibilityStatementService.getOPAWTable();
-  }
-*/
 }

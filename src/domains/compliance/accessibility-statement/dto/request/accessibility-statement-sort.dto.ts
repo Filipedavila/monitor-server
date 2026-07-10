@@ -7,7 +7,7 @@ import { AccessibilityStatement } from '../../entities/accessibility-statement.e
 
 type TargetKeys = keyof Pick<
   AccessibilityStatement, 
-  "id" | "websiteId" | "conformance" | "evidence" | "seal" | "statementDate" | "state" |"createdAt" | "lastConsultedAt"
+  "id" | "websiteId" | "conformance" | "evidence" | "seal" | "statementDate" | "state" | "createdAt"
 >;
 
 type UserSortContract = {
