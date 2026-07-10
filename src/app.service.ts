@@ -1,10 +1,5 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
-import { DirectoryService } from "./domains/inventory/directory/directory.service";
-import { TagService } from "./domains/inventory/tag/tag.service";
-import { OrganizationService } from "./domains/inventory/organization/organization.service";
-import { WebsiteService } from "./domains/inventory/website/website.service";
-import { PageService } from "./domains/inventory/page/page.service";
-import { UserService } from "./domains/identity/user/user.service";
+
 import { ObservatoryService } from "./integrations/observatory/observatory.service";
 import { ConfigService } from "@nestjs/config";
 import { Logger } from "@nestjs/common";
@@ -36,7 +31,6 @@ export class AppService implements OnModuleInit {
     const fgaApiUrl = this.configService.get("FGA_API_URL");
     const fgaStoreId = this.configService.get("FGA_STORE_ID");
     const fgaModelId = this.configService.get("FGA_MODEL_ID");
-    const fgaAuthModel = this.configService.get("FGA_AUTH_MODEL");
     const configs = [
       { label: "NODE_ENV", value: nodeEnv },
       { label: "AUTH_METHOD", value: authMethod },
@@ -48,7 +42,6 @@ export class AppService implements OnModuleInit {
       { label: "DB_PORT", value: dbPort },
       { label: "DB_USERNAME", value: dbUsername },
       { label: "DB_DATABASE", value: dbDatabase },
-      { label: "MONGO_URI", value: mongoUri ? "✅ PRESENT" : "❌ MISSING" },
       { label: "PAGINATION_MAX_LIMIT", value: paginationMaxLimit },
       { label: "PAGINATION_DEFAULT_LIMIT", value: paginationDefaultLimit },
       { label: "IP_BLACKLIST_RANGES", value: ipBlacklistRanges ? "✅ PRESENT" : "❌ NONE PROVIDED"  },
@@ -145,15 +138,15 @@ export class AppService implements OnModuleInit {
     };
     */
   }
-
+/*
   async getTotalsData(): Promise<any> {
     // Return new comprehensive structure including ALL system data
     // (observatory + mymonitor + AMS-only data)
     return await this.observatoryService.buildComprehensiveTotals();
   }
-
+/*
   async getTotalsPracticesData(): Promise<any> {
     // Return practice table data from all system data
     return await this.observatoryService.buildComprehensivePracticesData();
-  }
+  }*/
 }
