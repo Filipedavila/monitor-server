@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Outbox, OutboxStatus } from './outbox.entity';
-import { PublishEventAuthOptions, ResourcePayloadMap } from '../authorization/queue/payload.types';
+import { PublishEventAuthOptions, RegistryHandlers } from '../authorization/queue/payload.types';
 
 
 export interface PublishEventGenericOptions {
@@ -11,7 +11,7 @@ export interface PublishEventGenericOptions {
   payload: any;
 }
 
-export type PublishEventOptions = PublishEventAuthOptions<keyof ResourcePayloadMap> | PublishEventGenericOptions;
+export type PublishEventOptions = PublishEventAuthOptions<keyof RegistryHandlers> | PublishEventGenericOptions;
 export interface AuthorizationPayload {
   action: string;
   fgaTuple: any;
