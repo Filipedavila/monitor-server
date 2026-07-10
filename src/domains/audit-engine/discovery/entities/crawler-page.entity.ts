@@ -6,23 +6,29 @@ import {
   Index,
   BeforeUpdate,
   BeforeInsert,
+  UpdateDateColumn,
+  CreateDateColumn,
+  PrimaryGeneratedColumn,
 } from "typeorm";
 import { CrawlerWebsite } from "./crawler-website.entity";
-import { BaseModel } from "../../../../common/entities/base.entity";
-import { createHash } from "crypto";
-@Entity("crawl_pages")
-export class CrawlerPage extends BaseModel {
+import { IdentifiableModel } from "src/common/interfaces/Identifiable.interface";
+@Entity("crawler_pages")
+export class CrawlerPage  implements IdentifiableModel {
+
+  @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
+  id: number;
+  
   @ManyToOne("CrawlerWebsite", "pages", { onDelete: "CASCADE" })
-  @JoinColumn({ name: "crawl_website_id" })
-  crawlWebsite?: CrawlerWebsite;
+  @JoinColumn({ name: "crawler_website_id" })
+  crawlerWebsite: CrawlerWebsite;
 
   @Column({
-    name: "crawl_website_id",
+    name: "crawler_website_id",
     type: "int",
     unsigned: true,
     nullable: false,
   })
-  crawlWebsiteId: number;
+  crawlerWebsiteId: number;
 
   @Column({
     type: "text",
@@ -30,21 +36,7 @@ export class CrawlerPage extends BaseModel {
   })
   url: string;
 
-  @Index({ unique: true })
-  @Column({
-    type: "varchar",
-    length: 64,
-    nullable: false,
-    charset: "ascii",
-    collation: "ascii_general_ci",
-  })
-  url_hash: string;
+      
 
-  @BeforeInsert()
-  @BeforeUpdate()
-  generateHash() {
-    if (this.url) {
-      this.url_hash = createHash("sha256").update(this.url).digest("hex");
-    }
-  }
+
 }

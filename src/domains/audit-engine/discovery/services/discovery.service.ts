@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
-import { CrawlerWebsite } from "../entities/crawler-website.entity";
+import { CrawlerStatus, CrawlerWebsite } from "../entities/crawler-website.entity";
 import { CrawlerPageRepository } from "../repositories/crawler-page.repository";
 import { CrawlerWebsiteRepository } from "../repositories/crawler-website.repository";
 import { InjectQueue } from "@nestjs/bullmq";
@@ -51,38 +51,32 @@ export class CrawlerService extends BaseService {
 
   async getMany(
     query: CrawlerRequestDTO,
+    user: SecurityContext,
   ): Promise<CrawlWebsitesResponseDTO> {
     const sortings = query.sorts?.sort;
     const filters = query.filters;
     const pagination = query.pagination;
-    const websitesCrawled = await this.crawlWebsiteRepository.findMany({
+    const queryArgs = {
+      sortings: sortings ? sortings : {},
       filters,
-      sortings,
       pagination,
-    });
-    const responseDtos = plainToInstance(
-      CrawlWebsiteResponseDTO,
-      websitesCrawled.data,
-      {
-        excludeExtraneousValues: true,
-        enableImplicitConversion: true,
-      },
-    );
+      securityContext: user,
 
-    return {
-      data: responseDtos,
-      count: websitesCrawled.count,
-    };
+    }
+    const websitesCrawled = await this.crawlWebsiteRepository.getAllCrawlersWebsites(queryArgs);
+    return plainToInstance(CrawlWebsitesResponseDTO, websitesCrawled, {
+      excludeExtraneousValues: true,
+      enableImplicitConversion: true,
+    });
   }
 
-  async deleteCrawler(userId: number, websiteId: number): Promise<boolean> {
+  async deleteCrawler( websiteId: number): Promise<boolean> {
     try {
       const result =
-        await this.crawlWebsiteRepository.deleteByUserIdAndWebsiteId(
-          userId,
+        await this.crawlWebsiteRepository.delete(
           websiteId,
         );
-      return result;
+      return (result?.affected ?? 0) > 0;
     } catch (err) {
       return false;
     }
@@ -121,9 +115,7 @@ export class CrawlerService extends BaseService {
       const newCrawlWebsite = new CrawlerWebsite();
       newCrawlWebsite.websiteId = obj.id;
       newCrawlWebsite.baseUrl = obj.baseUrl;
-      if (options?.tag) {
-        newCrawlWebsite.tagId = options.tag;
-      }
+     
       newCrawlWebsite.createdById = securityContext.user.id;
       return newCrawlWebsite;
     });
@@ -194,7 +186,7 @@ export class CrawlerService extends BaseService {
       );
     }
     const crawlPages = await this.crawlPageRepository.findMany({ securityContext, filters: filter });
-    if (!crawlPages.count) {
+    if (!crawlPages.meta.totalItems) {
       throw new NotFoundException(
         "No crawl pages found for the given criteria",
       );
@@ -209,27 +201,26 @@ export class CrawlerService extends BaseService {
   }
 
   public async handleCrawl(crawlerWebsiteId: number) {
-    const website =
+    const websiteCrawler =
       await this.crawlWebsiteRepository.findById(crawlerWebsiteId);
-    if (!website) {
+    if (!websiteCrawler) {
       return;
     }
-    const urls = await this.startCrawlerWebsite(website);
+    const urls = await this.startCrawlerWebsite(websiteCrawler);
 
-    if (!website.tagId) {
       for (const url of urls || []) {
         try {
           const newCrawlPage = new CrawlerPage();
           newCrawlPage.url = decodeURIComponent(url);
-          newCrawlPage.crawlWebsiteId = crawlerWebsiteId;
+          newCrawlPage.crawlerWebsiteId = crawlerWebsiteId;
 
           await this.crawlPageRepository.save(newCrawlPage);
         } catch (e) {
           console.log(e);
         }
       }
-      website.isDone = true;
-      const websiteCrawled = await this.crawlWebsiteRepository.save(website);
+      websiteCrawler.status = CrawlerStatus.COMPLETED
+      const websiteCrawled = await this.crawlWebsiteRepository.save(websiteCrawler);
       const responseDto = plainToInstance(
         CrawlWebsiteResponseDTO,
         websiteCrawled,
@@ -237,10 +228,10 @@ export class CrawlerService extends BaseService {
       );
       this.eventEmitter.emit(
         "crawler.finished",
-        website.createdBy,
+        websiteCrawler.createdBy,
         responseDto,
       );
-    }
+    
   }
 
   private async startCrawlerWebsite(website: CrawlerWebsite) {

@@ -16,6 +16,7 @@ import {
 } from "src/common/interfaces/types";
 import { AppLoggerService } from "src/core/app-logger/app-logger.service";
 import { ConfigService } from "@nestjs/config";
+import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 export interface PageCrawlerFilter extends BaseFilter {
   crawlerWebsiteId: number;
@@ -72,8 +73,9 @@ export class CrawlerPageRepository extends BaseTransactionalRepository<
     super(ormRepo, logger, configService);
   }
 
-  async findPagesFromUser(
-    userId: number,
+
+  async findPagesCrawler(
+    crawlerWebsiteId: number,
     queryParams: QueryRequest<
       PageCrawlerFilter,
       PageCrawlerSorting,
@@ -82,8 +84,10 @@ export class CrawlerPageRepository extends BaseTransactionalRepository<
   ): Promise<CrawlerPage[]> {
     const query = this.ormRepo
       .createQueryBuilder("cp")
-      .innerJoin("cp.website", "w")
-      .where("w.createdBy = :userId", { userId });
+      .where("cp.crawlerWebsiteId = :crawlerWebsiteId", {
+        crawlerWebsiteId: crawlerWebsiteId,
+      });
+ 
 
     const { filters, sortings, pagination } = queryParams;
     this.applyDynamicFilters(query, filters);
@@ -94,8 +98,4 @@ export class CrawlerPageRepository extends BaseTransactionalRepository<
     return await query.getMany();
   }
 
-  applyAuthorization (query: any, rules: any, operation: string): Promise<void> {
-    throw new Error("Method not implemented.");
-    return Promise.resolve();
-  }
 }

@@ -19,7 +19,7 @@ import { CrawlerDelete as CrawlerDeleteDTO } from "../dto/crawler-delete.dto";
 import { CrawlerPageDeleteDTO } from "../dto/crawler-page-delete.dto";
 import { CrawlerRequestDTO } from "../dto/request/cralwer-request.dto";
 import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
-import { AuthenticatedUser } from "src/core/authentication/interfaces/types";
+import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 import { SecurityContext } from "src/core/authorization/SecurityContext";
 
 import { DiscoveryDocs } from "../discovery.swagger";
@@ -27,6 +27,7 @@ import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @DiscoveryDocs.controller()
 @Controller("discovery")
@@ -35,17 +36,24 @@ export class DiscoveryController {
   constructor(private readonly crawlerService: CrawlerService) {}
 
   @DiscoveryDocs.getCrawlWebsites()
-  @Roles("admin")
+  @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
   @Get("")
   async getCrawlWebsites(
     @Query() query: CrawlerRequestDTO,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<any> {
-    return await this.crawlerService.getMany(query);
+    const securityContext: SecurityContext = { user };
+    return await this.crawlerService.getMany(query, securityContext);
   }
 
   @DiscoveryDocs.crawlWebsite()
-  @Roles("admin")
-  @Post("create")
+  @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
+  @FgaAuthorized({
+      objectType: "website",
+      action: "can_view",
+      resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId
+  })
+  @Post("websites/:websiteId")
   async crawlWebsite(
     @Body() crawlerCreate: CrawlerCreateDTO,
     @CurrentUser() user: AuthenticatedUser,
@@ -66,9 +74,9 @@ export class DiscoveryController {
       },
     );
   }
-
+  
   @DiscoveryDocs.getCrawlPages()
-  @Roles("admin")
+  @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
   @Get("pages")
   async getCrawlPages(
     @Query() crawlerWebsite: CrawlerWebsiteDTO,
