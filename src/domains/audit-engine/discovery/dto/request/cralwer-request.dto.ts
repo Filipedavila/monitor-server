@@ -2,7 +2,7 @@ import { IsOptional, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { CrawlerFilterDTO } from "./crawler-filter.dto";
 import { CrawlerSortDTO } from "./crawler-sort.dto";
-import { CrawlerPaginationDTO } from "./crawler-pagination.dto";
+import { BasePaginationDTO } from "src/common/dto/request/base-pagination.dto";
 
 export class CrawlerRequestDTO {
   @IsOptional()
@@ -17,6 +17,6 @@ export class CrawlerRequestDTO {
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => CrawlerPaginationDTO)
-  pagination?: CrawlerPaginationDTO;
+  @Type(() => BasePaginationDTO)
+  pagination: BasePaginationDTO;
 }
