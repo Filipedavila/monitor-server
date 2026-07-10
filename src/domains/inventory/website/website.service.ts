@@ -1,15 +1,16 @@
-import { Injectable, ForbiddenException, NotFoundException, Inject, BadRequestException } from "@nestjs/common";
+import { Injectable, ForbiddenException, NotFoundException } from "@nestjs/common";
 
 import { Website } from "./website.entity";
 import { SecurityContext } from "src/core/authorization/SecurityContext";
-import { QueryRequest, QueryResponse } from "src/common/repositories/base.repository";
+import { QueryRequest, PaginationResponse } from "src/common/repositories/base.repository";
 import { WebsiteFilter, WebsitePagination, WebsiteRepository, WebsiteSort } from "./repositories/website.repository";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { FgaService } from "src/core/authorization/fga.service";
-import { FGA_RELATION, FgaObjectIdentifier, FgaUserIdentifier } from "src/core/authorization/types/fga.types";
 import { BaseService } from "src/common/services/base.service";
-import { FieldConflictException } from "src/common/exceptions/conflict.exception";
+import { ContextEnum , ContextMap} from "../context/context.enum";
+import { WebsiteDTO } from "./dto/website.dto";
+import { WebsiteQueryRequestDTO } from "./dto/request/query/website-query-request.dto";
 
 @Injectable()
 export class WebsiteService extends BaseService {
@@ -21,82 +22,44 @@ export class WebsiteService extends BaseService {
   }
 
 
-  async findMany<Q extends QueryRequest<WebsiteFilter, WebsiteSort, WebsitePagination>>(
-    queryArgs: Q,
-  ): Promise<QueryResponse<Website>> {
-    
-    const userId = queryArgs.securityContext?.user.id;
+  async findMany(
+    queryArgs: WebsiteQueryRequestDTO,
+    contexts:ContextEnum[],
+    securityContext: SecurityContext
+  ): Promise<PaginationResponse<Website>> {
+  
+    const findArgs = {
+      ...queryArgs,
+      contexts,
+      securityContext
 
-    const objectsId  = await this.fgaService.listObjects({
-      user: `user:${userId}`,
-      relation: 'can_view',
-      type: 'website',
-    });
+    }
+    return  this.repository.findManySecure(findArgs);
 
-    queryArgs.filters = {
-      ...queryArgs.filters,
-      ids: objectsId.map(id => parseInt(id.split(':')[1], 10)),
-    };
-
-    return  this.repository.findMany(queryArgs);
   }
 
   async createWebsite(
     createDto: CreateWebsiteDto,
     securityContext: SecurityContext
   ): Promise<Website> {
-    const isAdmin = await this.fgaService.isSystemAdmin(securityContext.user.id);
-
-    if (!isAdmin) {
-      throw new ForbiddenException("You do not have permission to create a website");
-    }
-    const normalizedBaseUrl = this.normalizeBaseUrl(createDto.baseUrl);
-    const existingWebsite = await this.repository.findOneBy({ baseUrl: normalizedBaseUrl });
-    if (existingWebsite) {
-      throw new FieldConflictException({
-        baseUrl: "url already exists",
-      });
-    }
+   
+    const actorId = securityContext.user.id;
 
     const website = this.repository.orm.create();
     Object.assign(website, createDto);
-    const savedWebsite = await this.repository.save(website);
+    website.createdById = actorId;
+    const savedWebsite = await this.repository.createWebsite(website);
     
     if (!savedWebsite) {
       throw new Error("Failed to create website");
     }
-    
-    await this.fgaService.createBatchesRelationships(
-      [ 
-        {
-          user: `user:${securityContext.user.id}`,
-          relation: 'owner',
-          object: `website:${savedWebsite.id}`,
-        },
-        {
-          user: `team:pending`,
-          relation: 'parent',
-          object: `website:${savedWebsite.id}`,
-        }
-      ] 
-    );
-  
-    
-
-    
+       
     return savedWebsite;
   }
 
 
   async findOne(id: number, securityContext: SecurityContext): Promise<Website> {
-    const permitted = await this.fgaService.check(
-      `user:${securityContext.user.id}`,
-      'can_view',
-      `website:${id}`
-    );
-    if (!permitted) {
-      throw new ForbiddenException("You do not have permission to view this website");
-    }
+   
     const website:Website| null = await this.repository.findById(id);
 
     if (!website) {
@@ -107,74 +70,51 @@ export class WebsiteService extends BaseService {
 
 
   async update(
+    websiteId:number,
     updateDto: UpdateWebsiteDto, 
     securityContext: SecurityContext
   ): Promise<Website> {
-     const permitted = await this.fgaService.check(
-      `user:${securityContext.user.id}`,
-      'can_edit',
-      `website:${updateDto.websiteId}`
-    );
-    if (!permitted) {
-      throw new ForbiddenException("You do not have permission to edit this website");
-    }
-    const website = await this.findOne(updateDto.websiteId, securityContext);
+
+    const website = await this.findOne(websiteId, securityContext);
 
 
     Object.assign(website, updateDto);
+    website.updatedById = securityContext.user.id;
     return await this.repository.save(website);
   }
 
 
   async delete(ids: number[], securityContext: SecurityContext): Promise<void> {
-    const idsPermited = await this.fgaService.listObjects({
-      user: `user:${securityContext.user.id}`,
-      relation: 'can_manage',
-      type: 'website',
-    }).then(objects => objects.map(obj => parseInt(obj.split(':')[1], 10)));
-    const idsToDelete = ids.filter(id => idsPermited.includes(id));
+ 
+    await this.repository.deleteWebsites(ids);
 
-    for (const id of idsToDelete) {
-    await this.repository.delete(id);
-
-    await this.fgaService.deleteResourceTuples(`website:${id}`);
-
-    } 
+     
   }
 
-  async publishToObservatory(id: number, securityContext: SecurityContext): Promise<void> {
-    const permitted = await this.fgaService.check(
-      `user:${securityContext.user.id}`,
-      'can_edit',
-      `website:${id}`
-    );
-    if (!permitted) {
-      throw new ForbiddenException("You do not have permission to transfer this website");
+  async changeWebsiteContexts(
+    websiteId: number,
+    contexts: ContextEnum[],
+     actorId: number): Promise<WebsiteDTO> {
+
+    const website = await this.repository.findById(websiteId);
+    if (!website) {
+      throw new NotFoundException(`Website with ID ${websiteId} not found`);
     }
+    website.contexts = contexts.map(context => ({ id: ContextMap[context] })) as any[];
+    await this.repository.save(website);
+    return website;
+  }
+/*
+  async publishToObservatory(id: number, securityContext: SecurityContext): Promise<void> {
+
     const website = await this.findOne(id, securityContext);
     if (!website) {
       throw new NotFoundException(`Website with ID ${id} not found`);
     }
-    website.isInObservatory = true;
+    website.contexts  =  [{id: 2}] as any[];
     await this.repository.save(website);
   }
-  async isSystemAdmin(userId: string): Promise<boolean> {
-  return this.fgaService.check(
-    `user:${userId}` as FgaUserIdentifier<'user'>,
-    FGA_RELATION.ROLE, 
-    `role:admin` as FgaObjectIdentifier<'role'>
-  );
-}
-
-private normalizeBaseUrl(baseUrl: string): string {
-    if (baseUrl) {
-      return baseUrl
-        .trim()
-        .toLowerCase()
-        .replace(/\/+$/, "");
-    }
-    return baseUrl;
-
-    }
+  
+*/
   
 }
