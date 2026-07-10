@@ -1,16 +1,14 @@
 import {
   IsOptional,
   IsNumber,
-  IsBoolean,
-  IsString,
-  IsArray,
+  IsString
 } from "class-validator";
 import { Website } from "../../../website.entity";
 import { BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
 
 export class WebsiteFilterDTO
   extends BaseFilterDTO<Website>
-  implements  Pick<Website, 'title' | 'baseUrl' | 'isInObservatory'>
+  implements  Pick<Website, 'title' | 'baseUrl' | 'organizationId' >
 {
   @IsString()
   @IsOptional()
@@ -20,9 +18,10 @@ export class WebsiteFilterDTO
   @IsOptional()
   baseUrl: string;
 
-  @IsBoolean()
   @IsOptional()
-  isInObservatory: boolean;
+  @IsNumber()
+  organizationId: number;
+
 
   @IsString()
   @IsOptional()

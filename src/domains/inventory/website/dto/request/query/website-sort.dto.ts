@@ -3,7 +3,7 @@ import { BaseSortDto, SortItem } from "src/common/dto/request/base-sort.dto";
 import { Type, Transform } from "class-transformer";
 import { Website } from "../../../website.entity";
 export class WebsiteSortItem extends SortItem {
-  @IsIn(["id", "tagId", "tagName", "websiteId", "isDone", "createdAt"])
+  @IsIn(["id","title", "tagId", "tagName", "websiteId", "createdAt"])
   declare field: string;
 
   @IsIn(["ASC", "DESC", "asc", "desc"])
@@ -26,6 +26,6 @@ export class WebsiteSortDTO extends BaseSortDto<Website> {
   declare readonly sort?: Record<string, "ASC" | "DESC">;
 
   getAllowedFields(): string[] {
-    return ["id", "tagId", "tagName", "websiteId", "isDone", "createdAt"];
+    return ["id", "title", "tagId", "tagName", "websiteId", "createdAt"];
   }
 }

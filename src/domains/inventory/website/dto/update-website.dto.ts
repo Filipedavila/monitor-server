@@ -1,37 +1,13 @@
-import { IsNotEmpty } from "class-validator";
-export class UpdateWebsiteDto  implements Partial<UpdateWebsiteDto> {
-  @IsNotEmpty()
-  websiteId: number;
+import {  IsNumber, IsOptional, IsString, Min } from "class-validator";
+export class UpdateWebsiteDto {
 
-  @IsNotEmpty()
-  userId: number;
+  @IsOptional()
+  @IsString({ message: "title must be a string" })
+  title: string;
 
-  @IsNotEmpty()
-  oldUserId: number;
+  @IsOptional()
+  @IsNumber({}, { message: "organizationId must be a number" })
+  @Min(1, { message: "organizationId must be greater than 0" })
+  organizationId: number;
 
-  @IsNotEmpty()
-  name: string;
-
-  @IsNotEmpty()
-  startingUrl: string;
-
-  declaration: number;
-
-  stamp: number;
-
-  declarationUpdateDate: any;
-
-  stampUpdateDate: any;
-
-  creation_Date: any;
-
-  entities: number[];
-
-  tags: number[];
-
-  transfer: boolean;
-
-  defaultEntities: number[];
-
-  defaultTags: number[];
 }
