@@ -4,21 +4,21 @@ import { PageModule } from "./page/page.module";
 import { UserModule } from "../identity/user/user.module";
 import { WebsiteModule } from "./website/website.module";
 import { TagModule } from "./tag/tag.module";
+import { ContextModule } from "./context/context.module";
 import { OrganizationModule } from "./organization/organization.module";
-
 @Module({
   imports: [
+    ContextModule,
     DirectoryModule,
     PageModule,
-    UserModule,
     WebsiteModule,
     TagModule,
-    OrganizationModule,
+    OrganizationModule,    
   ],
   exports: [
+    ContextModule,
     DirectoryModule,
     PageModule,
-    UserModule,
     WebsiteModule,
     TagModule,
     OrganizationModule,
