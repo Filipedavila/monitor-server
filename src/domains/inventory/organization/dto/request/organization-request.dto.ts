@@ -2,10 +2,10 @@ import { IsOptional, ValidateNested } from "class-validator";
       import { ResourceQueryDto } from "src/common/dto/request/query-request.dto";
 import { OrganizationFilterDTO } from "./organization-filter.dto";
 import {  OrganizationSortDTO } from "./organization-sort.dto";
-import { OrganizationPaginationDTO } from "./organization-pagination.dto";
 import { Organization } from "../../organization.entity";
+import { BasePaginationDTO } from "src/common/dto/request/base-pagination.dto";
 
-export class OrganizationRequestDTO  extends ResourceQueryDto<Organization,OrganizationFilterDTO, OrganizationSortDTO, OrganizationPaginationDTO> {
+export class OrganizationRequestDTO  extends ResourceQueryDto<Organization,OrganizationFilterDTO, OrganizationSortDTO, BasePaginationDTO> {
 
       @IsOptional()
       @ValidateNested()  
@@ -17,7 +17,7 @@ export class OrganizationRequestDTO  extends ResourceQueryDto<Organization,Organ
     
       @IsOptional()
       @ValidateNested()
-      pagination: OrganizationPaginationDTO;
+      pagination: BasePaginationDTO;
   
 }
   
