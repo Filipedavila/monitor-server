@@ -5,77 +5,50 @@ type user
 
 type role
   relations
-    define member: [user]
+    define manager: [user]
+    define editor: [user]
+    define viewer: [user]
 
-type directory
-  relations
-    define admin: [role]
+    define can_manage_users: manager 
+    define can_edit_users: editor or manager
+    define can_view_users: viewer or editor or manager
 
-    define can_manage: member from admin 
-    define can_view: member from admin
 
-type tag
-  relations
-    define admin: [role]
-
-    define can_manage: member from admin 
-    define can_view: member from admin
-
-type accessibility_statement
-  relations
-    define admin: [role]
-
-    define can_manage: member from admin 
-    define can_view: member from admin
-  
 type team
   relations
-    define admin: [role,user]
-    define member: [user]    
+    define admin: [user]
+    define member: [user]
+    define team_role: [role]
+    define admin_role: [role]    
+
+    define is_manager_as_member: member and manager from team_role
+    define is_manager_as_admin_role: manager from admin_role
+    define is_manager_as_team_admin: admin
+    define is_manager: is_manager_as_member or is_manager_as_admin_role or is_manager_as_team_admin
+
+    define is_editor_as_member: member and editor from team_role
+    define is_editor_as_admin_role: editor from admin_role
+    define is_editor_as_team_admin: admin
+    define is_editor: is_editor_as_member or is_editor_as_admin_role or is_editor_as_team_admin
+
+    define can_view_as_member: member and viewer from team_role
+    define can_view_as_admin_role: viewer from admin_role
+    define can_view_as_team_admin: admin
     
-    define can_manage: member from admin  or admin
-    define can_edit: member from admin or member
-    define can_view: member from admin or member
+    define can_manage: is_manager
+    define can_edit: is_editor or is_manager
+    define can_view: can_view_as_member or can_view_as_team_admin or can_view_as_admin_role
 
 type website
   relations
     define parent: [team]
-    define owner: [user]
-    define study_assignee: [user]
-    
-    define can_manage: owner or can_manage from parent
-    define can_edit: owner or can_edit from parent
-    define can_view: study_assignee or owner or can_view from parent
+    define admin_role: [role]    
 
-type page
-  relations
-    define parent: [website]
-    define can_manage: can_manage from parent
-    define can_edit: can_edit from parent
-    define can_view: can_view from parent
-   
-type crawler_website
-  relations
-    define parent: [website]
-    define owner: [user]
-    
-    define can_manage: owner or can_manage from parent
-    define can_edit: owner or can_edit from parent
-    define can_view: owner or can_view from parent
+    define viewer: [user]
+    define editor: [user]
+    define manager: [user]
 
-type crawler_page
-  relations
-    define parent: [crawler_website]
-    
-    define can_manage: can_manage from parent
-    define can_edit: can_edit from parent
-    define can_view: can_view from parent
-
-type evaluation
-  relations
-    define parent: [website]
-    define owner: [user, role]
-    define can_manage: (owner or member from owner) and can_manage from parent
-    define can_edit: (owner or member from owner) and can_edit from parent
-    define can_view: (owner or member from owner) and can_view from parent
+    define can_manage: manager from admin_role or can_manage from parent or manager
+    define can_edit: can_manage or editor from admin_role or can_edit from parent or editor
+    define can_view: viewer from admin_role or can_view from parent or can_edit or viewer
 
