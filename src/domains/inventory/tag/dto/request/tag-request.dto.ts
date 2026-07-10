@@ -2,9 +2,10 @@ import { IsOptional, ValidateNested } from "class-validator";
 import { ResourceQueryDto } from "src/common/dto/request/query-request.dto";
 import { TagFilterDTO } from "./tag-filter.dto";
 import { TagSortDTO } from "./tag-sort.dto";
-import { TagPaginationDTO } from "./tag-pagination.dto";
 import { Tag } from "../../tag.entity";
-export class TagRequestDTO extends ResourceQueryDto<Tag, TagFilterDTO, TagSortDTO, TagPaginationDTO> {
+import { BasePaginationDTO } from "src/common/dto/request/base-pagination.dto";
+
+export class TagRequestDTO extends ResourceQueryDto<Tag, TagFilterDTO, TagSortDTO, BasePaginationDTO> {
 
       @IsOptional()
       @ValidateNested()
@@ -16,7 +17,7 @@ export class TagRequestDTO extends ResourceQueryDto<Tag, TagFilterDTO, TagSortDT
     
       @IsOptional()
       @ValidateNested()
-      pagination: TagPaginationDTO;
+      pagination: BasePaginationDTO;
   
 }
   
