@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role } from './roles.entity';
-import { RoleSlug } from 'src/core/authentication/interfaces/types';
+import { RoleSlug, RoleSlugMap } from 'src/core/authentication/interfaces/types';
 
 @Injectable()
 export class RoleService implements OnModuleInit {
@@ -21,7 +21,13 @@ export class RoleService implements OnModuleInit {
   async refreshCache() {
     const roles = await this.roleRepository.find();
     this.roleCache.clear();
-    roles.forEach((role) => this.roleCache.set(role.slug, role.id));
+    roles.forEach((role) =>{ 
+      const role_slug = RoleSlugMap[role.slug];
+      if (!role_slug) {
+        throw new NotFoundException(`Invalid role slug: ${role.slug}`);
+      }
+      this.roleCache.set(role_slug, role.id);
+     });
   }
 
 
