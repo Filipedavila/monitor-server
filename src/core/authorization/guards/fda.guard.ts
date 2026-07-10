@@ -1,8 +1,8 @@
 import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FgaService } from '../fga.service';
-import {  FgaObjectIdentifier, FgaUserIdentifier, ResourceType } from '../types/fga.types';
-import { FGA_DECORATOR_KEY, FgaMetadata } from '../decorators/fga-authorization.decorator';
+import {  EnquireRelationType, FgaObjectIdentifier, FgaUserIdentifier, ResourceType } from '../types/fga.types';
+import { FGA_DECORATOR_KEY, FgtaTupleCheck } from '../decorators/fga-authorization.decorator';
 
 @Injectable()
 export class FgaGuard implements CanActivate {
@@ -12,7 +12,7 @@ export class FgaGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const fgaTuple:FgaMetadata<ResourceType> = this.reflector.get<FgaMetadata<ResourceType>>(
+            const fgaTuple:FgtaTupleCheck<ResourceType, keyof EnquireRelationType> = this.reflector.get<FgtaTupleCheck<ResourceType, keyof EnquireRelationType>>(
       FGA_DECORATOR_KEY,
       context.getHandler(),
     );

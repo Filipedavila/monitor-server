@@ -63,7 +63,7 @@ function createMockContext(requestPayload: any): ExecutionContext {
    
    it('should extract user id and resource id and check permissions', async () => {
     const mockFgaMetadata= {
-      objectType: FGA_RESOURCE.PAGE,
+      objectType: FGA_RESOURCE.WEBSITE,
       action: 'can_view',
       resourceIdResolver: (ctx: ExecutionContext) => '123',
     } as FgaMetadata<ResourceType>;
@@ -82,13 +82,13 @@ function createMockContext(requestPayload: any): ExecutionContext {
     expect(mockFgaService.check).toHaveBeenCalledWith(
       'user:42',
       'can_view',
-      'page:123'
+      'website:123'
     );
    });
 
    it('should throw ForbiddenException if user is not authenticated', async () => {
     const mockFgaMetadata= {
-      objectType: FGA_RESOURCE.PAGE,
+      objectType: FGA_RESOURCE.WEBSITE,
       action: 'can_view',
       resourceIdResolver: (ctx: ExecutionContext) => '123',
     } as FgaMetadata<ResourceType>;
@@ -106,7 +106,7 @@ function createMockContext(requestPayload: any): ExecutionContext {
 
    it('should throw ForbiddenException if resource ID cannot be resolved', async () => {
     const mockFgaMetadata= {
-      objectType: FGA_RESOURCE.PAGE,
+      objectType: FGA_RESOURCE.WEBSITE,
       action: 'can_view',
       resourceIdResolver: (ctx: ExecutionContext) => undefined, 
     } as FgaMetadata<ResourceType>;
@@ -124,7 +124,7 @@ function createMockContext(requestPayload: any): ExecutionContext {
 
    it('should throw ForbiddenException if object ID is not provided', async () => {
     const mockFgaMetadata= {
-      objectType: FGA_RESOURCE.PAGE,
+      objectType: FGA_RESOURCE.WEBSITE,
       action: 'can_view',
       resourceIdResolver: (ctx: ExecutionContext) => undefined, 
     } as FgaMetadata<ResourceType>;
@@ -142,7 +142,7 @@ function createMockContext(requestPayload: any): ExecutionContext {
 
     it('should throw ForbiddenException if permission check fails', async () => {
     const mockFgaMetadata= {
-      objectType: FGA_RESOURCE.PAGE,
+      objectType: FGA_RESOURCE.WEBSITE,
       action: 'can_view',
       resourceIdResolver: (ctx: ExecutionContext) => '123',
     } as FgaMetadata<ResourceType>;
@@ -159,13 +159,13 @@ function createMockContext(requestPayload: any): ExecutionContext {
     expect(mockFgaService.check).toHaveBeenCalledWith(
       'user:42',
       'can_view',
-      'page:123'
+      'website:123'
     );
    });
 
    it('should return true if permission check passes', async () => {
     const mockFgaMetadata= {
-      objectType: FGA_RESOURCE.PAGE,
+      objectType: FGA_RESOURCE.WEBSITE,
       action: 'can_view',
       resourceIdResolver: (ctx: ExecutionContext) => '123',
     } as FgaMetadata<ResourceType>;
@@ -184,7 +184,7 @@ function createMockContext(requestPayload: any): ExecutionContext {
     expect(mockFgaService.check).toHaveBeenCalledWith(
       'user:42',
       'can_view',
-      'page:123'
+      'website:123'
     );
    });
    
