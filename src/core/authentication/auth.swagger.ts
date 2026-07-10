@@ -1,7 +1,7 @@
 import { applyDecorators } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags, ApiBody, ApiExtraModels, getSchemaPath } from "@nestjs/swagger";
+import { LocalLoginDto } from "./dto/local-login.dto";
 
-// Definir a resposta de sucesso para evitar o "String" genérico
 class LoginResponseDto {
   token: string;
 }
@@ -18,14 +18,8 @@ export const AuthDocs = {
     applyDecorators(
       ApiOperation({ summary: "Login via username/password" }),
       ApiBody({
-        schema: {
-          type: 'object',
-          properties: {
-            username: { type: 'string', example: 'filipe_admin' },
-            password: { type: 'string', example: 'senha123' },
-            role: { type: 'string', example: 'admin' }
-          }
-        }
+          type: LocalLoginDto,
+          description: "User credentials for authentication",
       }),
       ApiResponse({
         status: 200,

@@ -3,7 +3,7 @@ import { PassportStrategy } from "@nestjs/passport";
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { jwtConstants } from "../constants/constants";
 import { AuthService, JWTTokenPayload } from "../auth.service";
-import { AuthenticatedUser } from "../interfaces/types";
+import { AuthenticatedUser, RoleSlug, RoleSlugMap } from "../interfaces/types";
 import { Request } from "express";
 
 @Injectable()
@@ -29,11 +29,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!valid || isBlackListed) {
       throw new UnauthorizedException();
     }
-
+    const role_slug: RoleSlug = RoleSlugMap[payload.role];
+    if (!role_slug) {
+      throw new UnauthorizedException(`Invalid role slug: ${payload.role}`);
+    }
     return {
       id: payload.sub,
       username: payload.username,
-      role_slug: payload.role,
+      role_slug: role_slug,
     };
   }
 }
