@@ -1,12 +1,15 @@
 import { Role } from "../role/roles.entity";
-import { Entity, Column, ManyToMany, JoinColumn, ManyToOne, OneToOne, JoinTable } from "typeorm";
-import { AuditableEntity } from "../../../common/entities/auditable.entity";
-import {DeletionMetadata} from "../../../common/entities/soft-deletable.entity";
-import { Organization } from "../../inventory/organization/organization.entity";
-import { Team } from "../team/team.entity";
+import { Entity, Column, JoinColumn, ManyToOne, CreateDateColumn, UpdateDateColumn, Index, DeleteDateColumn, PrimaryGeneratedColumn } from "typeorm";
+import { SoftDeletable } from "src/common/interfaces/soft-deletable.interface";
+import { Auditable } from "src/common/interfaces/auditable.interface";
+import { IdentifiableModel } from "src/common/interfaces/Identifiable.interface";
 
 @Entity("users")
-export class User extends AuditableEntity {
+export class User implements IdentifiableModel, Auditable,SoftDeletable {
+
+  @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
+  id: number;
+
   @ManyToOne(() => Role, { eager: true, nullable: false })
   @JoinColumn({ name: "role_id" })
   role: Role;
@@ -33,25 +36,8 @@ export class User extends AuditableEntity {
   password: string;
 
   @Column({
-    name: "full_name",
-    type: "varchar",
-    length: 255,
-    nullable: true,
-  })
-  fullName?: string;
-
-  @Column({
-    name: "email",
-    type: "varchar",
-    length: 255,
-    unique: true,
-    nullable: false,
-  })
-  email: string;
-
-  @Column({
     name: "last_login",
-    type: "timestamp",
+    type: "timestamptz",
     nullable: true,
   })
   lastLogin?: Date;
@@ -74,14 +60,44 @@ export class User extends AuditableEntity {
   })
   ccNumber: string;
   
-  @ManyToMany(() => Team, (team: Team) => team.users)
-  @JoinTable({
-      name: "team_users",
-      joinColumn: { name: "user_id", referencedColumnName: "id" },
-      inverseJoinColumn: { name: "team_id", referencedColumnName: "id" },
-    })
-  teams: Team[];
+  @CreateDateColumn({
+        name: "created_at",
+        type: "timestamptz",
+        default: () => "CURRENT_TIMESTAMP",
+      })
+  createdAt: Date;
+    
+  @UpdateDateColumn({
+        name: "updated_at",
+        type: "timestamptz",
+        default: () => "CURRENT_TIMESTAMP",
+        onUpdate: "CURRENT_TIMESTAMP",
+  })
+  updatedAt: Date;
+      
+  @Index()
+  @Column({ name: "created_by_id", type: "int", unsigned: true, nullable: true }) 
+  createdById: number;
+    
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "created_by_id" })
+  createdBy: User;
+  
+  @Index()
+  @Column({ name: "updated_by_id", type: "int", unsigned: true, nullable: true })
+  updatedById: number | null;
+  
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "updated_by_id" })
+  updatedBy: User |  null;
+  
+  @DeleteDateColumn({ name: "deleted_at", type: "timestamptz", nullable: true })
+  deletedAt: Date;
+  
+  @Column({ name: "deleted_by", type: "int", unsigned: true, nullable: true })
+  deletedById: number;
 
-  @Column(() => DeletionMetadata , { prefix: false })
-  deletionMetadata: DeletionMetadata;
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "deleted_by" })
+  deletedBy: User;
 }

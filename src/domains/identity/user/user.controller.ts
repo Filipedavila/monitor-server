@@ -21,10 +21,12 @@ import { UserQueryDTO } from "./dto/request/user-request.dto";
 import { UserDTO } from "./dto/user.dto";
 import { UpdateMeDTO } from "./dto/update-user-me.dto";
 import { UserPaginationResponse } from "./dto/pagination-response.dto";
+import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @UserDocs.controller
 @Controller("users")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard,FgaGuard)
 @UseInterceptors(LoggingInterceptor)
 export class UserController {
   constructor(
@@ -47,16 +49,21 @@ export class UserController {
   }
 
   @UserDocs.create
+  @FgaAuthorized({
+        objectType: "role",
+        action: "can_manage_users",
+        resourceIdResolver: () => "ams"
+  })
   @Roles(RoleSlug.ADMIN)
   @Post("")
   async createUser(@CurrentUser() user: AuthenticatedUser, @Body() createUserDto: CreateUserDto): Promise<UserDTO> {
 
-   return this.userService.createUser(user,createUserDto);
+   return await this.userService.createUser(user,createUserDto);
    
   }
 
   @UserDocs.updateMe  
-  @Roles(RoleSlug.ADMIN, RoleSlug.MONITOR, RoleSlug.STUDY)
+  @Roles(RoleSlug.ADMIN, RoleSlug.MONITOR)
   @Patch("me") 
   async updateMe(
     @CurrentUser() user: AuthenticatedUser, 
@@ -75,6 +82,11 @@ export class UserController {
 
   
   @UserDocs.delete
+  @FgaAuthorized({
+        objectType: "role",
+        action: "can_manage_users",
+        resourceIdResolver: () => "ams"
+  })
   @Roles(RoleSlug.ADMIN)
   @Delete(":id")
   @HttpCode(204)
@@ -83,6 +95,11 @@ export class UserController {
     return await this.userService.delete(id);
   }
   @UserDocs.recover
+  @FgaAuthorized({
+        objectType: "role",
+        action: "can_manage_users",
+        resourceIdResolver: () => "ams"
+  })
   @Roles(RoleSlug.ADMIN)
   @Post(":id/restore")
   @HttpCode(204)

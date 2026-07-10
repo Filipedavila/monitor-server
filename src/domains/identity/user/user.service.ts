@@ -12,13 +12,11 @@ import {
   createRandomUniqueHash,
   generatePasswordHash,
 } from "../../../common/security";
-import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
+import { AuthenticatedUser, RoleSlug, SecurityContext } from "src/core/authentication/interfaces/types";
 import { UserQueryDTO } from "./dto/request/user-request.dto";
-import { SecurityContext } from "src/domains/audit-engine/evaluation/controllers/evaluation.controller";
 import { UserDTO } from "./dto/user.dto";
 import { UserRepository } from "./repositories/user.repository";
 import { FgaService } from "src/core/authorization/fga.service";
-import { FGA_RESOURCE } from "src/core/authorization/types/fga.types";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { RoleService } from "../role/role.service";
@@ -28,7 +26,6 @@ import { FieldConflictException } from "src/common/exceptions/conflict.exception
 
 interface UniqueUserCriteria {
   ccNumber?: string;
-  email: string;
   username: string;
 }
 @Injectable()
@@ -94,8 +91,6 @@ export class UserService {
     if(dto.newPassword) {
       await this.changeUserPassword(userId, dto.currentPassword, dto.newPassword);
     }
-    if (dto.names !== undefined) user.fullName = dto.names;
-    if (dto.email !== undefined) user.email = dto.email;
     const updatedUser = await this.userRepository.getOrmRepository().save(user);
     return plainToInstance(UserDTO, updatedUser, { excludeExtraneousValues: true });
   }  
@@ -109,8 +104,6 @@ async updateUser(userId: number, dto: UpdateUserDto): Promise<UserDTO> {
   if (dto.role) this.handleRoleUpdate(user, dto.role);
   await this.validateUniqueness(userId, dto);
 
-  if (dto.names !== undefined) user.fullName = dto.names;
-  if (dto.email !== undefined) user.email = dto.email;
   if (dto.ccNumber !== undefined) user.ccNumber = dto.ccNumber;
 
   const savedUpdate = await this.userRepository.getOrmRepository().save(user);
@@ -125,31 +118,13 @@ async updateUser(userId: number, dto: UpdateUserDto): Promise<UserDTO> {
 }
 
   async delete(userId: number): Promise<void> { 
-    const result = await this.userRepository.getOrmRepository().softDelete({ id: userId });
-    // TODO implement deletion in OpenFGA ?!
-    // TODO implement OUTBOX Pattern
-      if(result.affected === 0) {
-      throw new NotFoundException();
-     } 
-     // TODO : Handle cascade deletion of related entities and permissions in OpenFGA
-     // or create event for this action to decouple from UserService
-   /* const related = await this.fgaService.findObjectsRelated(userId, FGA_RESOURCE.ORGANIZATION, "admin");
-    if(related.related.length) {
-      for(const orgId of related.related) {
-        await this.fgaService.createRelationship({
-          object: `organization:${orgId}`,
-          relation: "admin",
-          user: `user:pending`
-        });
-      }
-    }
-    await this.fgaService.purgeAllTuplesForUser(userId);
-     */
+    await this.userRepository.deleteUser(userId);
+
   }
 
-  public async getUsers(securityContext: SecurityContext, query:UserQueryDTO ): Promise<{ data: UserDTO[]; count: number }> {
+  public async getUsers(securityContext: SecurityContext, query:UserQueryDTO ): Promise<{ data: UserDTO[]; meta: { totalItems: number; currentPage: number; totalPages: number; itemsPerPage: number } }> {
          return await this.userRepository.findManyCustom<UserDTO>({ filters: query.filters, sortings: query.sorts, pagination: query.pagination, securityContext },
-           ["id", "username", "fullName", "email","createdAt", "updatedAt" ,  "lastLogin"], { role: [{ field: "displayName"}, { field: "description" }] });
+           ["id", "username", "createdAt", "updatedAt" ,  "lastLogin"], { role: [{ field: "displayName"}, { field: "description" }] });
     }
   
 
@@ -175,25 +150,17 @@ async updateUser(userId: number, dto: UpdateUserDto): Promise<UserDTO> {
     userCreateDto: CreateUserDto
   ): Promise<UserDTO> {
       
-      await this.validateUniqueUserConflicts(userCreateDto, {
-        ccNumber: userCreateDto.ccNumber,
-        email: userCreateDto.email,
-        username: userCreateDto.username
-      });
-        
         const user = new User();
         user.username = userCreateDto.username;
         user.password = await generatePasswordHash(userCreateDto.password);
-        user.fullName = userCreateDto.names;
-        user.email = userCreateDto.email;
+        
         user.ccNumber = userCreateDto.ccNumber ?? null;
         user.roleId = this.roleService.getRoleIdBySlug(userCreateDto.role as RoleSlug);
         user.uniqueHash = createRandomUniqueHash();
         user.createdById = securityContext.id;
-        const savedUser = await this.userRepository.getOrmRepository().save(user);
-
-        return plainToInstance(UserDTO, savedUser, { excludeExtraneousValues: true });
-      
+        const savedUser = await this.userRepository.createUser(user, userCreateDto.role, userCreateDto.permission);
+       
+        return plainToInstance(UserDTO, savedUser, { excludeExtraneousValues: true });     
   }
   async restoreUser(id: number): Promise<void> {
     const result = await this.userRepository.getOrmRepository().restore({ id: id });
@@ -217,13 +184,12 @@ private async validateUniqueness(userId: number, dto: UpdateUserDto): Promise<vo
 
   const conflict = await repo.findOne({
     where: [
-      ...(dto.email ? [{ email: dto.email, id: Not(userId) }] : []),
       ...(dto.ccNumber ? [{ ccNumber: dto.ccNumber, id: Not(userId) }] : [])
     ]
   });
 
   if (conflict && conflict.id !== userId) {
-    const field = conflict.email === dto.email ? "email" : "citizen card number";
+    const field = conflict.ccNumber === dto.ccNumber ? "citizen card number" : "username";
     throw new BadRequestException(`A user with the provided ${field} already exists.`);
   }
 }
@@ -235,7 +201,6 @@ private async validateUniqueUserConflicts(
 
   const conflictingUsers = await this.userRepository.findByUniqueCriteria({
             ccNumber: userData.ccNumber,
-            email: userData.email,
             username: userData.username
         });
   if (!conflictingUsers || conflictingUsers.length === 0) {
@@ -245,15 +210,12 @@ private async validateUniqueUserConflicts(
   const conflicts: Record<string, string> = {};
 
   const hasCcConflict = criteria.ccNumber && conflictingUsers.some(u => u.ccNumber === criteria.ccNumber);
-  const hasEmailConflict = conflictingUsers.some(u => u.email === criteria.email);
   const hasUsernameConflict = conflictingUsers.some(u => u.username === criteria.username);
 
   if (hasCcConflict) {
     conflicts['ccNumber'] = "A user with the provided citizen card number already exists.";
   }
-  if (hasEmailConflict) {
-    conflicts['email'] = "A user with the provided email address already exists.";
-  }
+
   if (hasUsernameConflict) {
     conflicts['username'] = "A user with the provided username already exists.";
   }
