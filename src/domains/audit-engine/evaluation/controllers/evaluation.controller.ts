@@ -25,9 +25,7 @@ import { createReadStream } from "node:fs";
 import { FgaGuard } from "src/core/authorization/guards/fda.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
-export interface SecurityContext {
-  user: AuthenticatedUser;
-}
+
 @EvaluationDocs.controller()
 @Controller("evaluations")
 @UseGuards(JwtAuthGuard, RolesGuard,FgaGuard)
@@ -38,12 +36,7 @@ export class EvaluationController {
 
 
   @EvaluationDocs.findAll()
-  @Roles(RoleSlug.ADMIN)
-  @FgaAuthorized({
-    objectType: "page",
-    action: "can_view",
-    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.pageId
-  })  
+  @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
   @Get("page/:pageId")
   async findAllAMSEval(@CurrentUser() user: AuthenticatedUser, @Param("pageId") pageId: number, @Query() query: EvaluationQueryDTO): Promise<any> {
     const securityContext = { user: user };
@@ -52,11 +45,6 @@ export class EvaluationController {
 
   @EvaluationDocs.findOne()
   @Roles(RoleSlug.ADMIN)
-  @FgaAuthorized({
-    objectType: "page",
-    action: "can_view",
-    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.pageId
-  })
   @Get("page/:pageId/evaluation/:evaluationId")
   async findOne(@Param("pageId") pageId: number, @Param("evaluationId") evaluationId: number, @CurrentUser() user: AuthenticatedUser): Promise<any> {
     const securityContext = { user: user };
@@ -64,11 +52,6 @@ export class EvaluationController {
   }
   
   @EvaluationDocs.findPageEvaluationDetails()
-  @FgaAuthorized({
-    objectType: "page",
-    action: "can_view",
-    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.pageId
-  })
   @Get("/results/page/:pageId/evaluation/:evaluationId")
   async getPageEvaluationDetails(
     @Request() req: any,
@@ -91,11 +74,6 @@ export class EvaluationController {
   }
 
   @EvaluationDocs.findPageEvaluationDetails()
-  @FgaAuthorized({
-    objectType: "page",
-    action: "can_view",
-    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.pageId
-  })
   @Get("/results/page/:pageId/html/:evaluationId")
   async getPageEvaluationHtml(
     @Request() req: any,
@@ -118,11 +96,6 @@ export class EvaluationController {
   }
 
   @EvaluationDocs.uploadExternalEvaluation()
-  @FgaAuthorized({
-    objectType: "page",
-    action: "can_edit",
-    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.pageId
-  })
   @Post("external/:pageId")
   async uploadExternalEvaluation(
     @CurrentUser() user: AuthenticatedUser,
@@ -150,7 +123,6 @@ export class EvaluationController {
     const securityContext = { user: user };
     await this.evaluationService.evaluateWebsite(websiteId, securityContext);
   }
-
 
 }
   
