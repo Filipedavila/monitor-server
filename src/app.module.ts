@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
+import {  ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from "@nestjs/schedule";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { join } from "path";
@@ -14,11 +15,13 @@ import { PersistenceModule } from "./core/database/persistence.module";
 import { AuthorizationModule } from "./core/authorization/authorization.module";
 import { MaxOffsetLimitConstraint } from "./core/validators/max-limit-pag.validator";
 import { ClickhouseModule } from "./core/clickhouse/clickhouse.module"; 
-import { HybridRateLimiterGuard } from "./common/guards/hybrid-rate-limiter.guard";
 import { ThrottlerModule } from "@nestjs/throttler/dist/throttler.module";
 import { ConfigService } from '@nestjs/config';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RedisModule } from './redis/redis.module';
+import { AllocationModule } from './domains/allocations/allocation.module';
+
+
 @Module({
   imports: [
     ConfigAppModule,
@@ -55,14 +58,14 @@ import { RedisModule } from './redis/redis.module';
     AuthorizationModule,
     ClickhouseModule,
     AnalyticsModule,
-   
+    AllocationModule   
   ],
   controllers: [AppController],
   providers: [
     AppService,
     {
       provide: APP_GUARD,
-      useClass: HybridRateLimiterGuard,
+      useClass: ThrottlerGuard ,
     },
     MaxOffsetLimitConstraint,
   ],

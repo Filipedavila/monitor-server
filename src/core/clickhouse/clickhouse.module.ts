@@ -15,7 +15,7 @@ import { CLICKHOUSE_CLIENT } from './clickhouse.constants';
                     password: configService.get<string>('CLICKHOUSE_PASSWORD'),
                     database: configService.get<string>('CLICKHOUSE_DATABASE'),
                     log: {
-                        level: configService.get<number>('CLICKHOUSE_LOG_LEVEL') || ClickHouseLogLevel.INFO,
+                        level: (configService.get<number>('CLICKHOUSE_LOG_LEVEL') as ClickHouseLogLevel) || ClickHouseLogLevel.INFO,
                     }
                 });
                 return client;
