@@ -1,0 +1,40 @@
+import { Controller, Patch, Body, HttpStatus, HttpCode, Param, UseGuards, ParseIntPipe } from "@nestjs/common";
+import { TagWebsitesService } from "./tag-website.service";
+import { UpdateWebsiteTagsDto } from "./dtos/tag-website-update.dto"; 
+import { RolesGuard } from "src/core/authorization/guards/roles.guard";
+import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
+import { RoleSlug ,AuthenticatedUser} from "src/core/authentication/interfaces/types";
+import { Roles } from "src/core/authorization/decorators/roles.decorator";
+import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
+import { TagWebsitesDocs } from "./tag-website.swagger";
+import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
+
+@TagWebsitesDocs.controller()
+@Controller("websites/:websiteId/tags") // Rota RESTful consolidada
+@UseGuards(JwtAuthGuard, RolesGuard, FgaGuard)
+export class TagWebsitesController {
+  constructor(private readonly orchestrator: TagWebsitesService) {}
+
+  @Patch()
+  @TagWebsitesDocs.updateWebsiteTags()
+  @FgaAuthorized({
+    objectType: "role",
+    action: "can_edit_users",
+    resourceIdResolver: () => 'ams'
+  })
+  @Roles(RoleSlug.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async updateTags(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("websiteId", ParseIntPipe) websiteId: number,
+    @Body() dto: UpdateWebsiteTagsDto
+  ) {
+    return await this.orchestrator.updateTagsOnWebsite(
+      websiteId,
+      dto.add || [],
+      dto.remove || [],
+      user.id
+    );
+  }
+}
