@@ -1,14 +1,14 @@
 
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {  Repository } from 'typeorm';
+import {  In, Repository } from 'typeorm';
 import { BaseTransactionalRepository } from 'src/common/repositories/base-transactional.repository';
 import { FilterMap, SortingMap } from 'src/common/repositories/base.repository';
 import { AppLoggerService } from 'src/core/app-logger/app-logger.service';
 import { ConfigService } from '@nestjs/config';
 import { BaseFilter, BaseSort, SortCriteria } from 'src/common/interfaces/types';
 import { Tag } from './tag.entity';
- 
+import { ContextEnum } from '../context/context.enum';
 
 export interface TagFilter extends BaseFilter {
   id?: number;
@@ -16,7 +16,8 @@ export interface TagFilter extends BaseFilter {
   createdAt?: Date;
   websites?: number[];
   directories?: number[];
-  isOfficial?: boolean;
+  contexts?: ContextEnum[];
+  searchTerm?: string;
 }
 
 export interface TagSort extends BaseSort {
@@ -55,13 +56,19 @@ export class TagRepository extends BaseTransactionalRepository<
       query.andWhere(`${this.alias}.createdAt = :createdAt`, { createdAt: value });
     },  
     websites: (query, value) => {
-      query.andWhere(`${this.alias}.websites IN (:...websites)`, { websites: value });
+      query.innerJoin(`${this.alias}.websites`, 'website')
+      query.andWhere('website.id IN (:...websites)', { websites: value });
     },
     directories: (query, value) => {
-      query.andWhere(`${this.alias}.directories IN (:...directories)`, { directories: value });
+      query.innerJoin(`${this.alias}.directories`, 'directory')
+      query.andWhere('directory.id IN (:...directories)', { directories: value });
     },
-    isOfficial: (query, value) => {
-      query.andWhere(`${this.alias}.isOfficial = :isOfficial`, { isOfficial: value });
+    contexts: (query, value) => {
+      query.innerJoin(`${this.alias}.contexts`, 'context')
+      .andWhere('context.code IN (:...contextCodes)', { contextCodes: value });
+    },
+    searchTerm: (query, value) => {
+      query.andWhere(`${this.alias}.name LIKE :searchTerm`, { searchTerm: `%${value}%` });
     }
   };
 
@@ -69,11 +76,14 @@ export class TagRepository extends BaseTransactionalRepository<
     id: (query, order) => this.addSort(query, 'id', order),
     name: (query, order) => this.addSort(query, 'name', order),
     createdAt: (query, order) => this.addSort(query, 'createdAt', order),
-
   };
+  
 
   async copyExistingTagsIds(tag: Tag, type: string, tagsId: number[]): Promise<any> {
   if (type !== "official" && type !== "user") {
+    return false;
+  }
+  if (!tagsId || tagsId.length === 0) {
     return false;
   }
   this.runInTransaction(async (queryRunner) => {
@@ -81,13 +91,21 @@ export class TagRepository extends BaseTransactionalRepository<
     const newTag = await queryRunner.manager.save(Tag, tag);
 
 
-    await queryRunner.manager.query(`
-      INSERT INTO website_tags (tag_id, website_id)
-      SELECT DISTINCT ?, tw.website_id
-      FROM website_tags tw
-      WHERE tw.tag_id IN (?)
-      ON CONFLICT DO NOTHING
-    `, [newTag.id, tagsId]);
+    await queryRunner.manager
+      .createQueryBuilder()
+      .insert()
+      .into('website_tags') 
+      .values((subQuery) => {
+        return subQuery
+          .select('DISTINCT :tagId', 'tag_id')
+          .addSelect('tw.website_id', 'website_id')
+          .from('website_tags', 'tw')
+          .where('tw.tag_id IN (:...tagsId)');
+      })
+      .orIgnore() 
+      .setParameter('tagId', newTag.id)
+      .setParameter('tagsId', tagsId)
+      .execute();
       
   });
 }
@@ -124,4 +142,15 @@ async deleteBulk(tagsId: Array<number>): Promise<boolean> {
     throw new InternalServerErrorException(errorMessage);
   }
 }
+
+  async validateContext(tagId: number[], context: number, userId: number): Promise<boolean> {
+    const result = await this.executeBatchCount(tagId, async (batch) => {  
+      const count = await this.ormRepo.count({
+        where: { id: In(batch), contexts: { id: context }, createdById: userId },
+        relations: ['contexts'],
+      });
+      return count;
+    });
+    return result > 0;
+  }
 }

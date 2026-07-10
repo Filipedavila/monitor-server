@@ -4,72 +4,95 @@ import {
   Delete,
   Query,
   HttpCode,
+  Logger,
 } from "@nestjs/common";
 import { TagService } from "./tag.service";
 import { Tag } from "./tag.entity";
 import { LoggingInterceptor } from "src/core/log/log.interceptor";
 
-import { ImportTagDto } from "./dto/import-tag.dto";
+import { ImportTagDTO } from "./dto/import-tag.dto";
 import { TagDocs } from "./tag.swagger";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
 import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 import { TagRequestDTO } from "./dto/request/tag-request.dto";
-import { BaseController } from "src/common/controllers/base.controller";
-import { CreateTagDto } from "./dto/create-tag.dto";
-import { UpdateTagDto } from "./dto/update-tag.dto";
+import {  LoggableController } from "src/common/controllers/loggable.interface";
+import { CreateTagDTO } from "./dto/create-tag.dto";
+import { UpdateTagDTO } from "./dto/update-tag.dto";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
-import { DeleteTagsDto } from "./dto/delete-tag.dto";
+import { ContextFilterGuard } from "src/core/authorization/guards/context.guard";
+import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @TagDocs.controller()
 @Controller("tags")
-@UseGuards(JwtAuthGuard,RolesGuard)
+@UseGuards(JwtAuthGuard,RolesGuard,FgaGuard)
 @UseInterceptors(LoggingInterceptor)
-export class TagController extends BaseController {
-  constructor(private readonly tagService: TagService) {
-    super("TagController");
-  }
+export class TagController implements LoggableController {
+  readonly logger = new Logger("TagController");
+  constructor(private readonly tagService: TagService) {}
 
   
   @TagDocs.findAll()
   @Get("")
-  async find(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Query() query: TagRequestDTO): Promise<any> {
-    const securityContext = { user: user };
+  @Roles(RoleSlug.ADMIN)
+  @UseGuards(ContextFilterGuard)
+  async findAllAdmin(@CurrentUser() user: AuthenticatedUser, @Query() query: TagRequestDTO): Promise<any> {
     return await this.tagService.findAll(query, user);
   }
   
+  @Get(":id")
+  @Roles(RoleSlug.ADMIN)
+  @FgaAuthorized({
+            objectType: "role",
+            action: "can_view_users",
+            resourceIdResolver: () => 'ams'
+    })
+  async getTag(@CurrentUser() user: AuthenticatedUser, @Param("id") tagId: number): Promise<Tag> {
+    return await this.tagService.findById(tagId, user);
+  }
+
   @TagDocs.create()
   @Post("")
-  async create(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Body() createTagDto: CreateTagDto): Promise<any> {
+  @FgaAuthorized({
+          objectType: "role",
+          action: "can_manage_users",
+          resourceIdResolver: () => 'ams'
+  })
+  @Roles(RoleSlug.ADMIN)
+  async create(@CurrentUser() user: AuthenticatedUser, @Body() createTagDto: CreateTagDTO): Promise<any> {
+   return await this.tagService.createOne(createTagDto,user);
 
-    const createSuccess = await this.tagService.createOne(createTagDto);
-    if (!createSuccess) throw new InternalServerErrorException();
-    return true;
   }
 
   @TagDocs.update()
   @Patch("")
-  async update(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Body() updateTagDto: UpdateTagDto): Promise<Tag> {
-    return await this.tagService.update(updateTagDto);
+  @Roles(RoleSlug.ADMIN)
+  @FgaAuthorized({
+            objectType: "role",
+            action: "can_edit_users",
+            resourceIdResolver: () => 'ams'
+    })
+  async update(@CurrentUser() user: AuthenticatedUser, @Body() updateTagDto: UpdateTagDTO): Promise<Tag> {
+
+    return await this.tagService.update(updateTagDto, user);
 
   }
 
   @TagDocs.deleteBulk()
   @Roles(RoleSlug.ADMIN)
-  @Delete("")
+  @FgaAuthorized({
+            objectType: "role",
+            action: "can_manage_users",
+            resourceIdResolver: () => 'ams'
+    })
+  @Delete(":id")
   @HttpCode(204)
-  async delete(@Request() req: Request, @CurrentUser() user: AuthenticatedUser, @Body() deleteTagDto: DeleteTagsDto): Promise<void> {
-    await this.tagService.deleteBulk(deleteTagDto.tagsId);
+  async delete(@CurrentUser() user: AuthenticatedUser, @Param("id") tagId: number): Promise<void> {
+    await this.tagService.deleteBulk([tagId], user);
 
   }
 
-
-  @TagDocs.clone()
-  @Roles(RoleSlug.ADMIN)
-  @Post("clone")
-  async cloneTags(@Body() importTagDto: ImportTagDto): Promise<any> {
-    return await this.tagService.import(importTagDto.tagsId, importTagDto.tagName);
-  }
 
 }
