@@ -6,21 +6,21 @@ import {
   ApiBasicAuth, 
   ApiParam 
 } from "@nestjs/swagger";
-import { Organization } from "./organization.entity";
+import { Institution } from "./institution.entity";
 import { Website } from "src/domains/inventory/website/website.entity";
 import { Page } from "src/domains/inventory/page/page.entity";
 
-export const OrganizationDocs = {
+export const InstitutionDocs = {
   controller: () =>
     applyDecorators(
-      ApiTags("entity"),
+      ApiTags("institution"),
       ApiBasicAuth(),
       ApiResponse({ status: 403, description: "Forbidden" })
     ),
 
   reEvaluate: () =>
     applyDecorators(
-      ApiOperation({ summary: "Reevaluate all pages from an entity list" }),
+      ApiOperation({ summary: "Reevaluate all pages from an institution list" }),
       ApiResponse({ status: 200, description: "Success", type: Boolean }),
       HttpCode(200)
     ),
@@ -34,7 +34,7 @@ export const OrganizationDocs = {
 
   count: () =>
     applyDecorators(
-      ApiOperation({ summary: "Find entity by search term in AMS" }),
+      ApiOperation({ summary: "Find institution by search term in AMS" }),
       ApiResponse({ status: 200, description: "Success", type: Number }),
       HttpCode(200)
     ),
@@ -42,7 +42,7 @@ export const OrganizationDocs = {
   findAllPaged: () =>
     applyDecorators(
       ApiOperation({
-        summary: "Find entity by search term, size, page, sort and sort direction in AMS",
+        summary: "Find institution by search term, size, page, sort and sort direction in AMS",
       }),
       ApiResponse({ status: 200, description: "Success", type: Number }),
       HttpCode(200)
@@ -50,36 +50,36 @@ export const OrganizationDocs = {
 
   info: () =>
     applyDecorators(
-      ApiOperation({ summary: "Find entity info by id" }),
-      ApiResponse({ status: 200, description: "Success", type: Organization }),
+      ApiOperation({ summary: "Find institution info by id" }),
+      ApiResponse({ status: 200, description: "Success", type: Institution }),
       HttpCode(200)
     ),
 
   create: () =>
     applyDecorators(
-      ApiOperation({ summary: "Create a new entity" }),
-      ApiResponse({ status: 200, description: "A new entity was created", type: Organization }),
+      ApiOperation({ summary: "Create a new institution" }),
+      ApiResponse({ status: 200, description: "A new institution was created", type: Institution }),
       HttpCode(200)
     ),
 
   update: () =>
     applyDecorators(
-      ApiOperation({ summary: "Update a specific entity" }),
-      ApiResponse({ status: 200, description: "The entity was updated", type: Organization }),
+      ApiOperation({ summary: "Update a specific institution" }),
+      ApiResponse({ status: 200, description: "The institution was updated", type: Institution }),
       HttpCode(200)
     ),
 
   delete: () =>
     applyDecorators(
-      ApiOperation({ summary: "Delete a specific entity" }),
-      ApiResponse({ status: 200, description: "The entity was deleted", type: Boolean }),
+      ApiOperation({ summary: "Delete a specific institution" }),
+      ApiResponse({ status: 200, description: "The institution was deleted", type: Boolean }),
       HttpCode(200)
     ),
 
   deleteBulk: () =>
     applyDecorators(
       ApiOperation({ summary: "Delete a list of entities" }),
-      ApiResponse({ status: 200, description: "The entity list was deleted", type: Boolean }),
+      ApiResponse({ status: 200, description: "The institution list was deleted", type: Boolean }),
       HttpCode(200)
     ),
 
@@ -92,28 +92,28 @@ export const OrganizationDocs = {
 
   existsShortName: () =>
     applyDecorators(
-      ApiOperation({ summary: "Check if entity exists by short-name" }),
+      ApiOperation({ summary: "Check if institution exists by short-name" }),
       ApiResponse({ status: 200, description: "Success", type: Boolean }),
       HttpCode(200)
     ),
 
   existsLongName: () =>
     applyDecorators(
-      ApiOperation({ summary: "Check if entity exists by long-name" }),
+      ApiOperation({ summary: "Check if institution exists by long-name" }),
       ApiResponse({ status: 200, description: "Success", type: Boolean }),
       HttpCode(200)
     ),
 
   websites: () =>
     applyDecorators(
-      ApiOperation({ summary: "Find all the websites in a specific entity" }),
+      ApiOperation({ summary: "Find all the websites in a specific institution" }),
       ApiResponse({ status: 200, description: "Success", type: [Website] }),
       HttpCode(200)
     ),
 
   pages: () =>
     applyDecorators(
-      ApiOperation({ summary: "Find all the pages in a specific entity" }),
+      ApiOperation({ summary: "Find all the pages in a specific institution" }),
       ApiResponse({ status: 200, description: "Success", type: [Page] }),
       HttpCode(200)
     ),

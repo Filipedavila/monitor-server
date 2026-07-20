@@ -1,11 +1,11 @@
 import {  IsNotEmpty, IsNumber, IsOptional, IsString, Min } from "class-validator";
 
-export class UpdateOrganizationDto {
+export class UpdateInstitutionDto {
 
-  @IsNotEmpty({message: "organizationId is required"})
-  @IsNumber({}, {message: "organizationId must be a number"})
-  @Min(1, {message: "organizationId must be greater than 0"})
-  organizationId: number;
+  @IsNotEmpty({message: "institutionId is required"})
+  @IsNumber({}, {message: "institution Id must be a number"})
+  @Min(1, {message: "institution Id must be greater than 0"})
+  institutionId: number;
   @IsOptional()
   @IsString({message: "shortName must be a string"})
   shortName: string;

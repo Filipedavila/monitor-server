@@ -3,8 +3,8 @@ import { Auditable } from "src/common/interfaces/auditable.interface";
 import { IdentifiableModel } from "src/common/interfaces/Identifiable.interface";
 import { User } from "src/domains/identity/user/user.entity";
 
-@Entity("organizations")
-export class Organization implements IdentifiableModel, Auditable {
+@Entity("institutions")
+export class Institution implements IdentifiableModel, Auditable {
   @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
   id: number;
 

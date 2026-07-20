@@ -6,11 +6,11 @@ import { BaseTransactionalRepository } from 'src/common/repositories/base-transa
 import { FilterMap, SortingMap } from 'src/common/repositories/base.repository';
 import { AppLoggerService } from 'src/core/app-logger/app-logger.service';
 import { ConfigService } from '@nestjs/config';
-import { Organization } from './organization.entity';
+import { Institution } from './institution.entity';
 import { BaseFilter, BaseSort, SortCriteria } from 'src/common/interfaces/types';
  
 
-export interface OrganizationFilter extends BaseFilter {
+export interface InstitutionFilter extends BaseFilter {
   id?: number;
   longName?: string;
   shortName?: string;
@@ -19,30 +19,30 @@ export interface OrganizationFilter extends BaseFilter {
 
 }
 
-export interface OrganizationSort extends BaseSort {
+export interface InstitutionSort extends BaseSort {
   longName?: SortCriteria;
   shortName?: SortCriteria;
   createdAt?: SortCriteria;
 }
 
 @Injectable()
-export class OrganizationRepository extends BaseTransactionalRepository<
-  Organization,
-  OrganizationFilter,
-  OrganizationSort
+export class InstitutionRepository extends BaseTransactionalRepository<
+  Institution,
+  InstitutionFilter,
+  InstitutionSort
 > {
-  protected readonly alias = 'org';
+  protected readonly alias = 'inst';
 
   constructor(
-    @InjectRepository(Organization)
-    protected readonly ormRepo: Repository<Organization>,
+    @InjectRepository(Institution)
+    protected readonly ormRepo: Repository<Institution>,
     protected readonly logger: AppLoggerService,
     protected readonly configService: ConfigService,
   ) {
     super(ormRepo, logger, configService);
   }
 
-  protected readonly filterMap: FilterMap<OrganizationFilter, Organization> = {
+  protected readonly filterMap: FilterMap<InstitutionFilter, Institution> = {
     id: (query, value) => {
       query.andWhere(`${this.alias}.id = :id`, { id: value });
     },
@@ -68,7 +68,7 @@ export class OrganizationRepository extends BaseTransactionalRepository<
     }
   };
 
-  protected readonly sortMap: SortingMap<OrganizationSort, Organization> = {
+  protected readonly sortMap: SortingMap<InstitutionSort, Institution> = {
     id: (query, order) => this.addSort(query, 'id', order),
     shortName: (query, order) => this.addSort(query, 'shortName', order),
     longName: (query, order) => this.addSort(query, 'longName', order),
@@ -77,7 +77,7 @@ export class OrganizationRepository extends BaseTransactionalRepository<
   };
 
 
-  async findInfo(id: number): Promise<Organization | null> {
+  async findInfo(id: number): Promise<Institution | null> {
     return this.ormRepo
       .createQueryBuilder(this.alias)
       .leftJoinAndSelect(`${this.alias}.websites`, 'websites')
@@ -88,22 +88,22 @@ export class OrganizationRepository extends BaseTransactionalRepository<
 
   async update(
     id: number,
-    data: Partial<Organization>,
-  ): Promise<Organization> {
-      const entity = await this.ormRepo.findOne({ 
+    data: Partial<Institution>,
+  ): Promise<Institution> {
+      const institution = await this.ormRepo.findOne({ 
         where: { id }, 
       });
 
-      if (!entity) throw new Error('Organization not found');
+      if (!institution) throw new Error('Institution not found');
 
-      Object.assign(entity, data);
-      return await this.ormRepo.save(entity);
+      Object.assign(institution, data);
+      return await this.ormRepo.save(institution);
     
   }
 
-  async deleteOrganization(organization_id: number): Promise<void> {
+  async deleteInstitution(institutionId: number): Promise<void> {
     await this.runInTransaction(async (queryRunner) => {
-      await queryRunner.manager.delete(Organization, { id: organization_id });
+      await queryRunner.manager.delete(Institution, { id: institutionId });
     });
   }
 

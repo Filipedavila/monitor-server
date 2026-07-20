@@ -1,24 +1,24 @@
 import { BaseSortDto } from "src/common/dto/request/base-sort.dto";
 import { IsIn, IsString, ValidateNested, IsOptional, IsArray } from "class-validator";
 import { Type } from "class-transformer";
-import { Organization } from "../../organization.entity";
+import { Institution } from "../../institution.entity";
 
-export class OrganizationSortItem {
+export class InstitutionSortItem {
   @IsIn(["id", "shortName", "longName", "createdAt", "updatedAt"])
   @IsString()
-  field: keyof Organization; 
+  field: keyof Institution; 
 
   @IsIn(["ASC", "DESC", "asc", "desc"])
   @IsString()
   order: "ASC" | "DESC" | "asc" | "desc";
 }
-export class OrganizationSortDTO extends BaseSortDto<Organization> {
+export class InstitutionSortDTO extends BaseSortDto<Institution> {
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => OrganizationSortItem) 
-  sorts?: OrganizationSortItem[];
-    getAllowedFields(): (keyof Organization)[] {
+  @Type(() => InstitutionSortItem) 
+  sorts?: InstitutionSortItem[];
+    getAllowedFields(): (keyof Institution)[] {
         return ["id", "shortName", "longName", "createdAt", "updatedAt"];
     }
 }

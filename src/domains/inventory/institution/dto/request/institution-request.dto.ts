@@ -1,19 +1,19 @@
 import { IsOptional, ValidateNested } from "class-validator";
       import { ResourceQueryDto } from "src/common/dto/request/query-request.dto";
-import { OrganizationFilterDTO } from "./organization-filter.dto";
-import {  OrganizationSortDTO } from "./organization-sort.dto";
-import { Organization } from "../../organization.entity";
+import { InstitutionFilterDTO } from "./institution-filter.dto";
+import {  InstitutionSortDTO } from "./institution-sort.dto";
+import { Institution } from "../../institution.entity";
 import { BasePaginationDTO } from "src/common/dto/request/base-pagination.dto";
 
-export class OrganizationRequestDTO  extends ResourceQueryDto<Organization,OrganizationFilterDTO, OrganizationSortDTO, BasePaginationDTO> {
+export class InstitutionRequestDTO  extends ResourceQueryDto<Institution,InstitutionFilterDTO, InstitutionSortDTO, BasePaginationDTO> {
 
       @IsOptional()
       @ValidateNested()  
-      filters?: OrganizationFilterDTO;
+      filters?: InstitutionFilterDTO;
 
       @IsOptional()
       @ValidateNested()
-      sorts?: OrganizationSortDTO;  
+      sorts?: InstitutionSortDTO;  
     
       @IsOptional()
       @ValidateNested()

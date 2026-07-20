@@ -1,10 +1,10 @@
 import { BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
 
 import { IsNumber, IsOptional, IsString } from "class-validator";
-import { Organization } from "../../organization.entity";
+import { Institution } from "../../institution.entity";
 
-export class OrganizationFilterDTO extends BaseFilterDTO<Organization> 
-implements Partial<Pick<Organization, 'id' | 'shortName' | 'longName'>> {
+export class InstitutionFilterDTO extends BaseFilterDTO<Institution> 
+implements Partial<Pick<Institution, 'id' | 'shortName' | 'longName'>> {
     @IsOptional()
     @IsNumber({}, {message: "id must be a number"})
     id?: number;
