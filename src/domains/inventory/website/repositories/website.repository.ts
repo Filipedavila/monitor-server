@@ -111,7 +111,7 @@ export class WebsiteRepository extends BaseTransactionalRepository<
     }
   
 
-    private applyPaginationConstraints(query: SelectQueryBuilder<Website>, contexts: ContextEnum[], securityContext: SecurityContext): void {
+  private applyPaginationConstraints(query: SelectQueryBuilder<Website>, contexts: ContextEnum[], securityContext: SecurityContext): void {
       if (contexts && contexts.length > 0) {
         query.innerJoin(`${this.alias}.contexts`, this.contextAlias)
              .andWhere(`${this.contextAlias}.code IN (:...contextCodes)`, { contextCodes: contexts });

@@ -11,7 +11,6 @@ import {
   ParseIntPipe,
   Patch,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { WebsiteQueryRequestDTO } from "./dto/request/query/website-query-request.dto";
 import { WebsiteService } from "./website.service";
 import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
@@ -25,6 +24,8 @@ import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { DeleteBulkWebsiteDto } from "./dto/delete-bulk-website.dto";
 import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
+import { UpdateWebsiteContextDto } from "./dto/update.website-context.dto";
+import { ContextFilterGuard } from "src/core/authorization/guards/context.guard";
 
 
 @WebsiteDocs.controller()
@@ -36,6 +37,8 @@ export class WebsiteController {
 
   @WebsiteDocs.findAll()
   @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
+  @UseGuards(ContextFilterGuard)
+  
   @Get()
   async findAll(
     @Query() queryDto: WebsiteQueryRequestDTO,
@@ -43,7 +46,7 @@ export class WebsiteController {
   ) {
     return this.websiteService.findMany(
       queryDto,
-   queryDto.contexts,
+      queryDto.contexts,
       { user },);
   }
 
@@ -108,6 +111,21 @@ export class WebsiteController {
     @CurrentUser() user: AuthenticatedUser
   ) {
     return this.websiteService.delete(deleteBulkDto.websiteIds, { user });
+  }
+
+  @FgaAuthorized({
+          objectType: "role",
+          action: "can_manage_users",
+          resourceIdResolver: () => 'ams'
+  })
+  @Roles(RoleSlug.ADMIN)
+  @Post(":websiteId/contexts")
+  async changeWebsiteContexts(
+    @Param("websiteId", ParseIntPipe) websiteId: number,
+    @Body("contexts") updateWebsiteContextDto: UpdateWebsiteContextDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.websiteService.changeWebsiteContexts(websiteId, updateWebsiteContextDto.contexts, user.id);
   }
 
 

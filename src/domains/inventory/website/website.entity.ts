@@ -17,7 +17,7 @@ import { Auditable } from "src/common/interfaces/auditable.interface";
 import { IdentifiableModel } from "src/common/interfaces/Identifiable.interface";
 import { Context } from "../context/context.identity";
 import { User } from "src/domains/identity/user/user.entity";
-import { Organization } from "../organization/organization.entity";
+import { Institution } from "../institution/institution.entity";
 
 @Entity("websites")
 @Index("idx_websites_base_url", ["baseUrl"], { unique: true })
@@ -40,12 +40,12 @@ export class Website implements IdentifiableModel, Auditable{
     })
   contexts: Context[];
   
-  @ManyToOne(() => Organization, { nullable: true ,onDelete: 'SET NULL'})
-  @JoinColumn({ name: "organization_id" })
-  organization: Organization | null;
+  @ManyToOne(() => Institution, { nullable: true ,onDelete: 'SET NULL'})
+  @JoinColumn({ name: "institution_id" })
+  institution: Institution | null;
 
-  @Column({ name: "organization_id", type: "int", unsigned: true, nullable: true })
-  organizationId: number | null;
+  @Column({ name: "institution_id", type: "int", unsigned: true, nullable: true })
+  institutionId: number | null;
 
   @CreateDateColumn({
         name: "created_at",

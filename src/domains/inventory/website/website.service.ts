@@ -104,17 +104,5 @@ export class WebsiteService extends BaseService {
     await this.repository.save(website);
     return website;
   }
-/*
-  async publishToObservatory(id: number, securityContext: SecurityContext): Promise<void> {
 
-    const website = await this.findOne(id, securityContext);
-    if (!website) {
-      throw new NotFoundException(`Website with ID ${id} not found`);
-    }
-    website.contexts  =  [{id: 2}] as any[];
-    await this.repository.save(website);
-  }
-  
-*/
-  
 }
