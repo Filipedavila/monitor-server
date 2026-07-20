@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   Request,
   Logger,
+  BadRequestException,
 } from "@nestjs/common";
 import { PageService } from "./page.service";
 import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
@@ -22,8 +23,12 @@ import {PageQueryRequestDTO} from "./dto/request/query/page-query-request.dto";
 import { LoggableController } from "src/common/controllers/loggable.interface";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { ContextFilterGuard } from "src/core/authorization/guards/context.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
+import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
+import { UpdatePageContextDto } from "./dto/update.page-context.dto";
+import { ContextMapByRole } from "../context/context.enum";
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard,FgaGuard)
 
 @Controller("pages")
 export class PageController implements LoggableController{
@@ -39,56 +44,76 @@ export class PageController implements LoggableController{
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: PageQueryRequestDTO
   ) {
+    
     return this.pageService.findAll({
-      securityContext: { user },
       pagination: { limit: query.pagination?.limit, page: query.pagination?.page },
       sortings: query.sorts?.sort,
-      filters: query.filters,
-    });
+      filters: query.filters
+    }, query.contexts, { user });
   }
 
+
   @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
-  @Get(":pageId")
+  @FgaAuthorized({
+            objectType: "website",
+            action: "can_view",
+            resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId
+  })
+  @Get("website/:websiteId/page/:pageId")
   async findOne(
+    @Param("websiteId", ParseIntPipe) websiteId: number,
     @Param("pageId", ParseIntPipe) pageId: number,
     @CurrentUser() user: AuthenticatedUser,
 
   ) {
-    return this.pageService.findPageById(pageId, { user });
+    return this.pageService.findPageById(websiteId, pageId, { user });
   }
 
-  @Roles(RoleSlug.ADMIN)
-  @Post("import")
-  async import(@Body() dto: PageImportDto, @CurrentUser() user: AuthenticatedUser) {
-    /* TODO , add only token to OpenFGA */
-    throw new Error("Not implemented yet");
-    /*
-    return this.pageService.import(dto, { user });
-    */
-  }
 
-  @Post("")
-  async create(@Body() dto: CreatePageDto, @CurrentUser() user: AuthenticatedUser) {
+    @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
+  @FgaAuthorized({
+            objectType: "website",
+            action: "can_edit",
+            resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId
+  })
+  @Post("website/:websiteId/page")
+  async create(
+    
+    @Body() dto: CreatePageDto, @CurrentUser() user: AuthenticatedUser) {
     return this.pageService.create(dto, { user });
   }
 
   @Roles(RoleSlug.ADMIN)
-  @Delete()
+  @FgaAuthorized({
+          objectType: "role",
+          action: "can_manage_users",
+          resourceIdResolver: () => 'ams'
+  })
+  @Delete("")
   async bulkDelete(@Body("ids") ids: number[], @CurrentUser() user: AuthenticatedUser) {
-    return this.pageService.delete(ids, { user });
+    // strategy depends if is allocated to more than one context, if so, remove only the context, if not, delete the page
+    const contextUser = ContextMapByRole[user.role_slug];
+    if (!contextUser) {
+      throw new BadRequestException("User role does not have an associated context");
+    }
+
+    return this.pageService.handlePageRemoval(ids, { user });
   }
 
+    @Roles(RoleSlug.ADMIN)
+    @FgaAuthorized({
+          objectType: "role",
+          action: "can_manage_users",
+          resourceIdResolver: () => 'ams'
+    })
 
-  @Get("website/:websiteId")
-  async getByWebsite(
-    @Param("websiteId", ParseIntPipe) websiteId: number,
-    @CurrentUser() user: AuthenticatedUser
-  ) {
-    return this.pageService.findAll({
-      securityContext: { user },
-      filters: { websiteId } ,
-    });
-  }
+    @Post("contexts")
+    async changePageContext(
+      @Body("contexts") updatePageContextDto: UpdatePageContextDto,
+      @CurrentUser() user: AuthenticatedUser
+    ) {
+      return this.pageService.changePageContexts(updatePageContextDto.pageIds,updatePageContextDto.contexts, user.id);
+    }
 
 
 

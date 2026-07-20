@@ -1,16 +1,17 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { Page } from "./page.entity";
+import { PageContext } from "./page-contexts.entity";
 import { BaseFilter, BasePagination, BaseSort, SortCriteria } from "src/common/interfaces/types";
-import { EntityRepository, FilterMap, SortingMap } from "src/common/repositories/base.repository";
-import { In, QueryBuilder, QueryRunner, Repository } from "typeorm";
+import { FilterMap, PaginationResponse, SortingMap } from "src/common/repositories/base.repository";
+import { EntityManager, In, QueryRunner, Repository, SelectQueryBuilder } from "typeorm";
 import { ConfigService } from "@nestjs/config/dist/config.service";
 import { AppLoggerService } from "src/core/app-logger/app-logger.service";
 import { InjectRepository } from "@nestjs/typeorm/dist/common/typeorm.decorators";
 import { BaseTransactionalRepository } from "src/common/repositories/base-transactional.repository";
 import { OutboxService } from "src/core/outbox/outbox.service";
-import { FGA_RESOURCE } from "src/core/authorization/types/fga.types";
-import { AuthorizationEvent } from "src/core/authorization/queue/payload.types";
 import { Context } from "../context/context.identity";
+import { ContextEnum, ContextMap, ContextMapByRole, getContextIdByCode, getContextIdByRole } from "../context/context.enum";
+import { SecurityContext } from "src/core/authentication/interfaces/types";
 export interface PageFilter extends BaseFilter {
   url?: string;
   websiteId?: number;
@@ -22,6 +23,14 @@ export interface PageSort extends BaseSort {
   createdAt?: SortCriteria;
   score?: SortCriteria;
 }
+
+type PageQueryRequest = {
+  filters: Partial<PageFilter>;
+  sortings: Partial<PageSort>;
+  pagination: Partial<BasePagination>;
+  contexts: ContextEnum[];
+  securityContext: SecurityContext;
+};
 
 export interface PagePagination extends BasePagination {}
 
@@ -41,6 +50,7 @@ export class PageRepository extends BaseTransactionalRepository<
     super(orm, logger, configService);
   }
 
+  protected readonly contextAlias = "page_context";
 
 
   protected readonly filterMap: FilterMap<PageFilter, Page> = {
@@ -67,8 +77,71 @@ export class PageRepository extends BaseTransactionalRepository<
     createdAt: (query, order) => query.addOrderBy("evaluation.createdAt", order),
   };
 
+  async findManyWithLastEvalScore(queryArgs: PageQueryRequest): Promise<PaginationResponse<Page>> {
+    const { filters, sortings, pagination } = queryArgs;
+    const query = this.getOrmRepository().createQueryBuilder(this.alias);
+    this.applyContextFilter(query, queryArgs.contexts, queryArgs.securityContext);
+    query.leftJoin(
+      (subQuery) =>
+        subQuery
+          .select("e.id", "id")
+          .addSelect("e.page_id", "pageId")
+          .from("evaluations", "e")
+          .where(
+            "e.id = (SELECT id FROM evaluations WHERE page_id = e.page_id ORDER BY created_at DESC LIMIT 1)"
+          ),
+      "evaluation",
+      "evaluation.pageId = page.id"
+    );
 
-  async createPagesWithOutbox(websiteId: number, urls: string[]): Promise<Page[]> {
+    this.applyDynamicFilters(query, filters);
+
+    this.applyDynamicSorting(query, sortings);
+
+    this.applyPagination(query, pagination);
+
+    const [data, count] = await query.getManyAndCount();
+
+    const metadataPagination = this.calculatePaginationMeta(
+      count,
+      queryArgs.pagination?.page ?? 1,
+      queryArgs.pagination?.limit ?? 10,
+    );
+    return {
+      data,
+      meta: metadataPagination
+    };
+  }
+ 
+  async findByPageByWebsiteId(websiteId: number, pageId: number): Promise<Page | null> {
+    const query = this.getOrmRepository().createQueryBuilder(this.alias);
+    query.where(`${this.alias}.id = :pageId`, { pageId })
+         .andWhere(`${this.alias}.website_id = :websiteId`, { websiteId });
+    return await query.getOne();
+  }
+      private applyContextFilter(
+        query: SelectQueryBuilder<Page>, 
+        contexts: ContextEnum[] | undefined, 
+        securityContext: SecurityContext
+      ): void {
+        const targetContexts: number[] = (contexts && contexts.length > 0) 
+          ? contexts.map(context => getContextIdByCode(context)).filter((id): id is number => id !== undefined)
+          : [getContextIdByRole(securityContext.user.role_slug)].filter((id): id is number => id !== undefined);
+          if (!targetContexts || targetContexts.length === 0) {
+            throw new BadRequestException("User role does not have an associated context");
+          }
+        query.innerJoin(
+          "page_contexts", 
+          this.contextAlias, 
+          `${this.contextAlias}.page_id = ${this.alias}.id`
+        )
+        .andWhere(`${this.contextAlias}.context_id IN (:...contextIds)`, { 
+          contextIds: targetContexts 
+        });
+      }
+  
+
+  async createPages(websiteId: number, urls: string[], contexts: ContextEnum[] | undefined): Promise<Page[]> {
     if (urls.length === 0) return [];
 
     return this.runInTransaction<Page[]>(async (queryRunner: QueryRunner) => {
@@ -91,22 +164,117 @@ export class PageRepository extends BaseTransactionalRepository<
         where: { websiteId: Number(websiteId), url: In(urls) },
       });
 
-      const pageIds = finalPages.map(page => page.id);
-      /* TODO: now relly s on Website tuples
-     await this.outboxService.putInOutbox(txManager, {
-        aggregateType: FGA_RESOURCE.PAGE,
-        aggregateId: websiteId,
-        eventType: AuthorizationEvent.AUTHORIZATION,
-        payload: {
-          resourceType: FGA_RESOURCE.TEAM,
-          resourceId: websiteId,
-          action: 'create',
-          websiteId: websiteId,
-          pageIds: pageIds,
-        },
-      });*/
+      if (contexts && contexts.length > 0) {
+        const pageContexts = finalPages.flatMap(page => {
+          return contexts.map(contextEnum => {
+            const pageContext = new PageContext();
+            pageContext.pageId = page.id;
+            pageContext.contextId = ContextMap[contextEnum];
+            return pageContext;
+          });
+        });
+        await txManager.save(PageContext, pageContexts);
+      }
+
      
       return finalPages;
     });
   }
+
+  updateContexts(pageId: number, contextEnums: ContextEnum[]): Promise<Page> {
+    return this.runInTransaction<Page>(async (queryRunner: QueryRunner) => {
+      const txManager = queryRunner.manager;
+      const page = await txManager.findOne(Page, { where: { id: pageId } });
+      if (!page) {
+        throw new Error(`Page with ID ${pageId} not found`);
+      }
+
+      await txManager.delete(PageContext, { pageId });
+
+      if (contextEnums && contextEnums.length > 0) {
+        const pageContexts = contextEnums.map(contextEnum => ({
+          pageId,
+          contextId: ContextMap[contextEnum]
+        }));
+        await txManager.save(PageContext, pageContexts);
+      }
+
+      return page;
+    });
+  }
+
+  updateContextsMany(pageIds: number[], contextEnums: ContextEnum[]): Promise<Page[]> {
+    return this.runInTransaction<Page[]>(async (queryRunner: QueryRunner) => {
+      const txManager = queryRunner.manager;
+      const pages = await txManager.find(Page, { where: { id: In(pageIds) } });
+      if (pages.length === 0) {
+        throw new Error(`No pages found with IDs ${pageIds}`);
+      }
+
+      await txManager.delete(PageContext, { pageId: In(pageIds) });
+
+      if (contextEnums && contextEnums.length > 0) {
+        const pageContexts = pages.flatMap(page =>
+          contextEnums.map(contextEnum => ({
+            pageId: page.id,
+            contextId: ContextMap[contextEnum]
+          }))
+        );
+        await txManager.save(PageContext, pageContexts);
+      }
+
+      return pages;
+    });
+  }
+
+  async getOwnershipStates(ids: number[]): Promise<{ pageId: number; contextCount: number }[]>   {
+    return this.orm
+      .createQueryBuilder('pc')
+      .select('pc.pageId', 'pageId')
+      .addSelect('COUNT(pc.id)', 'contextCount')
+      .from(PageContext, 'pc')
+      .where('pc.pageId IN (:...ids)', { ids })
+      .groupBy('pc.pageId')
+      .getRawMany();
+  }
+  
+  async removeAssociations(ids: number[], contextEnum: ContextEnum, tx?: EntityManager): Promise<void> {
+    const contextId = ContextMap[contextEnum];
+    const manager = tx || this.orm;
+    await manager
+      .createQueryBuilder()
+      .delete()
+      .from(PageContext)
+      .where('pageId IN (:...ids)', { ids })
+      .andWhere('contextId = :contextId', { contextId })
+      .execute();
+  }
+
+  async deletePages(ids: number[], tx?: EntityManager): Promise<void> {
+    const manager = tx || this.orm;
+    await manager
+      .createQueryBuilder()
+      .delete()
+      .from(Page)
+      .where('id IN (:...ids)', { ids })
+      .execute();
+  }
+
+  async batchExecuteRemoval(
+    toUnlink: number[], 
+    toDelete: number[], 
+    contextEnum: ContextEnum
+  ): Promise<void> {
+    await this.runInTransaction(async (queryRunner:QueryRunner) => {
+      const manager = queryRunner.manager;
+      if (toUnlink.length > 0) {
+        await this.removeAssociations(toUnlink, contextEnum, manager);
+      }
+
+      if (toDelete.length > 0) {
+       await this.deletePages(toDelete, manager);
+      }
+    });
+  }
+
 }

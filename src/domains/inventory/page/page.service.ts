@@ -6,6 +6,7 @@ import { SecurityContext } from "src/core/authorization/SecurityContext";
 import { QueryRequest, PaginationResponse } from "src/common/repositories/base.repository";
 import { CreatePageDto } from "./dto/create-page.dto";
 import { FgaService } from "src/core/authorization/fga.service";
+import { ContextEnum,  ContextMapByRole } from "../context/context.enum";
 
 @Injectable()
 export class PageService {
@@ -16,82 +17,60 @@ export class PageService {
 
 
   async findAll(
-    queryArgs: QueryRequest<PageFilter, PageSort, PagePagination>
+    queryArgs: QueryRequest<PageFilter, PageSort, PagePagination>,
+    contexts: ContextEnum[],
+    securityContext: SecurityContext
   ): Promise<PaginationResponse<Page>> {
-    return this.pageRepo.findMany(queryArgs);
+    const query = {
+      filters: queryArgs.filters || {},
+      sortings: queryArgs.sortings || {},
+      pagination: queryArgs.pagination || {},
+      contexts,
+      securityContext
+    };
+    return await this.pageRepo.findManyWithLastEvalScore(query);
   }
 
 
   async create(dto: CreatePageDto, securityContext: SecurityContext): Promise<Page[]> {
-  const hasPermission = await this.fgaService.check(
-    `user:${securityContext.user.id}`,
-    'can_edit', 
-    `website:${dto.websiteId}`
-  );
-  if (!hasPermission) {
-    throw new ForbiddenException("You do not have permission to add pages to this website");
-  }
-
-  const rawPages = dto.pagesUrl.map(url => ({
+    const roleSlug = securityContext.user.role_slug;
+    const contexts = ContextMapByRole[roleSlug] ? [ContextMapByRole[roleSlug]] : [];
+    const rawPages = dto.pagesUrl.map(url => ({
     websiteId: dto.websiteId,
     url,
   }));
   if (rawPages.length === 0) return [];
-  return await this.pageRepo.createPagesWithOutbox(dto.websiteId, dto.pagesUrl);
+  return await this.pageRepo.createPages(dto.websiteId, dto.pagesUrl, contexts);
   }
 
-  async findPageById(id: number, securityContext: SecurityContext): Promise<Page> {
-    const page = await this.pageRepo.findById(id);
-    if (!page) throw new NotFoundException();
-
-    const hasPermission = await this.fgaService.check(
-      `user:${securityContext.user.id}`,
-      'can_view', 
-      `website:${page.websiteId}`
-    );
-    if (!hasPermission) {
-      throw new ForbiddenException("You do not have permission to view this page"+"User:"+securityContext.user.id+"Page:"+id);
-    }
+  async findPageById(websiteId: number, id: number, securityContext: SecurityContext): Promise<Page> {
+    const page = await this.pageRepo.findByPageByWebsiteId(websiteId, id);
+    if (!page) throw new NotFoundException(`Page with ID ${id} not found`);
+    
     return page;
   } 
-
-
-  async updateVisibility(
-    id: number, 
-    roleIds: number[], 
-    securityContext: SecurityContext
-  ): Promise<void > {
-    const page = await this.pageRepo.findById(id);
-    if (!page) throw new NotFoundException();
-
-    const hasPermission = await this.fgaService.check(
-      `user:${securityContext.user.id}`,
-      'can_edit', 
-      `website:${page.websiteId}`
-    );
-
-    if (!hasPermission) {
-      throw new ForbiddenException("You do not have permission to update page visibility");
+  async handlePageRemoval(pageIds: number[], securityContext: SecurityContext): Promise<void> {
+    const roleSlug = securityContext.user.role_slug;
+    const contextEnum = ContextMapByRole[roleSlug];
+    if (!contextEnum) {
+      throw new ForbiddenException("User role does not have an associated context");
     }
-    // TODO  receive DTO the organization to associate.
-    throw new Error("Not implemented yet");
-  }
-
-
-  
-  async delete(ids: number[], securityContext: SecurityContext): Promise<void> {
-    const idsPermited = await this.fgaService.listObjects({
-      user: `user:${securityContext.user.id}`,
-      relation: 'can_manage',
-      type: 'website',
-    }).then(objects => objects.map(obj => parseInt(obj.split(':')[1], 10)));
-    const idsToDelete = ids.filter(id => idsPermited.includes(id));
+    const states = await this.pageRepo.getOwnershipStates(pageIds); 
     
-    for (const id of idsToDelete) {
-    await this.pageRepo.delete(id);
+    const toUnlink = states.filter(s => s.contextCount > 1).map(s => s.pageId);
+    const toDelete = states.filter(s => s.contextCount === 1).map(s => s.pageId);
 
+    await this.pageRepo.batchExecuteRemoval(toUnlink, toDelete, contextEnum);
+}
 
-    } 
-  }
+  async changePageContexts(
+      pageId: number[],
+      contexts: ContextEnum[],
+       actorId: number): Promise<Page[]> {
+  
+      const updatePages = await this.pageRepo.updateContextsMany(pageId, contexts);
+
+      return updatePages;
+    }
 
 }
