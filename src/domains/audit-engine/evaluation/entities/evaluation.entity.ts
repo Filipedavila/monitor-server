@@ -3,6 +3,7 @@ import { IdentifiableModel } from "src/common/interfaces/Identifiable.interface"
 import { User } from "src/domains/identity/user/user.entity";
 import { Entity, Column, Index, JoinColumn, ManyToOne, UpdateDateColumn, CreateDateColumn, PrimaryGeneratedColumn, ManyToMany, JoinTable, PrimaryColumn, OneToMany } from "typeorm";
 import { EvaluationContext } from "./contexts-evaluation.entity";
+import { Page } from "src/domains/inventory/page/page.entity";
 
 
 @Entity("evaluations")
@@ -19,6 +20,10 @@ export class Evaluation implements IdentifiableModel,  Auditable  {
     nullable: false,
   })
   pageId: number;
+
+  @ManyToOne(() => Page, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "page_id" })
+  page: Page;
 
   @Column({
     name: "page_title",

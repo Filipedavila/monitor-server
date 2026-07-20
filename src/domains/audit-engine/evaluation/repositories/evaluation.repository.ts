@@ -131,23 +131,23 @@ export class EvaluationRepository extends BaseTransactionalRepository<
     return savedEval;
   });
   }
+async createManyEvaluations(evaluations: Evaluation[], contextId: number): Promise<Evaluation[]> {
+  return await this.dataSource.transaction(async (entityManager) => {
+    const savedEvals = await entityManager.save(Evaluation, evaluations);
 
-  async createManyEvaluations(evaluations: Evaluation[], contextId: number): Promise<Evaluation[]> {
-    return await this.dataSource.transaction(async (transactionalEntityManager) => {
-      const savedEvals = await transactionalEntityManager.save(evaluations);
-
-      const evaluationContexts = savedEvals.map(savedEval => {
-        return transactionalEntityManager.create(EvaluationContext, {
-          evaluationId: savedEval.id,
-          contextId: contextId,
-        });
-      });
-
-      await transactionalEntityManager.save(evaluationContexts);
-
-      return savedEvals;
+    const contexts = savedEvals.map(evalItem => {
+      const ec = new EvaluationContext();
+      ec.evaluationId = evalItem.id;
+      ec.contextId = contextId;
+      return ec;
     });
-  }
+
+    await entityManager.save(EvaluationContext, contexts);
+
+    return savedEvals;
+  });
+}
+
   async findWithDetails(filters: EvaluationFilter): Promise<Evaluation[]> {
     const query = this.getBaseQuery();
     this.applyDynamicFilters(query, filters);
