@@ -1,7 +1,7 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
-import { FgaGuard } from './fda.guard';
+import { FgaGuard } from './fga.guard';
 import { FgaService } from '../fga.service';
 import { FGA_DECORATOR_KEY, FgaMetadata } from '../decorators/fga-authorization.decorator';
 import { FGA_RESOURCE, ResourceType } from '../types/fga.types';
