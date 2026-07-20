@@ -1,4 +1,4 @@
-import { Controller, Patch, Body, HttpStatus, HttpCode, Param, UseGuards, ParseIntPipe } from "@nestjs/common";
+import { Controller, Patch, Body, HttpStatus, HttpCode, Param, UseGuards, ParseIntPipe, Get } from "@nestjs/common";
 import { TagWebsitesService } from "./tag-website.service";
 import { UpdateWebsiteTagsDto } from "./dtos/tag-website-update.dto"; 
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
@@ -7,7 +7,7 @@ import { RoleSlug ,AuthenticatedUser} from "src/core/authentication/interfaces/t
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
 import { TagWebsitesDocs } from "./tag-website.swagger";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @TagWebsitesDocs.controller()
@@ -15,6 +15,23 @@ import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorizati
 @UseGuards(JwtAuthGuard, RolesGuard, FgaGuard)
 export class TagWebsitesController {
   constructor(private readonly orchestrator: TagWebsitesService) {}
+
+  @Get('')
+  @FgaAuthorized({
+    objectType: "role",
+    action: "can_view_users",
+    resourceIdResolver: () => 'ams'
+  })
+  @TagWebsitesDocs.getWebsiteTags()
+  @Roles(RoleSlug.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getWebsiteTags(
+    @Param("websiteId", ParseIntPipe) websiteId: number
+  ) {
+    return await this.orchestrator.getTagsOnWebsite(websiteId);
+  }
+
+
 
   @Patch()
   @TagWebsitesDocs.updateWebsiteTags()

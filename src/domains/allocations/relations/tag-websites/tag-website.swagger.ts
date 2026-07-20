@@ -18,6 +18,23 @@ export const TagWebsitesDocs = {
       ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Forbidden - Requires Admin role" })
     ),
 
+  getWebsiteTags: () =>
+    applyDecorators(
+      ApiOperation({ 
+        summary: "Get website tags",
+        description: "Retrieves the list of tags currently associated with a specific website."
+      }),
+      ApiParam({ 
+        name: "websiteId", 
+        type: "number", 
+        description: "The unique identifier of the website" 
+      }),
+      ApiResponse({ 
+        status: HttpStatus.OK, 
+        description: "List of tags successfully retrieved" 
+      })
+    ),
+
   updateWebsiteTags: () =>
     applyDecorators(
       ApiOperation({ 
