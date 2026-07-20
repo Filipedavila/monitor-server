@@ -18,6 +18,16 @@ export const UserWebsitesDocs = {
       ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Forbidden" })
     ),
 
+  getUserWebsites: () =>
+    applyDecorators(
+      ApiOperation({ 
+        summary: "Get user website allocations",
+        description: "Retrieves the list of websites currently assigned to a specific user."
+      }),
+      ApiParam({ name: "userId", type: "number", description: "The unique identifier of the user" }),
+      ApiResponse({ status: HttpStatus.OK, description: "Successfully retrieved websites" })
+    ),
+
   updateUserWebsites: () =>
     applyDecorators(
       ApiOperation({ 
