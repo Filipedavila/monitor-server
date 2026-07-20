@@ -14,7 +14,18 @@ export class TagWebsitesService {
     private readonly dataSource: DataSource
   ) {}
 
-
+  async getTagsOnWebsite(
+    websiteId: number
+  ): Promise<{ id: number; name: string }[]> {
+  return await this.assignmentRepo
+    .createQueryBuilder('assignment')
+    .innerJoin('assignment.tag', 'tag') 
+    .select('tag.id', 'id')
+    .addSelect('tag.name', 'name')
+    .where('assignment.websiteId = :websiteId', { websiteId })
+    .getRawMany();
+  }
+  
   async updateTagsOnWebsite(
     websiteId: number,
     toAdd: number[],
