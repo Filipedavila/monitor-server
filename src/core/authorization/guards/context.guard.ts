@@ -6,20 +6,19 @@ import {
 } from "@nestjs/common";
 import { Request } from "express";
 import { ContextHierarchyByRole, ContextEnum } from "src/domains/inventory/context/context.enum";
-import { RoleSlug } from "src/core/authentication/interfaces/types";
-import { User } from "src/domains/identity/user/user.entity";
+import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 
 @Injectable()
 export class ContextFilterGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
-    const user: User = (request as any).user; 
+    const user: AuthenticatedUser = (request as any).user; 
 
     if (!user) {
       throw new ForbiddenException("Authentication context not found.");
     }
 
-    const userRole: RoleSlug = user.role.slug as RoleSlug; 
+    const userRole: RoleSlug = user.role_slug; 
 
     const targetContexts: ContextEnum[] = request.body?.filters?.contexts;
 
