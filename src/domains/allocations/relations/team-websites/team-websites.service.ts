@@ -16,6 +16,18 @@ export class TeamWebsitesService {
     private readonly outboxService: OutboxService
   ) {}
 
+    async getTeamWebsites(
+    teamId: number
+  ): Promise<{ id: number; baseUrl: string }[]> {
+  return await this.assignmentRepo
+    .createQueryBuilder('assignment')
+    .innerJoin('assignment.website', 'website') 
+    .select('website.id', 'id')
+    .addSelect('website.baseUrl', 'baseUrl')
+    .where('assignment.teamId = :teamId', { teamId: teamId })
+    .getRawMany();
+  }
+
   async updateTeamWebsites(
     teamId: number,
     toAdd: number[],

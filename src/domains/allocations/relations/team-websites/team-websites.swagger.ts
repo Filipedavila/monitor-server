@@ -17,7 +17,26 @@ export const TeamWebsitesDocs = {
       ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Unauthorized" }),
       ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Forbidden - Requires Admin role" })
     ),
-
+  getTeamWebsites: () =>
+    applyDecorators(
+      ApiOperation({ 
+        summary: "Get websites allocated to a team",
+        description: "Retrieves the list of websites currently allocated to the specified team."
+      }),
+      ApiParam({ 
+        name: "teamId", 
+        type: "number", 
+        description: "The unique identifier of the team" 
+      }),
+      ApiResponse({ 
+        status: HttpStatus.OK, 
+        description: "Successfully retrieved the list of websites for the team" 
+      }),
+      ApiResponse({ 
+        status: HttpStatus.NOT_FOUND, 
+        description: "Team not found" 
+      })
+    ),
   updateTeamWebsites: () =>
     applyDecorators(
       ApiOperation({ 
