@@ -19,6 +19,18 @@ export class TeamMembersService {
     private readonly outboxService: OutboxService
   ) {}
 
+  async getTeamMembers(
+    teamId: number
+  ): Promise<{ id: number; name: string }[]> {
+  return await this.assignmentRepo
+    .createQueryBuilder('assignment')
+    .innerJoin('assignment.user', 'user') 
+    .select('user.id', 'id')
+    .addSelect('user.name', 'name')
+    .where('assignment.teamId = :teamId', { teamId: teamId })
+    .getRawMany();
+  }
+
   async updateTeamMembers(
     teamId: number,
     toAdd: number[],

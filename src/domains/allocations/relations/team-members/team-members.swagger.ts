@@ -8,7 +8,6 @@ import {
   ApiParam
 } from "@nestjs/swagger";
 import { UpdateTeamMembersDto } from "./dtos/tag-members-update.dto"; 
-
 export const TeamMembersDocs = {
   controller: () =>
     applyDecorators(
@@ -16,6 +15,23 @@ export const TeamMembersDocs = {
       ApiBearerAuth(),
       ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Unauthorized" }),
       ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Forbidden - Requires Admin role" })
+    ),
+
+  getTeamMembers: () =>
+    applyDecorators(
+      ApiOperation({ 
+        summary: "Get team members",
+        description: "Retrieves the list of members currently assigned to a specific team."
+      }),
+      ApiParam({ 
+        name: "teamId", 
+        type: "number", 
+        description: "The unique identifier of the team" 
+      }),
+      ApiResponse({ 
+        status: HttpStatus.OK, 
+        description: "List of team members successfully retrieved" 
+      })
     ),
 
   updateTeamMembers: () =>
