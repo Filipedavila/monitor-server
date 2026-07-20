@@ -6,8 +6,8 @@ export class UpdateWebsiteDto {
   title: string;
 
   @IsOptional()
-  @IsNumber({}, { message: "organizationId must be a number" })
-  @Min(1, { message: "organizationId must be greater than 0" })
-  organizationId: number;
+  @IsNumber({}, { message: "institutionId must be a number" })
+  @Min(1, { message: "institutionId must be greater than 0" })
+  institutionId: number;
 
 }

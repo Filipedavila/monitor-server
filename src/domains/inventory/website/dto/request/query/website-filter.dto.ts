@@ -8,7 +8,7 @@ import { BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
 
 export class WebsiteFilterDTO
   extends BaseFilterDTO<Website>
-  implements  Pick<Website, 'title' | 'baseUrl' | 'organizationId' >
+  implements  Pick<Website, 'title' | 'baseUrl' | 'institutionId' >
 {
   @IsString()
   @IsOptional()
@@ -20,7 +20,7 @@ export class WebsiteFilterDTO
 
   @IsOptional()
   @IsNumber()
-  organizationId: number;
+  institutionId: number;
 
 
   @IsString()
