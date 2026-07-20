@@ -22,7 +22,7 @@ import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { Response } from 'express';
 import { createReadStream } from "node:fs";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 

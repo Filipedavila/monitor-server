@@ -17,7 +17,7 @@ import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
 import { StampDocs } from "./stamp.swagger";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @StampDocs.controller()

@@ -18,7 +18,7 @@ import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { DirectoryDTO } from "./dto/directory.dto";
 import { PaginationResponse } from "src/common/repositories/base.repository";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @DirectoryDocs.controller()
@@ -54,6 +54,7 @@ export class DirectoryController {
   async getDirectoryInfo(@Param("directoryId", ParseIntPipe) directoryId: number): Promise<DirectoryDTO> {
     return await this.directoryService.getDirectory(directoryId);
   }
+
   @DirectoryDocs.create()
   @FgaAuthorized({
             objectType: "role",
@@ -68,7 +69,6 @@ export class DirectoryController {
 
   }
 
-  
   @DirectoryDocs.update()
   @FgaAuthorized({
           objectType: "role",

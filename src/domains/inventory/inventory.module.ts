@@ -5,7 +5,7 @@ import { UserModule } from "../identity/user/user.module";
 import { WebsiteModule } from "./website/website.module";
 import { TagModule } from "./tag/tag.module";
 import { ContextModule } from "./context/context.module";
-import { OrganizationModule } from "./organization/organization.module";
+import { InstitutionModule } from "./institution/institution.module";
 @Module({
   imports: [
     ContextModule,
@@ -13,7 +13,7 @@ import { OrganizationModule } from "./organization/organization.module";
     PageModule,
     WebsiteModule,
     TagModule,
-    OrganizationModule,    
+    InstitutionModule,    
   ],
   exports: [
     ContextModule,
@@ -21,7 +21,7 @@ import { OrganizationModule } from "./organization/organization.module";
     PageModule,
     WebsiteModule,
     TagModule,
-    OrganizationModule,
+    InstitutionModule,
   ],
 })
 export class AccessibilityCatalogModule {}

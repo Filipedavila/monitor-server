@@ -21,7 +21,7 @@ import { UserQueryDTO } from "./dto/request/user-request.dto";
 import { UserDTO } from "./dto/user.dto";
 import { UpdateMeDTO } from "./dto/update-user-me.dto";
 import { UserPaginationResponse } from "./dto/pagination-response.dto";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @UserDocs.controller

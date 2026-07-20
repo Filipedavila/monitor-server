@@ -17,7 +17,7 @@ import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
 import { DeclarationDocs } from "./declaration.swagger";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @DeclarationDocs.controller()

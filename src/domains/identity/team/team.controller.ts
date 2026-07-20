@@ -16,7 +16,7 @@ import { CreateTeamDTO } from "./dto/create-team.dto";
 import {  TeamDTO } from "./dto/team.dto";
 import { TeamQueryDTO } from "./dto/request/team-request.dto";
 import { PaginationResponse } from "src/common/repositories/base.repository";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @TeamDocs.controller()

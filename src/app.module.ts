@@ -4,7 +4,6 @@ import {  ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from "@nestjs/schedule";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { join } from "path";
-import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { IntegrationsModule } from "./integrations/integrations.module";
@@ -60,7 +59,7 @@ import { AllocationModule } from './domains/allocations/allocation.module';
     AnalyticsModule,
     AllocationModule   
   ],
-  controllers: [AppController],
+  controllers: [],
   providers: [
     AppService,
     {

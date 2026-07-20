@@ -26,7 +26,7 @@ import { DiscoveryDocs } from "../discovery.swagger";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @DiscoveryDocs.controller()

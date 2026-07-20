@@ -22,7 +22,7 @@ import { CreateTagDTO } from "./dto/create-tag.dto";
 import { UpdateTagDTO } from "./dto/update-tag.dto";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { ContextFilterGuard } from "src/core/authorization/guards/context.guard";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 @TagDocs.controller()

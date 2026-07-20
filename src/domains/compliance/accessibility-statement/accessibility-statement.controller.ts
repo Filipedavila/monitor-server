@@ -16,7 +16,7 @@ import { CurrentUser } from "src/core/authorization/decorators/current-user.deco
 import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 import { AccessibilityStatementDto } from "./dto/accessibility-statement.dto";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";

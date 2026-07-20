@@ -23,7 +23,7 @@ import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { WebsiteDocs } from "./website.swagger";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { DeleteBulkWebsiteDto } from "./dto/delete-bulk-website.dto";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
 
 
