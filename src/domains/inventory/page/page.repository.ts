@@ -12,6 +12,7 @@ import { OutboxService } from "src/core/outbox/outbox.service";
 import { Context } from "../context/context.identity";
 import { ContextEnum, ContextMap, ContextMapByRole, getContextIdByCode, getContextIdByRole } from "../context/context.enum";
 import { SecurityContext } from "src/core/authentication/interfaces/types";
+import { PageEvalDTO } from "./dto/page-detailed.dto";
 export interface PageFilter extends BaseFilter {
   url?: string;
   websiteId?: number;
@@ -76,43 +77,70 @@ export class PageRepository extends BaseTransactionalRepository<
     score: (query, order) => query.addOrderBy("evaluation.score", order),
     createdAt: (query, order) => query.addOrderBy("evaluation.createdAt", order),
   };
-
-  async findManyWithLastEvalScore(queryArgs: PageQueryRequest): Promise<PaginationResponse<Page>> {
+async findManyWithLastEvalScore(queryArgs: PageQueryRequest): Promise<PaginationResponse<PageEvalDTO>> {
     const { filters, sortings, pagination } = queryArgs;
-    const query = this.getOrmRepository().createQueryBuilder(this.alias);
+    const connection = this.getOrmRepository().manager.connection;
+  const query = connection.createQueryBuilder().from(Page, "page");    
     this.applyContextFilter(query, queryArgs.contexts, queryArgs.securityContext);
-    query.leftJoin(
-      (subQuery) =>
-        subQuery
-          .select("e.id", "id")
-          .addSelect("e.page_id", "pageId")
-          .from("evaluations", "e")
-          .where(
-            "e.id = (SELECT id FROM evaluations WHERE page_id = e.page_id ORDER BY created_at DESC LIMIT 1)"
-          ),
+    
+    const subQuery = connection.createQueryBuilder()
+      .select("e.id", "id")
+      .addSelect("e.page_id", "page_id")
+      .addSelect("e.score", "score")
+      .addSelect("e.created_at", "created_at")
+      .addSelect('"e"."A"', "A")
+      .addSelect('"e"."AA"', "AA")
+      .addSelect('"e"."AAA"', "AAA")
+      .addSelect('"e"."tag_count"', "tag_count")
+
+      .from("evaluations", "e")
+      .distinctOn(["e.page_id"])
+      .orderBy("e.page_id", "ASC")
+      .addOrderBy("e.created_at", "DESC");
+    
+    query.innerJoin(
+      `(${subQuery.getQuery()})`,
       "evaluation",
-      "evaluation.pageId = page.id"
+      "evaluation.page_id = page.id"
     );
 
+    query.select([
+      "page.id AS id",
+      "page.url AS url",
+      "page.website_id AS \"websiteId\"",
+      "page.created_at AS \"createdAt\"",
+      "page.updated_at AS \"updatedAt\"",
+      `json_build_object(
+        'id', evaluation.id,
+        'score', evaluation.score,
+        'createdAt', evaluation.created_at,
+        'A', evaluation."A",
+        'AA', evaluation."AA",
+        'AAA', evaluation."AAA",
+        'tagCount', evaluation."tag_count"
+      ) AS evaluation`
+    ]);
+
     this.applyDynamicFilters(query, filters);
-
     this.applyDynamicSorting(query, sortings);
-
     this.applyPagination(query, pagination);
 
-    const [data, count] = await query.getManyAndCount();
+    const rawData = await query.getRawMany();
+    const count = await query.getCount(); 
+
+
 
     const metadataPagination = this.calculatePaginationMeta(
       count,
-      queryArgs.pagination?.page ?? 1,
-      queryArgs.pagination?.limit ?? 10,
+      pagination?.page ?? 1,
+      pagination?.limit ?? 10,
     );
+
     return {
-      data,
+      data: rawData,
       meta: metadataPagination
     };
   }
- 
   async findByPageByWebsiteId(websiteId: number, pageId: number): Promise<Page | null> {
     const query = this.getOrmRepository().createQueryBuilder(this.alias);
     query.where(`${this.alias}.id = :pageId`, { pageId })

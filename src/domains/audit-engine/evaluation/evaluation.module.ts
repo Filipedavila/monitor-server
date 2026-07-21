@@ -15,12 +15,13 @@ import { RedisModule } from "src/redis/redis.module";
 import { EvaluationProducer } from "./evaluation.producer";
 import { EvaluationConsumer } from "./evaluation.consumer";
 import { ClickhouseModule } from "src/core/clickhouse/clickhouse.module";
+import { EvaluationContext } from "./entities/contexts-evaluation.entity";
 
 @Module({
   imports: [
     BullModule.registerQueue({ name: "evaluation-queue-private" }),
     BullModule.registerQueue({ name: "evaluation-queue-public" }),
-    TypeOrmModule.forFeature([Page, Evaluation]),
+    TypeOrmModule.forFeature([Page, Evaluation,EvaluationContext]),
     RedisModule,
     AccessibilityStatementModule,
     ClickhouseModule,

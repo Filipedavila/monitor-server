@@ -5,18 +5,13 @@ import { CLICKHOUSE_CLIENT } from 'src/core/clickhouse/clickhouse.constants';
 import { REDIS_CLIENT, REDIS_STREAMS,REDIS_GROUPS, ConsumerName } from 'src/redis/types';
 
 export interface EvaluationResult {
-  evaluationId: number;
-  directoryId: number;
-  websiteId: number;
+  evaluation_id: number;
+  institution_id?: number; 
+  directory_id?: number;
+  website_id: number;
   page_id: number;
-  entity_id: number;
-  evaluationDate: string;
-  rule_code: string;
-  results: {
-    passed: number;
-    failed: number;
-    warning: number;
-  };
+  evaluation_date: string;
+  rules_counts:Record<string,number>;
   score: number;
 }
 interface BufferEvalution {
@@ -93,7 +88,7 @@ export class EvaluationConsumer implements OnModuleInit, OnModuleDestroy {
 private async flush(buffer: BufferEvalution) {
   try {
     await this.clickhouse.insert({
-      table: 'evaluations_tests',
+      table: 'evaluations',
       values: buffer.data, 
       format: 'JSONEachRow',
     });
