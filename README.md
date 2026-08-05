@@ -78,3 +78,98 @@ graph TD
     API_SVC -->|CRUD Operations| MYSQL
     API_SVC -->|OLAP Queries| ClickHouse
 ```
+## Evaluation Processing 
+```mermaid
+graph LR
+    subgraph IngestionLayer [Triggers & Ingestion]
+        APIRequest((HTTP API / Client Request))
+        OutboxPoller((Outbox Poller / Cron))
+    end
+
+    subgraph Infrastructure [Data & Storage Tier]
+        StorageDrive[(Storage Drive / S3 Bucket)]
+        Postgres[(PostgreSQL Database)]
+        Redis[(Redis Streams / PubSub)]
+    end
+
+    subgraph EvalQueueWorker [Evaluation Queue Worker]
+        EvalQueue((Evaluation Queue))
+        EvalWorker((Evaluation Worker))
+        EvaluateAction((Compute Evaluation))
+        EvalRetry((Backoff & Retry))
+        EvalDLQ((Evaluation DLQ))
+        EvalSuccess((Success State))
+    end
+
+    subgraph PersistQueueWorker [Persistence Queue Worker]
+        PersistQueue((Persistence Queue))
+        PersistWorker((Persistence Worker))
+        PersistHydrate((Hydrate Payload))
+        PersistDB((Commit DB Transaction))
+        PersistRetry((Backoff & Retry))
+        PersistDLQ((Persistence DLQ))
+        PersistSuccess((Success State))
+    end
+
+    %% Pipeline 1: Evaluation Flow
+    APIRequest -->|Enqueue Job| EvalQueue
+    EvalQueue -->|Consume| EvalWorker
+    
+    EvalWorker -->|1 Compute| EvaluateAction
+    EvalWorker -->|2 Claim-Check Payload| StorageDrive
+    EvalWorker -->|3 Outbox Event| Postgres
+
+    EvalWorker -->|Job Error / Max Retries Reached| EvalRetry
+    EvalWorker -->|Execution Complete| EvalSuccess
+    
+    EvalRetry -->|Re-queue Under Max Attempts| EvalQueue
+    EvalRetry -->|Exhausted Attempts| EvalDLQ
+
+    %% Pipeline 2: Persistence Flow
+    OutboxPoller -->|Dispatch Job| PersistQueue
+    PersistQueue -->|Consume| PersistWorker
+    
+    PersistWorker -->|1 Fetch Payload| StorageDrive
+    PersistWorker -->|2 Process Data| PersistHydrate
+    PersistWorker -->|3 Store Compressed HTML & JSON| StorageDrive
+    PersistWorker -->|4 Update Status| PersistDB
+    PersistWorker -->|5 Publish Evaluation Metrics| Redis
+    Redis -->|6 Append Stream Event| PersistWorker
+
+    PersistWorker -->|Job Error / Max Retries Reached| PersistRetry
+    PersistWorker -->|Execution Complete| PersistSuccess
+
+    PersistRetry -->|Re-queue Under Max Attempts| PersistQueue
+    PersistRetry -->|Exhausted Attempts| PersistDLQ
+```
+## Evaluation Data Ingestion
+```mermaid
+graph TD
+    %% Ingestion
+    Input[Data Sources] --> RedisStream[Redis Stream]
+
+    subgraph Ingestion_Layer [Ingestion Layer]
+        RedisStream --> |Consume| Batch[Batch Consumer]
+        Batch --> |"ACK/XACK"| RedisStream
+        RedisStream --> |"Recurrent Fail"| DLQ[Dead Letter Queue]
+    end
+    subgraph ClickhouseDB[ Clickhouse DB]
+    Batch --> LogTable[Source of Truth - Evaluations]
+    
+    %% Transformation
+    LogTable -->|"Materialized View Triggers"| MVs[Snapshots MVs]
+    
+    subgraph Snapshots [Materialized Snapshots]
+        Global[Global]
+        Web[Websites]
+        Pag[Pages]
+        Dir[Directories]
+        Ent[Institutions]
+    end
+    
+    MVs --> Global & Web & Pag & Dir & Ent
+    end
+    %% Query
+    Global & Web & Pag & Dir & Ent --> Consult[Analytics API - Read Optimized]
+
+   ```
