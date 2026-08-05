@@ -93,7 +93,42 @@ async removeUserRelations<T extends ResourceType, A extends AssignableResource>(
     const { allowed } = await this.fgaClient.check({ user, relation, object });
     return allowed ?? false;
   }
-  
+  async filterAuthorizedIds<T extends ResourceType, C extends EnquireableResource>(
+    user: FgaUserIdentifier<T>,
+    objectType: T,
+    objectIds: (string | number)[],
+    relation: FgaTupleEnquire<C>['relation']
+  ): Promise<(string | number)[]> {
+    if (!objectIds || objectIds.length === 0) {
+      return [];
+    }
+
+    const uniqueIds = Array.from(new Set(objectIds));
+
+    const checks = uniqueIds.map((id) => ({
+      user,
+      relation,
+      object: `${objectType}:${id}` as FgaObjectIdentifier<T>,
+    }));
+
+    try {
+
+      const response = await this.fgaClient.batchCheck({ checks });
+
+      const authorizedIds: (string | number)[] = [];
+
+      response.result?.forEach((res, index) => {
+        if (res.allowed) {
+          authorizedIds.join 
+          authorizedIds.push(uniqueIds[index]);
+        }
+      });
+
+      return authorizedIds;
+    } catch (error) {
+      return [];
+    }
+  }
 
   async createRelationship<T extends ResourceType, A extends AssignableResource>(
     tuple: FgaTupleAssign<T, A>

@@ -1,5 +1,5 @@
 import {
-  Controller, InternalServerErrorException, Post, Get, Request, Param, UseGuards, UseInterceptors, Body,
+  Controller,  Post, Get,  Param, UseGuards, UseInterceptors, Body,
   Patch,
   Delete,
   Query,
@@ -10,7 +10,6 @@ import { TagService } from "./tag.service";
 import { Tag } from "./tag.entity";
 import { LoggingInterceptor } from "src/core/log/log.interceptor";
 
-import { ImportTagDTO } from "./dto/import-tag.dto";
 import { TagDocs } from "./tag.swagger";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
@@ -24,6 +23,7 @@ import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { ContextFilterGuard } from "src/core/authorization/guards/context.guard";
 import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
+import { AMS_ROLE_EDITOR, AMS_ROLE_MANAGER, AMS_ROLE_VIEWER } from "src/core/authorization/policies/role.policies";
 
 @TagDocs.controller()
 @Controller("tags")
@@ -44,22 +44,14 @@ export class TagController implements LoggableController {
   
   @Get(":id")
   @Roles(RoleSlug.ADMIN)
-  @FgaAuthorized({
-            objectType: "role",
-            action: "can_view_users",
-            resourceIdResolver: () => 'ams'
-    })
+  @FgaAuthorized(AMS_ROLE_VIEWER)
   async getTag(@CurrentUser() user: AuthenticatedUser, @Param("id") tagId: number): Promise<Tag> {
     return await this.tagService.findById(tagId, user);
   }
 
   @TagDocs.create()
   @Post("")
-  @FgaAuthorized({
-          objectType: "role",
-          action: "can_manage_users",
-          resourceIdResolver: () => 'ams'
-  })
+  @FgaAuthorized(AMS_ROLE_MANAGER)
   @Roles(RoleSlug.ADMIN)
   async create(@CurrentUser() user: AuthenticatedUser, @Body() createTagDto: CreateTagDTO): Promise<any> {
    return await this.tagService.createOne(createTagDto,user);
@@ -69,11 +61,7 @@ export class TagController implements LoggableController {
   @TagDocs.update()
   @Patch("")
   @Roles(RoleSlug.ADMIN)
-  @FgaAuthorized({
-            objectType: "role",
-            action: "can_edit_users",
-            resourceIdResolver: () => 'ams'
-    })
+  @FgaAuthorized(AMS_ROLE_EDITOR)
   async update(@CurrentUser() user: AuthenticatedUser, @Body() updateTagDto: UpdateTagDTO): Promise<Tag> {
 
     return await this.tagService.update(updateTagDto, user);
@@ -82,11 +70,7 @@ export class TagController implements LoggableController {
 
   @TagDocs.deleteBulk()
   @Roles(RoleSlug.ADMIN)
-  @FgaAuthorized({
-            objectType: "role",
-            action: "can_manage_users",
-            resourceIdResolver: () => 'ams'
-    })
+  @FgaAuthorized(AMS_ROLE_MANAGER)
   @Delete(":id")
   @HttpCode(204)
   async delete(@CurrentUser() user: AuthenticatedUser, @Param("id") tagId: number): Promise<void> {

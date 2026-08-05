@@ -157,12 +157,12 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
         tagMatchingStrategy: dto.strategy,
       });
       const saved = await qr.manager.save(Directory, directory);
-
+      /*
       if (dto.tags?.length) {
         const tags = await qr.manager.findBy(Tag, { id: In(dto.tags) });
         saved.tags = tags as any[];
         await qr.manager.save(Directory, saved);
-      }
+      }*/
 
       return saved;
     });
@@ -180,7 +180,7 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
     if (Object.keys(updatePayload).length > 0) {
       await qr.manager.update(Directory, { id: directoryId }, updatePayload);
     }
-
+    
     const directory = await qr.manager.findOne(Directory, { 
       where: { id: directoryId }, 
       relations: ['tags'] 
@@ -188,11 +188,11 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
 
     if (!directory) throw new NotFoundException(`Directory ${directoryId} not found`);
 
-    if (tags !== undefined && Array.isArray(tags)) {
+    /*if (tags !== undefined && Array.isArray(tags)) {
       const newTags = await qr.manager.findBy(Tag, { id: In(tags) });
       directory.tags = newTags as any[];
       await qr.manager.save(directory);
-    }
+    }*/
 
     return directory;
   });

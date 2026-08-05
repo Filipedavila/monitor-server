@@ -1,0 +1,167 @@
+import {
+  Controller,
+  Post,
+  Get,
+  Request,
+  UseGuards,
+  Param,
+  UseInterceptors,
+  Res,
+  Body,
+  Query,
+  StreamableFile,
+  ParseIntPipe,
+} from "@nestjs/common";
+import { EvaluationService } from "./services/evaluation.service"; 
+import { LoggingInterceptor } from "src/core/log/log.interceptor";
+import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
+import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
+import { EvaluationDocs } from "./evaluation.swagger";
+import { RolesGuard } from "src/core/authorization/guards/roles.guard";
+import { EvaluationQueryDTO } from "./dto/request/evaluation-request.dto";
+import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
+import { Roles } from "src/core/authorization/decorators/roles.decorator";
+import { Response } from 'express';
+import { createReadStream } from "node:fs";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
+import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
+import { ContextFilterGuard } from "src/core/authorization/guards/context.guard";
+
+
+@EvaluationDocs.controller()
+@Controller("evaluations/website/:websiteId")
+@UseGuards(JwtAuthGuard, RolesGuard,FgaGuard)
+@UseInterceptors(LoggingInterceptor)
+
+export class EvaluationController {
+  constructor(private readonly evaluationService: EvaluationService) {}
+
+  @EvaluationDocs.findAll()
+  @UseGuards(ContextFilterGuard)
+  @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
+  @FgaAuthorized({
+    objectType: "website",
+    action: "can_view",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId
+  })
+  @Get("page/:pageId")
+  async findAllFromPage(@CurrentUser() user: AuthenticatedUser,
+                        @Param("websiteId", ParseIntPipe) websiteId: number,
+                        @Param("pageId", ParseIntPipe) pageId: number,
+                        @Query() query: EvaluationQueryDTO): Promise<any> {
+
+    return await this.evaluationService.getEvaluations(websiteId, pageId,  { user }, query);
+  
+  }
+
+  @EvaluationDocs.findOne()
+  @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
+  @FgaAuthorized({
+    objectType: "website",
+    action: "can_view",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId
+  })
+  @Get("page/:pageId/evaluation/:evaluationId")
+  async findOne(
+    @Param("websiteId", ParseIntPipe) websiteId: number,
+    @Param("pageId", ParseIntPipe) pageId: number,
+    @Param("evaluationId", ParseIntPipe) evaluationId: number,
+    @CurrentUser() user: AuthenticatedUser): Promise<any> {
+    const securityContext = { user: user };
+    return await this.evaluationService.getEvaluationById(websiteId, pageId, evaluationId, securityContext);
+  }
+  
+  @EvaluationDocs.findPageEvaluationDetails()
+  @FgaAuthorized({
+    objectType: "website",
+    action: "can_view",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId
+  })
+  @Get("page/:pageId/evaluation/:evaluationId")
+  @Roles(RoleSlug.ADMIN,RoleSlug.MONITOR)
+  async getPageEvaluationDetails(
+    @Param("websiteId", ParseIntPipe) websiteId: number,
+    @Param("pageId", ParseIntPipe) pageId: number,
+    @Param("evaluationId", ParseIntPipe) evaluationId: number,
+    @Res({ passthrough: true }) res: Response,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<any> {
+    
+    const securityContext = { user: user };
+    const nodes = await this.evaluationService.getEvaluationResultJson(websiteId, pageId, evaluationId, securityContext);
+    res.set({
+    'Content-Type': 'application/json',
+    'Content-Encoding': 'gzip',
+    'Content-Disposition': 'inline', 
+    });
+
+    const fileStream = createReadStream(nodes);
+  
+  return new StreamableFile(fileStream);
+  }
+
+  @EvaluationDocs.findPageEvaluationDetails()
+  @FgaAuthorized({
+    objectType: "website",
+    action: "can_view",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId
+  })
+  @Get("page/:pageId/evaluation/:evaluationId/html")
+  async getPageEvaluationHtml(
+    @Param("websiteId", ParseIntPipe) websiteId: number,
+    @Param("pageId", ParseIntPipe) pageId: number,
+    @Param("evaluationId", ParseIntPipe) evaluationId: number,
+    @Res({ passthrough: true }) res: Response,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<any> {
+    const securityContext = { user: user };
+    const html = await this.evaluationService.getEvaluationHtml(websiteId, pageId, evaluationId, securityContext);
+    res.set({
+    'Content-Type': 'text/html',
+    'Content-Encoding': 'gzip',
+    'Content-Disposition': 'inline', 
+  });
+
+   const fileStream = createReadStream(html);
+  
+  return new StreamableFile(fileStream);
+  }
+
+  @EvaluationDocs.uploadExternalEvaluation()
+  @FgaAuthorized({
+    objectType: "website",
+    action: "can_edit",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId
+  })
+  @Post("page/:pageId/evaluation")
+  async uploadExternalEvaluation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("websiteId", ParseIntPipe) websiteId: number,
+    @Param("pageId", ParseIntPipe) pageId: number,
+    @Body() data: any,
+  ): Promise<any> {   
+    const securityContext = { user: user };
+    return await this.evaluationService.saveExternalEvaluation(
+      websiteId,
+      pageId,
+      data,
+      securityContext
+    );
+  }
+
+  @FgaAuthorized({
+    objectType: "website",
+    action: "can_edit",
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId
+  })
+  @Post("")
+  async evaluateManyPages(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("websiteId", ParseIntPipe) websiteId: number,
+  ): Promise<void> {
+    const securityContext = { user: user };
+    await this.evaluationService.evaluateWebsite(websiteId, securityContext);
+  }
+
+}
+  

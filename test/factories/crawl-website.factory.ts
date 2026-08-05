@@ -1,6 +1,6 @@
 import { Factory } from "fishery";
 import { faker } from "@faker-js/faker";
-import { CrawlerWebsite } from "src/domains/audit-engine/discovery/entities/crawler-website.entity";
+import { CrawlerWebsite } from "src/domains/audit-engine/discovery/crawler-website/entities/crawler-website.entity";
 export const crawlWebsiteFactory = Factory.define<CrawlerWebsite>(
   ({ sequence, transientParams, onCreate }) => {
     onCreate(async (website) => {

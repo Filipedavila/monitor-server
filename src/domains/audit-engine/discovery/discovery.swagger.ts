@@ -1,7 +1,7 @@
 import { applyDecorators } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { CrawlerCreateDTO } from "./dto/crawler-create.dto";
-import { CrawlWebsitesResponseDTO } from "./dto/crawler-website-response.dto"; 
+import { CrawlerCreateDTO } from "./crawler-website/dto/crawler-create.dto";
+import { CrawlWebsitesResponseDTO } from "./crawler-website/dto/crawler-website-response.dto"; 
 
 export const DiscoveryDocs = {
   controller: () =>

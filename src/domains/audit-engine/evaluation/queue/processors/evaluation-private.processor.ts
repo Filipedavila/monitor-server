@@ -1,49 +1,44 @@
 import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { executeUrlEvaluation } from "../../util/middleware";
-import { EvaluationService } from "../../services/evaluation.service";
-import { Evaluation } from "../../entities/evaluation.entity";
-import { InjectRepository } from "@nestjs/typeorm";
-  
-import { Repository } from "typeorm";
-import { Page } from "src/domains/inventory/page/page.entity";
+import { ProcessEvaluationOrchestrator } from "../../handlers/evaluation.orchestrator";
+
 interface EvaluationJobData {
   websiteId: number;
   evaluationId: number;
   pageId: number;
   url?: string;
-  userId: number;
 }
-@Processor("evaluation-queue-private")
+
+@Processor("evaluation-queue-private", {
+  concurrency: 5, 
+})
 export class EvaluationPrivateWorker extends WorkerHost {
   constructor(
-    private readonly evaluationService: EvaluationService,
-    @InjectRepository(Page) private readonly pageRepository: Repository<Page>,
+    private evaluationOrchestrator :ProcessEvaluationOrchestrator,
     private eventEmitter: EventEmitter2,
   ) {
     super();
   }
+   async process(job: Job<EvaluationJobData, any, string>): Promise<any> {
+     switch (job.name) {
+       case "evaluation-job":
+         console.log(
+           "Processing evaluation job for websiteId:",
+           job.data.websiteId,
+
+         );
  
-  async process(job: Job<EvaluationJobData, any, string>): Promise<any> {
-    switch (job.name) {
-      case "evaluation-job":
-        console.log(
-          "Processing evaluation job for websiteId:",
-          job.data.websiteId,
-
-        );
-        return await this.evaluatePageAndSave(
-          job.data.websiteId, 
-         job.data.evaluationId,
-         job.data.pageId,
-         job.data.userId
-        );
-
-      default:
-        throw new Error(`No handler for job ${job.name}`);
-    }
-  }
+        await this.evaluationOrchestrator.execute(
+           job.data.websiteId,
+           job.data.evaluationId,
+           job.data.pageId
+         )
+        break;
+       default:
+         throw new Error(`No handler for job ${job.name}`);
+     }
+   }
 
   @OnWorkerEvent("active")
   onActive(job: Job) {
@@ -61,6 +56,7 @@ export class EvaluationPrivateWorker extends WorkerHost {
     console.error(` Job ${job.id} falhou: ${error.message}`);
   }
 
+  /*
   async evaluatePageAndSave(
     websiteId: number,
     evaluationId: number,
@@ -87,5 +83,5 @@ export class EvaluationPrivateWorker extends WorkerHost {
     );
 
     return newEvaluation;
-  }
+  }*/
 }

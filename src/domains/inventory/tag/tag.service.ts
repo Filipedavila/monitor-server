@@ -8,6 +8,7 @@ import { PaginationResponse } from "src/common/repositories/base.repository";
 import { UpdateTagDTO } from "./dto/update-tag.dto";
 import { CreateTagDTO } from "./dto/create-tag.dto";
 import { ContextMap } from "../context/context.enum";
+import { Context } from "../context/context.identity";
 
 @Injectable()
 export class TagService  extends BaseService {
@@ -30,18 +31,14 @@ export class TagService  extends BaseService {
     }
   
   async findById(tagId: number, securityContext: AuthenticatedUser): Promise<Tag> {
-    const roleSlug = securityContext?.role_slug;
-    const context = ContextMap[roleSlug];
-    if (!context) {
-      throw new NotFoundException(`No context found for role ${roleSlug}`);
-    }
 
-    const tag = await this.tagRepository.getOrmRepository().findOne({ where: { id: tagId, contexts: { id: context } }, relations: ['contexts'] });
+    const tag = await this.tagRepository.getOrmRepository().findOne({ where: { id: tagId, contexts: { id: securityContext.context.id } }, relations: ['contexts'] });
     if (!tag) {
       throw new NotFoundException(`Tag with id ${tagId} not found or you don't have permission to access it`);
     }
     return tag;
   }
+
   async findByName(tagName: string): Promise<Tag | null> {
     const tag = await this.tagRepository.findOneBy({ name: tagName });
     if(!tag) {
@@ -53,14 +50,11 @@ export class TagService  extends BaseService {
 
 
 async update(updateTagDto: UpdateTagDTO, user: AuthenticatedUser): Promise<Tag> {
-  const context = ContextMap[user?.role_slug];
-  if (!context) {
-    throw new NotFoundException(`No context found for role ${user?.role_slug}`);
-  }
+  
   return await this.tagRepository.runInTransaction(async (repo) => {
     const tag = await repo.manager.findOne(Tag, { 
-      where: { id: updateTagDto.tagId, contexts: { id: context }}, 
-      relations: [ 'websites', 'contexts'] 
+      where: { id: updateTagDto.tagId, contexts: { id: user.context.id }}, 
+      relations: [ 'contexts'] 
     });
     if (!tag) {
       throw new NotFoundException(`Tag with id ${updateTagDto.tagId} not found or you don't have permission to update it`);
@@ -84,15 +78,12 @@ async update(updateTagDto: UpdateTagDTO, user: AuthenticatedUser): Promise<Tag> 
     createDto: CreateTagDTO,
     user: AuthenticatedUser
   ): Promise<Tag> {
-    const context = ContextMap[user?.role_slug];
-    if (!context) {
-      throw new NotFoundException(`No context found for role ${user?.role_slug}`);
-    } 
+
    return await this.tagRepository.runInTransaction(async (repo) => {
     const tag = new Tag();
     tag.name = createDto.name;
     tag.createdAt = new Date();
-    tag.contexts = [context];
+    tag.contexts = [user.context as Context];
     tag.createdById = user.id;
 
     
@@ -105,12 +96,7 @@ async update(updateTagDto: UpdateTagDTO, user: AuthenticatedUser): Promise<Tag> 
     return;
   }
 
-  const context = ContextMap[user?.role_slug];
-  if (!context) {
-    throw new NotFoundException(`No context found for role ${user?.role_slug}`);
-  }
-
-  const hasPermission = await this.tagRepository.validateContext(tagsId, context, user.id);
+  const hasPermission = await this.tagRepository.validateContext(tagsId, user.context.id, user.id);
   if (!hasPermission) {
     throw new NotFoundException(
       `No tags found with the provided IDs or you don't have permission to delete them`
@@ -119,18 +105,5 @@ async update(updateTagDto: UpdateTagDTO, user: AuthenticatedUser): Promise<Tag> 
      await this.tagRepository.deleteBulk(tagsId);
  
 }
-/*
-  async import(tagsId: number[], tagName: string): Promise<any> {
-    let tag = await this.tagRepository.findOneBy({ name: tagName });
-    if (!tag) {
-      tag = new Tag();
-      tag.name = tagName;
-      tag.createdAt = new Date();
-      await this.tagRepository.save(tag);
-    }
-  
-    return await this.tagRepository.copyExistingTagsIds(tag, "official", tagsId);
-  }
-*/
 
 }

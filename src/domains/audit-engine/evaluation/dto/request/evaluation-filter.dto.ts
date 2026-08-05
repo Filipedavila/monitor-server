@@ -1,8 +1,7 @@
 import { BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
 import { Evaluation } from "../../entities/evaluation.entity";
 import {  IsEnum, IsNumber, IsOptional, IsString } from "class-validator";
-import { ContextEnum, ContextMap } from "src/domains/inventory/context/context.enum";
-import { Transform } from "class-transformer/types/decorators/transform.decorator";
+
 
 
 export class EvaluationFilterDTO extends BaseFilterDTO<Evaluation> implements Required<Pick<Evaluation,  'pageTitle' | 'score' | 'A' | 'AA' | 'AAA'  | 'tagCount'>> {

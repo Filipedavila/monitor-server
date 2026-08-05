@@ -1,12 +1,8 @@
 import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { EvaluationService } from "../../services/evaluation.service";
-import { Evaluation } from "../../entities/evaluation.entity";
-import { executeUrlEvaluation } from "../../util/middleware";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm/repository/Repository.js";
-import { Page } from "src/domains/inventory/page/page.entity";
+
+import { ProcessEvaluationOrchestrator } from "../../handlers/evaluation.orchestrator";
 interface EvaluationJobData {
   websiteId: number;
   evaluationId: number;
@@ -17,8 +13,7 @@ interface EvaluationJobData {
 @Processor("evaluation-queue-public")
 export class EvaluationPublicWorker extends WorkerHost {
   constructor(
-    private readonly evaluationService: EvaluationService,
-    @InjectRepository(Page) private readonly pageRepository: Repository<Page>,
+    private evaluationOrchestrator :ProcessEvaluationOrchestrator,
     private eventEmitter: EventEmitter2,
   ) {
     super();
@@ -32,12 +27,12 @@ export class EvaluationPublicWorker extends WorkerHost {
           job.data.websiteId,
 
         );
-        return await this.evaluatePageAndSave(
-          job.data.websiteId, 
-         job.data.evaluationId,
-         job.data.pageId,
-         job.data.userId
-        );
+
+        this.evaluationOrchestrator.execute(
+          job.data.websiteId,
+          job.data.evaluationId,
+          job.data.pageId
+        )
 
       default:
         throw new Error(`No handler for job ${job.name}`);
@@ -59,7 +54,7 @@ export class EvaluationPublicWorker extends WorkerHost {
   onFailed(job: Job, error: Error) {
     console.error(`❌ Job ${job.id} falhou: ${error.message}`);
   }
-
+/*
   async evaluatePageAndSave(
     websiteId: number,
     evaluationId: number,
@@ -86,5 +81,5 @@ export class EvaluationPublicWorker extends WorkerHost {
     );
 
     return newEvaluation;
-  }
+  }*/
 }

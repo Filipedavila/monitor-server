@@ -1,6 +1,6 @@
 import {  ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { Evaluation } from "../entities/evaluation.entity";
-import { EvaluationRepository } from "../repositories/evaluation.repository";
+import { EvaluationRepository } from "../evaluation.repository";
 import { InjectQueue } from "@nestjs/bullmq";
 import { EvaluationQueryDTO } from "../dto/request/evaluation-request.dto";
 import { Page } from "src/domains/inventory/page/page.entity";
@@ -13,13 +13,13 @@ import { EvaluationStorageService } from "../evaluation-storage.service";
 import { In } from "typeorm/find-options/operator/In.js";
 import { EvaluationRequestDTO } from "../dto/EvaluationRequest.dto";
 import { RoleSlug } from "src/core/authentication/interfaces/types";
-import { EvaluationProducer } from "../evaluation.producer";
-import { ContextEnum, ContextMap, getContextIdByRole } from "src/domains/inventory/context/context.enum";
+import { EvaluationProducer } from "../redis/evaluation.producer";
 import { FgaService } from "src/core/authorization/fga.service";
 
 @Injectable()
 export class EvaluationService {
   constructor(
+    
     private readonly evaluationRepository: EvaluationRepository,
     private readonly fgaService: FgaService,
     @InjectRepository(Page) private readonly pageRepository: any,
@@ -29,20 +29,23 @@ export class EvaluationService {
     @InjectQueue("evaluation-queue-private")
     private readonly privateEvaluationQueue: any,
     private readonly logger: AppLoggerService,
-
     private readonly evaluationStorageService: EvaluationStorageService
+
   ) {
     this.logger.setContext(EvaluationService.name);
   }
 
-  public async getEvaluations(pageId: number,securityContext: SecurityContext, query: EvaluationQueryDTO ): Promise<{ data: Evaluation[]; count: number }> {
+  public async getEvaluations(websiteId: number, pageId: number, securityContext: SecurityContext, query: EvaluationQueryDTO ): Promise<{ data: Evaluation[]; count: number }> {
     
-      return await this.evaluationRepository.getManyEvaluations(pageId, { filters: query.filters, sortings: query.sorts, pagination: query.pagination, securityContext , contexts: query.contexts ? query.contexts : [] });
+      return await this.evaluationRepository.getManyEvaluations(websiteId, pageId, { filters: query.filters, sortings: query.sorts, pagination: query.pagination, securityContext , contexts: query.contexts ? query.contexts : [] });
   }
   
-  public async getEvaluationById(pageId: number, evaluationId: number, securityContext: SecurityContext): Promise<Evaluation> {
-    await this.checkEvaluationAuthorization(pageId, securityContext);
-    return this.evaluationRepository.getOrmRepository().findOneByOrFail({ id: evaluationId });
+  public async getEvaluationById(websiteId: number, pageId: number, evaluationId: number, securityContext: SecurityContext): Promise<Evaluation> {
+    const evaluation = await this.evaluationRepository.findEvaluationById(websiteId, pageId, evaluationId, securityContext);
+    if (!evaluation) {
+      throw new NotFoundException(`Evaluation with ID ${evaluationId} not found`);
+    }
+    return evaluation;
   }
 
   public async evaluateWebsite(websiteId: number, securityContext: SecurityContext): Promise<void> {
@@ -55,10 +58,7 @@ export class EvaluationService {
 
     await this.evaluateManyPages({ websiteId, pagesIds: pageIds, userId: securityContext.user.id }, securityContext);
   }
-  
-  public async evaluateHtml(html: string): Promise<any> {
-    throw new NotFoundException("Not implemented yet");
-  }
+
 
   public async evaluateManyPages(
     request: EvaluationRequestDTO,
@@ -76,7 +76,6 @@ export class EvaluationService {
        });
     // Create Evaluation and send evaluation id to queue
     
-    const contextId = getContextIdByRole(securityContext.user.role_slug);
     const WebsiteEvaluations: Evaluation[] = pages.map((page) => {
       const newEvaluation = new Evaluation();
       newEvaluation.pageId = page.id;
@@ -84,16 +83,13 @@ export class EvaluationService {
 
       return newEvaluation;
     });
-    if (!contextId) {
-      throw new InternalServerErrorException("User role does not have an associated context");
-    }
-   const result = await this.evaluationRepository.createManyEvaluations(WebsiteEvaluations, contextId);
+    
+   const result = await this.evaluationRepository.createManyEvaluations(WebsiteEvaluations, securityContext.user.context.id);
    if (!result) throw new InternalServerErrorException("Failed to create evaluations for the website pages");
-
-    // create tuple of this user as creator
-    /// create tuple of institution  with evaluation 
+ 
 
     const jobs = WebsiteEvaluations.map(evaluation => ({
+
       name: 'evaluation-job',
       data: { 
         websiteId: request.websiteId, 
@@ -108,108 +104,18 @@ export class EvaluationService {
       : this.publicEvaluationQueue.addBulk(jobs);
   }
 
-  async savePageEvaluation(
-    websiteId: number,
-    evaluationId: number,
-    pageId: number,
-    result: any,
-    userId: number,
-  ): Promise<any> {
-    const evaluation = await this.evaluationRepository.findById(evaluationId);
-    if (!evaluation) {
-      throw new NotFoundException(
-        `Evaluation with ID ${evaluationId} not found`,
-      );
-    }
-
-
-
-    evaluation.pageTitle = result.data.title
-      .replace(/"/g, "")
-      .replace(/[\u0800-\uFFFF]/g, "");
-    evaluation.score = result.data.score;
-    const conform = result.data.conform.split("@");
-    evaluation.A = conform[0];
-    evaluation.AA = conform[1];
-    evaluation.AAA = conform[2];
-    evaluation.createdAt = new Date(result.data.date);
-    const metrics: string[] = Object.entries(result.data.metrics).map(([key, value]) => (JSON.stringify({
-      evaluationId: evaluationId,
-      directoryId: 0,
-      websiteId: websiteId,
-      page_id: pageId,
-      entity_id: 0,
-      evaluationDate: new Date(result.data.date).toISOString().slice(0, 19).replace('T', ' '),
-      rule_code: key,
-      results: {
-      passed: Number(value),
-      failed: 0,
-      warning: 0,
-      },
-      score: 0,
-    })));
-
-    console.log("Métricas calculadas:", JSON.stringify(metrics, null, 2));
-
-    // transaction to save evaluation and metadata
-    await this.evaluationRepository.runInTransaction(async (queryRunner) => {
-      const savedEvaluation = await queryRunner.manager.save(Evaluation, evaluation);
-      if (!savedEvaluation) {
-        throw new InternalServerErrorException(
-          `Failed to save evaluation for page ID ${pageId}`,
-        );
-      }
-      await this.evaluationStorageService.saveEvaluation(
-        {
-          evaluationId: savedEvaluation.id,
-          websiteId: websiteId.toString(),
-          pageId: pageId.toString(),
-          date: savedEvaluation.createdAt.toISOString().split('T')[0],
-        },
-        result.pagecode,
-        result.data.nodes,
-      );
-      const idPublish =await this.evaluationProducer.publishEvaluations(
-       metrics
-      );
-      console.log("Published evaluation result with ID:", idPublish);
-      if (!idPublish) {
-        throw new InternalServerErrorException(
-          `Failed to publish evaluation result for evaluation ID ${savedEvaluation.id}`,
-        );
-      }
-    });
-  
-  }
-
-
-
-  async saveEvaluationHtml(
-    evaluationId: number,
-    html: string,
-  ): Promise<void> {
-    
-  }
 
   async saveExternalEvaluation(
-    securityContext: SecurityContext,
+    websiteId: number,
     pageId: number,
     data: string,
+    securityContext: SecurityContext
   ): Promise<any> {
-    const page = await this.pageRepository.findOne({ where: { id: pageId } });
+
+    const page = await this.pageRepository.findOne({ where: { id: pageId, websiteId: websiteId } });
     if (!page) {
       throw new NotFoundException(`Page with ID ${pageId} not found`);
     }
-    const isPermited = await this.fgaService.check(
-      `user:${securityContext.user.id}`,
-      'can_edit',
-      `website:${page.websiteId}`
-    );
-
-    if (!isPermited) {
-      throw new ForbiddenException(`User with ID ${securityContext.user.id} is not allowed to edit website with ID ${page.websiteId}`);
-    }
-
     const splittedData = data.split(";");
      
     const newEvaluation = new Evaluation();
@@ -226,9 +132,9 @@ export class EvaluationService {
     await this.evaluationRepository.save(newEvaluation);
   }
 
-  async getEvaluationResultJson(pageId: number, evaluationId: number, securityContext: SecurityContext): Promise<any> {
+  async getEvaluationResultJson(websiteId: number, pageId: number, evaluationId: number, securityContext: SecurityContext): Promise<any> {
 
-    const evaluation = await this.evaluationRepository.findById(evaluationId);
+    const evaluation = await this.evaluationRepository.findEvaluationById(websiteId, pageId, evaluationId, securityContext);
   
     if (!evaluation) {
       throw new NotFoundException(
@@ -240,17 +146,17 @@ export class EvaluationService {
     const nodesPath = await this.evaluationStorageService.getEvaluationNodesPath(
       {
       evaluationId: evaluation.id,
-      websiteId: evaluation.pageId.toString(), 
+      websiteId: websiteId.toString(), 
       pageId: evaluation.pageId.toString(),
-      date: evaluation.createdAt.toISOString().split('T')[0],
+      evaluationDate: evaluation.createdAt.toISOString().split('T')[0],
     });
 
     return nodesPath;
   }
 
-    async getEvaluationHtml(pageId: number, evaluationId: number, securityContext: SecurityContext): Promise<any> {
+    async getEvaluationHtml(websiteId: number, pageId: number, evaluationId: number, securityContext: SecurityContext): Promise<any> {
 
-    const evaluation = await this.evaluationRepository.findById(evaluationId);
+    const evaluation = await this.evaluationRepository.findEvaluationById(websiteId, pageId, evaluationId, securityContext);
   
     if (!evaluation) {
       throw new NotFoundException(
@@ -262,9 +168,9 @@ export class EvaluationService {
     const htmlPath = await this.evaluationStorageService.getEvaluationHtmlPath(
       {
       evaluationId: evaluation.id,
-      websiteId: evaluation.pageId.toString(), 
+      websiteId: websiteId.toString(), 
       pageId: evaluation.pageId.toString(),
-      date: evaluation.createdAt.toISOString().split('T')[0],
+      evaluationDate: evaluation.createdAt.toISOString().split('T')[0],
     });
 
     return htmlPath;
@@ -288,24 +194,6 @@ export class EvaluationService {
     };
   }
 
-
-  async evaluatePublicRequest( url: string ): Promise<any> {
-    throw new NotFoundException("Not implemented yet");
-  }
-async  checkEvaluationAuthorization(pageId: number, securityContext: SecurityContext) {
-  const page = await this.pageRepository.findOne({ where: { id: pageId } });
-  if (!page) {
-    throw new NotFoundException(`Page with ID ${pageId} not found`);
-  }
-  const hasPermission = await this.fgaService.check(
-    `user:${securityContext.user.id}`,
-    'can_view',
-    `website:${page.websiteId}`
-  );
-  if (!hasPermission) {
-    throw new ForbiddenException("You do not have permission to view this evaluation");
-  }
-}
 }
 
 

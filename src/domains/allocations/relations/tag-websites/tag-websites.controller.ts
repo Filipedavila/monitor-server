@@ -9,6 +9,7 @@ import { CurrentUser } from "src/core/authorization/decorators/current-user.deco
 import { TagWebsitesDocs } from "./tag-website.swagger";
 import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
+import { AMS_ROLE_EDITOR } from "src/core/authorization/policies/role.policies";
 
 @TagWebsitesDocs.controller()
 @Controller("websites/:websiteId/tags") // Rota RESTful consolidada
@@ -35,11 +36,7 @@ export class TagWebsitesController {
 
   @Patch()
   @TagWebsitesDocs.updateWebsiteTags()
-  @FgaAuthorized({
-    objectType: "role",
-    action: "can_edit_users",
-    resourceIdResolver: () => 'ams'
-  })
+  @FgaAuthorized(AMS_ROLE_EDITOR)
   @Roles(RoleSlug.ADMIN)
   @HttpCode(HttpStatus.OK)
   async updateTags(

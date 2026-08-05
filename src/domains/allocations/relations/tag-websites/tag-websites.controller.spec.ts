@@ -4,7 +4,7 @@ import { TagWebsitesService } from "./tag-website.service";
 import { UpdateWebsiteTagsDto } from "./dtos/tag-website-update.dto";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
-import { FgaGuard } from "src/core/authorization/guards/fda.guard";
+import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { HttpStatus, InternalServerErrorException } from "@nestjs/common";
 import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 
