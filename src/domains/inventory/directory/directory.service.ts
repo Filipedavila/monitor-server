@@ -1,7 +1,6 @@
 import {  ForbiddenException, Injectable,  NotFoundException } from "@nestjs/common";
 import { QueryRequest, PaginationResponse } from "src/common/repositories/base.repository";
 import { DirectoryFilter, DirectoryRepository, DirectorySort } from "./repositories/directory.repository";
-import { FgaService } from "src/core/authorization/fga.service";
 import { SecurityContext } from "src/core/authorization/SecurityContext";
 import { CreateDirectory } from "./dto/create-diretory.dto";
 import { UpdateDirectory } from "./dto/update-diretory.dto";
@@ -12,8 +11,7 @@ import { BasePaginationDTO } from "src/common/dto/request/base-pagination.dto";
 @Injectable()
 export class DirectoryService {
   constructor(
-    private readonly repo: DirectoryRepository,
-    private readonly fgaService: FgaService,
+    private readonly repo: DirectoryRepository
   ) {}
 
   async createOne(createDto: CreateDirectory): Promise<DirectoryDTO> {
@@ -42,17 +40,6 @@ export class DirectoryService {
     if (!securityContext?.user?.id) {
       throw new ForbiddenException("User not authenticated");
     }
-    /*
-    const objectsId = await this.fgaService.listObjects({
-      user: `user:${securityContext.user.id}`,
-      relation: 'can_view',
-      type: 'directory',
-    });*/
-
-    queryArgs.filters = {
-      ...queryArgs.filters
-     // ids: objectsId.map((id) => parseInt(id.split(':')[1], 10)),
-    };
 
     return this.repo.findMany(queryArgs);
   }

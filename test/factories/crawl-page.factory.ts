@@ -1,7 +1,7 @@
 import { Factory } from "fishery";
 import { faker } from "@faker-js/faker";
-import { CrawlerPage } from "src/domains/audit-engine/discovery/entities/crawler-page.entity";
-import { CrawlerWebsite } from "src/domains/audit-engine/discovery/entities/crawler-website.entity";
+import { CrawlerPage } from "src/domains/audit-engine/discovery/crawler-page/crawler-page.entity";
+import { CrawlerWebsite } from "src/domains/audit-engine/discovery/crawler-website/entities/crawler-website.entity";
 interface PageTransient {
   baseUri?: string;
   crawlWebsite?: CrawlerWebsite;

@@ -8,6 +8,7 @@ import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { TeamWebsitesDocs } from "./team-websites.swagger";
 import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
+import { AMS_ROLE_EDITOR, AMS_ROLE_VIEWER } from "src/core/authorization/policies/role.policies";
 
 @TeamWebsitesDocs.controller()
 @Controller("teams/:teamId/websites") 
@@ -17,11 +18,7 @@ export class TeamWebsitesController {
 
 
   @Get('')
-  @FgaAuthorized({
-     objectType: "role",
-     action: "can_view_users",
-     resourceIdResolver: () => 'ams'
-  })
+  @FgaAuthorized(AMS_ROLE_VIEWER)
   @HttpCode(HttpStatus.OK)
   async getTeamWebsites(
   @Param("teamId", ParseIntPipe) teamId: number) {
@@ -30,11 +27,7 @@ export class TeamWebsitesController {
 
   @Patch()
   @TeamWebsitesDocs.updateTeamWebsites()
-  @FgaAuthorized({
-      objectType: "role",
-      action: "can_edit_users",
-      resourceIdResolver: () => "ams"
-  })
+  @FgaAuthorized(AMS_ROLE_EDITOR)
   @Roles(RoleSlug.ADMIN)
   @HttpCode(HttpStatus.OK)
   async updateWebsites(

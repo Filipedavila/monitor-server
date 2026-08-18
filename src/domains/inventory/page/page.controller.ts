@@ -15,7 +15,6 @@ import {
 import { PageService } from "./page.service";
 import { AuthenticatedUser, RoleSlug } from "src/core/authentication/interfaces/types";
 import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
-import { PageImportDto } from "./dto/page-import.dto";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { CreatePageDto } from "./dto/create-page.dto";
@@ -78,7 +77,6 @@ export class PageController implements LoggableController{
   })
   @Post("website/:websiteId/page")
   async create(
-    
     @Body() dto: CreatePageDto, @CurrentUser() user: AuthenticatedUser) {
     return this.pageService.create(dto, { user });
   }

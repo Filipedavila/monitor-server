@@ -1,3 +1,4 @@
+import { ContextEnum } from "src/domains/inventory/context/context.enum";
 
 export enum RoleSlug {
   ADMIN = "nimda",
@@ -15,10 +16,16 @@ export const RoleSlugMap: Record<string, RoleSlug> = {
   "monitor": RoleSlug.MONITOR
 };
 
+class Context{
+  public id:number;
+  public code:string;
+}
+
 export interface AuthenticatedUser {
   id: number;
   username: string;
   role_slug: RoleSlug;
+  context: Context
 }
 
 

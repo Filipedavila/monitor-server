@@ -5,6 +5,7 @@ import {
   Patch,
   Query,
   Logger,
+  ParseIntPipe,
 } from "@nestjs/common";
 import { InstitutionService } from "./institution.service";
 import { Institution } from "./institution.entity";
@@ -31,8 +32,12 @@ export class InstitutionController implements LoggableController {
   constructor(private readonly institutionService: InstitutionService) {}
 
 
-
- 
+  @Roles(RoleSlug.ADMIN)
+  @Get(":institutionId")
+  @HttpCode(200)
+  async getInstitution(@Param("institutionId", ParseIntPipe) institutionId: number,): Promise<any> {
+    return await this.institutionService.getOne( institutionId );
+  }
   @InstitutionDocs.findAllPaged()
   @Roles(RoleSlug.ADMIN)
   @Get("")
@@ -91,7 +96,7 @@ export class InstitutionController implements LoggableController {
   async deleteOrganization(@Body() deleteOrganizationDto: DeleteInstitutionDto): Promise<void> {
   const institutionId = deleteOrganizationDto.institutionId;
   await this.institutionService.delete(institutionId);
-    
+
   }
 
  

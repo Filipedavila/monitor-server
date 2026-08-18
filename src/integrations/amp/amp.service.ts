@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  executeHtmlEvaluation,
-  executeUrlEvaluation,
-} from '@domains/audit-engine/evaluation/util/middleware';
+
 
 import { ConfigService } from '@nestjs/config/dist/config.service';
 import { validateUrlRestriction } from './util';
@@ -18,11 +15,11 @@ export class AmpService {
   async evaluateUrl(url: string): Promise<any> {
     await validateUrlRestriction(url, this.blackList);
 
-    return await executeUrlEvaluation(url);
+    return null;
   }
 
   async evaluateHtml(html: string): Promise<any> {
-    return await executeHtmlEvaluation(html);
+    return null;
   }
 
 }

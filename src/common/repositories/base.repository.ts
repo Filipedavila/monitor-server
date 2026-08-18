@@ -237,8 +237,8 @@ export abstract class EntityRepository<
     const rawPage = pagination?.page ?? 1;
     const page = Math.max(1, rawPage);
 
-    const skip = (page - 1) * limit;
-    query.take(limit).skip(skip);
+    const offset = (page - 1) * limit;
+    query.limit(limit).offset(offset);
   }
 
   protected applyDynamicFilters(

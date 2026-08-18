@@ -1,5 +1,3 @@
-import clone from "lodash.clonedeep";
-
 export function calculateQuartiles(data: any): Array<any> {
   const values = data
     .filter((e: any) => e !== undefined)
@@ -63,7 +61,7 @@ export function calculateQuartiles(data: any): Array<any> {
           },
         };
 
-        final.push(clone(test));
+        final.push(test);
       }
     }
   }

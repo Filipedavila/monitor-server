@@ -48,8 +48,12 @@ export class WebsiteService extends BaseService {
     const website = this.repository.orm.create();
     Object.assign(website, createDto);
     website.createdById = actorId;
+    website.contexts = [{id:securityContext.user.context.id} as any];
+    
     const savedWebsite = await this.repository.createWebsite(website);
     
+    
+
     if (!savedWebsite) {
       throw new Error("Failed to create website");
     }

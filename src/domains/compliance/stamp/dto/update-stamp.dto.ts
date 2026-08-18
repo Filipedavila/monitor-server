@@ -4,7 +4,7 @@ import { StampLevel } from "../enums/stamp-level.enum";
 
 export class UpdateStampDto {
   @IsNotEmpty({ message: "O nivel do Selo é obrigatório  ." })
-  @IsEnum(AuditStatus, { message: "O nivel do selo fornecido é inválido." })
+  @IsEnum(StampLevel, { message: "O nivel do selo fornecido é inválido." })
   stampLevel: StampLevel;
 
 

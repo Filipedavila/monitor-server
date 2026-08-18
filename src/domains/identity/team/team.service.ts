@@ -36,7 +36,7 @@ export class TeamService {
 
   async getTeamById(id: number): Promise<TeamDetailsDTO> {
     
-    const team = await this.teamRepository.getOrmRepository().findOne({ where: { id: id }, relations: ["users", "websites"] });
+    const team = await this.teamRepository.getOrmRepository().findOne({ where: { id: id } });
     return plainToInstance(TeamDetailsDTO, team, { excludeExtraneousValues: true });
 
   }

@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import {  ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from "@nestjs/schedule";
 import { ServeStaticModule } from "@nestjs/serve-static";
@@ -19,6 +19,7 @@ import { ConfigService } from '@nestjs/config';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RedisModule } from './redis/redis.module';
 import { AllocationModule } from './domains/allocations/allocation.module';
+import { DbConstraintExceptionFilter } from "./core/filters/db-unique-contraint.filter";
 
 
 @Module({
@@ -67,6 +68,10 @@ import { AllocationModule } from './domains/allocations/allocation.module';
       useClass: ThrottlerGuard ,
     },
     MaxOffsetLimitConstraint,
+    {
+      provide: APP_FILTER,
+      useClass: DbConstraintExceptionFilter,
+    },
   ],
 })
 export class AppModule {}

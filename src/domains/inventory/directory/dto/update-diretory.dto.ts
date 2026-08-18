@@ -7,7 +7,7 @@ export class UpdateDirectory {
   directoryId: number;
 
   @IsOptional()
-  @IsEnum(['MATCH_ALL', 'MATCH_ANY'], { message: "strategy must be either 'MATCH_ALL' or 'MATCH_ANY'" })
+  @IsEnum(['UNION', 'INTERSECTION'], { message: "strategy must be either 'UNION' or 'INTERSECTION'" })
   strategy: TagMatchingStrategyType;
 
   @IsOptional()
@@ -18,11 +18,6 @@ export class UpdateDirectory {
   @IsOptional()
   name: string;
 
-  @IsOptional()
-  @IsArray({ message: "defaultTags must be an array of numbers" })
-  @IsInt({ each: true, message: "defaultTags must be an array of integers" })
-  @Min(1, { each: true, message: "defaultTags must contain positive integers" })
-  tags: number[];
 
 
 }

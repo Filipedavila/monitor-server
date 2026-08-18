@@ -7,6 +7,7 @@ import { QueryRequest, PaginationResponse } from "src/common/repositories/base.r
 import { CreatePageDto } from "./dto/create-page.dto";
 import { FgaService } from "src/core/authorization/fga.service";
 import { ContextEnum,  ContextMapByRole } from "../context/context.enum";
+import { PageEvalDTO } from "./dto/page-detailed.dto";
 
 @Injectable()
 export class PageService {
@@ -20,7 +21,7 @@ export class PageService {
     queryArgs: QueryRequest<PageFilter, PageSort, PagePagination>,
     contexts: ContextEnum[],
     securityContext: SecurityContext
-  ): Promise<PaginationResponse<Page>> {
+  ): Promise<PaginationResponse<PageEvalDTO>> {
     const query = {
       filters: queryArgs.filters || {},
       sortings: queryArgs.sortings || {},

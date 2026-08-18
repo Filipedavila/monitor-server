@@ -5,7 +5,6 @@ import {
   ApiTags, 
   ApiBasicAuth 
 } from "@nestjs/swagger";
-import { Observatory } from "./observatory.entity";
 
 export const ObservatoryDocs = {
   controller: () =>
@@ -15,45 +14,18 @@ export const ObservatoryDocs = {
       ApiResponse({ status: 403, description: "Forbidden" })
     ),
 
-  findAll: () =>
+  getGlobalMetrics: () =>
     applyDecorators(
-      ApiOperation({ summary: "Get all observatory data" }),
-      ApiResponse({ status: 200, description: "Success", type: Observatory }),
-      HttpCode(200)
-    ),
-
-  getData: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Get latest observatory data" }),
-      ApiResponse({ status: 200, description: "Success", type: Observatory }),
-      HttpCode(200)
-    ),
-
-  generateData: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Generate observatory data" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(204)
-    ),
-
-  getSyncStatus: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Get current sync status" }),
+      ApiOperation({ summary: "Get all observatory global metrics" }),
       ApiResponse({ status: 200, description: "Success" }),
       HttpCode(200)
     ),
 
-  isSyncRunning: () =>
+  getWebsiteMetrics: () =>
     applyDecorators(
-      ApiOperation({ summary: "Check if sync is running" }),
-      ApiResponse({ status: 200, description: "Success", type: Boolean }),
-      HttpCode(200)
-    ),
-
-  getCurrentRunningSyncStatus: () =>
-    applyDecorators(
-      ApiOperation({ summary: "Get current running sync status with progress" }),
+      ApiOperation({ summary: "Get observatory metrics for a specific website" }),
       ApiResponse({ status: 200, description: "Success" }),
       HttpCode(200)
-    ),
+    )
+
 };
