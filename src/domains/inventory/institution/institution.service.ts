@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { Institution } from "./institution.entity";
 import { InstitutionRequestDTO } from "./dto/request/institution-request.dto";
 import { InstitutionRepository } from "./institution.repository";
@@ -19,6 +19,13 @@ export class InstitutionService {
     return await this.institutionRepository.findMany(institutionRequestDTO);
   }
 
+  async getOne(
+    institutionId:number
+  ):Promise<Institution>{
+    const institution =  await this.institutionRepository.findById(institutionId);
+    if(!institution) throw new NotFoundException("Institution Not Found");
+    return institution;
+  }
 
   async findByProperties(properties: Partial<InstitutionFilterDTO>): Promise<any> {
     return this.institutionRepository.findOneBy(properties);
