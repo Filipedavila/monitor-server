@@ -1,0 +1,38 @@
+import { BaseFilterDTO } from 'src/common/dto/request/base-filter.dto';
+import { IsOptional, IsNumber, IsString, IsUrl, IsEnum } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CrawlerStatus, CrawlerWebsite } from '../../entities/crawler-website.entity';
+import { CrawlerPage } from '../../../crawler-page/crawler-page.entity';
+
+export class CrawlerFilterDTO
+  extends BaseFilterDTO<CrawlerWebsite>
+  implements Pick<CrawlerWebsite & CrawlerPage, 'websiteId' | 'status' | 'url' | 'crawlerWebsiteId'>
+{
+  @IsOptional()
+  @Type(() => Number)
+  websiteId: number;
+
+  @IsOptional()
+  @IsUrl()
+  baseUrl: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  maxDepth?: number;
+
+  @IsOptional()
+  @IsString()
+  url: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  crawlerWebsiteId: number;
+
+  @IsOptional()
+  @IsEnum(CrawlerStatus, {
+    message: 'Invalid status - only accepts status: ' + Object.values(CrawlerStatus).join(', '),
+  })
+  status: CrawlerStatus;
+}
