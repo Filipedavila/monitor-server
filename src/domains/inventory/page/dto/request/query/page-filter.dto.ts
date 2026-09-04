@@ -7,7 +7,7 @@ import {
   IsArray,
 } from "class-validator";
 import { Type, Transform } from "class-transformer";
-import { WebsiteCrawlerFilter } from "src/domains/audit-engine/discovery/repositories/crawler-website.repository";
+import { WebsiteCrawlerFilter } from "src/domains/audit-engine/discovery/crawler-website/crawler-website.repository";
 import { Page } from "../../../page.entity";
 
 export class PageFilterDTO
