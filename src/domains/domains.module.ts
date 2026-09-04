@@ -1,9 +1,10 @@
-import { Module } from "@nestjs/common";
-import { IdentityModule } from "./identity/identity.module";
-import { EvaluationMotorModule } from "./audit-engine/evaluation-motor.module";
-import { CertificationModule } from "./compliance/certification.module";
-import { AccessibilityCatalogModule } from "./inventory/inventory.module";
-import { AllocationModule } from "./allocations/allocation.module";
+import { Module } from '@nestjs/common';
+import { IdentityModule } from './identity/identity.module';
+import { EvaluationMotorModule } from './audit-engine/evaluation-motor.module';
+import { CertificationModule } from './compliance/certification.module';
+import { AccessibilityCatalogModule } from './inventory/inventory.module';
+import { AllocationModule } from './allocations/allocation.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 const modules = [
   IdentityModule,
@@ -11,6 +12,7 @@ const modules = [
   CertificationModule,
   AccessibilityCatalogModule,
   AllocationModule,
+  AnalyticsModule,
 ];
 
 @Module({
