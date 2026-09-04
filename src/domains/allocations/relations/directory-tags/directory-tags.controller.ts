@@ -1,51 +1,47 @@
 import { Controller, Patch, Body, HttpStatus, HttpCode, Param, UseGuards, ParseIntPipe, Get } from "@nestjs/common";
-import { TagWebsitesService } from "./tag-website.service";
-import { UpdateWebsiteTagsDto } from "./dtos/tag-website-update.dto"; 
+import { DirectoryTagsService } from "./directory-tags.service";
 import { RolesGuard } from "src/core/authorization/guards/roles.guard";
 import { JwtAuthGuard } from "src/core/authentication/guards/jwt-auth.guard";
 import { RoleSlug ,AuthenticatedUser} from "src/core/authentication/interfaces/types";
 import { Roles } from "src/core/authorization/decorators/roles.decorator";
 import { CurrentUser } from "src/core/authorization/decorators/current-user.decorator";
-import { TagWebsitesDocs } from "./tag-website.swagger";
+import { DirectoryTagsDocs } from "./directory-tags.swagger";
 import { FgaGuard } from "src/core/authorization/guards/fga.guard";
 import { FgaAuthorized } from "src/core/authorization/decorators/fga-authorization.decorator";
-import { AMS_ROLE_EDITOR } from "src/core/authorization/policies/role.policies";
+import { UpdateDirectoryTagsDto } from "./dtos/directory-tags-update.dto";
+import { AMS_ROLE_EDITOR, AMS_ROLE_VIEWER } from "src/core/authorization/policies/role.policies";
 
-@TagWebsitesDocs.controller()
-@Controller("websites/:websiteId/tags") // Rota RESTful consolidada
+@DirectoryTagsDocs.controller()
+@Controller("directory/:directoryId/tags") 
 @UseGuards(JwtAuthGuard, RolesGuard, FgaGuard)
-export class TagWebsitesController {
-  constructor(private readonly orchestrator: TagWebsitesService) {}
+export class DirectoryTagsController {
+  constructor(private readonly orchestrator: DirectoryTagsService) {}
 
   @Get('')
-  @FgaAuthorized({
-    objectType: "role",
-    action: "can_view_users",
-    resourceIdResolver: () => 'ams'
-  })
-  @TagWebsitesDocs.getWebsiteTags()
+  @FgaAuthorized(AMS_ROLE_VIEWER)
   @Roles(RoleSlug.ADMIN)
+  @DirectoryTagsDocs.getDirectoryTags()
   @HttpCode(HttpStatus.OK)
-  async getWebsiteTags(
-    @Param("websiteId", ParseIntPipe) websiteId: number
+  async getDirectoryTags(
+    @Param("directoryId", ParseIntPipe) directoryId: number
   ) {
-    return await this.orchestrator.getTagsOnWebsite(websiteId);
+    return await this.orchestrator.getTagsOnDirectory(directoryId);
   }
 
 
 
   @Patch()
-  @TagWebsitesDocs.updateWebsiteTags()
   @FgaAuthorized(AMS_ROLE_EDITOR)
   @Roles(RoleSlug.ADMIN)
+  @DirectoryTagsDocs.updateDirectoryTags()
   @HttpCode(HttpStatus.OK)
   async updateTags(
     @CurrentUser() user: AuthenticatedUser,
-    @Param("websiteId", ParseIntPipe) websiteId: number,
-    @Body() dto: UpdateWebsiteTagsDto
+    @Param("directoryId", ParseIntPipe) directoryId: number,
+    @Body() dto: UpdateDirectoryTagsDto
   ) {
-    return await this.orchestrator.updateTagsOnWebsite(
-      websiteId,
+    return await this.orchestrator.updateTagsOnDirectory(
+      directoryId,
       dto.add || [],
       dto.remove || [],
       user.id
