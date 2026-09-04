@@ -2,9 +2,20 @@ import { Auditable } from "src/common/interfaces/auditable.interface";
 import { IdentifiableModel } from "src/common/interfaces/Identifiable.interface";
 import { User } from "src/domains/identity/user/user.entity";
 import { Entity, Column, Index, JoinColumn, ManyToOne, UpdateDateColumn, CreateDateColumn, PrimaryGeneratedColumn, ManyToMany, JoinTable, PrimaryColumn, OneToMany } from "typeorm";
-import { EvaluationContext } from "./contexts-evaluation.entity";
 import { Page } from "src/domains/inventory/page/page.entity";
 
+export enum EvaluationStatus {
+  PENDING = "pending",
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed",
+  FAILED = "failed",
+}
+
+export enum PublishStatus {
+  PENDING = "pending",
+  PUBLISHED = "published",
+  FAILED = "failed",
+}
 
 @Entity("evaluations")
 @Index('idx_evaluations_created_at', ['createdAt'])
@@ -13,7 +24,6 @@ export class Evaluation implements IdentifiableModel,  Auditable  {
   @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
   id: number;
   
- 
   @Column({
     name: "page_id",
     type: "int",
@@ -60,13 +70,35 @@ export class Evaluation implements IdentifiableModel,  Auditable  {
   })
   AAA: number;
 
-
   @Column({
     name: "tag_count",
     type: "int",
     nullable: true,
   })
   tagCount: number;
+  
+  @Column({
+    name: "status",
+    type: "enum",
+    enum: EvaluationStatus,
+    default: EvaluationStatus.PENDING,
+  })
+  status: EvaluationStatus;
+
+  @Column({
+    name: "publish_status",
+    type: "enum",
+    enum: PublishStatus,
+    default: PublishStatus.PENDING,
+  })
+  publishStatus: PublishStatus;
+
+  @Column({
+    name: "evaluation_date",
+    type: "timestamptz",
+    nullable: true,
+  })
+  evaluationDate: Date;
   
   @CreateDateColumn({
          name: "created_at",
