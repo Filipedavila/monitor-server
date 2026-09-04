@@ -1,15 +1,12 @@
-import { Module } from "@nestjs/common";
-import { ObservatoryController } from "./observatory.controller";
-import { PageModule } from "../../domains/inventory/page/page.module";
-import { Observatory } from "./observatory.entity";
-import { ObservatorySyncStatus } from "./observatory-sync-status.entity";
-import { ObservatoryService } from "./observatory.service";
-import { TypeOrmModule } from "@nestjs/typeorm";
+import { Logger, Module } from '@nestjs/common';
+import { ObservatoryController } from './observatory.controller';
+import { ObservatoryService } from './observatory.service';
+import { AnalyticsModule } from 'src/domains/analytics/analytics.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Observatory, ObservatorySyncStatus])],
+  imports: [AnalyticsModule],
   exports: [ObservatoryService],
   controllers: [ObservatoryController],
-  providers: [ObservatoryService],
+  providers: [ObservatoryService, Logger],
 })
 export class ObservatoryModule {}
