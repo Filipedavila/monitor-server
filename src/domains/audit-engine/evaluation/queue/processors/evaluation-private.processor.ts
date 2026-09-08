@@ -30,7 +30,7 @@ export class EvaluationPrivateWorker extends WorkerHost {
   }
 
   async process(job: Job<EvaluationJobData, void, string>): Promise<any> {
-    const { evaluationId, websiteId, pageId, url } = job.data;
+    const { evaluationId, institutionId, directoryIds, websiteId, pageId, url } = job.data;
 
     const evaluationResult = await this.evaluationEngine.evaluate(url);
     if (!evaluationResult) throw Error('Evaluation Engine returned no result');
@@ -42,8 +42,8 @@ export class EvaluationPrivateWorker extends WorkerHost {
 
     const ingestionMetrics = this.evaluationParser.parseIngestionMetrics(
       evaluationId,
-      0,
-      job.data.institutionId,
+      directoryIds,
+      institutionId,
       websiteId,
       pageId,
       data.score,

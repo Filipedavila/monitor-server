@@ -135,6 +135,10 @@ export class EvaluationService {
       return evaluation;
     });
 
+    const evaluationTargetMetadata = await this.evaluationRepository.getMetadataForEvaluation(
+      request.websiteId,
+    );
+
     const result = await this.evaluationRepository.createManyEvaluations(
       websiteEvaluations,
       securityContext.user.context.id,
@@ -144,15 +148,16 @@ export class EvaluationService {
       throw new InternalServerErrorException('Failed to create evaluations for the website pages');
     }
 
-    // Mapeamento correto utilizando o objeto 'page' carregado do repositório
     const jobs = pages.map((page, index) => ({
       name: 'evaluation-job',
       data: {
         websiteId: request.websiteId,
+        institutionId: evaluationTargetMetadata.institutionId,
+        directoryIds: evaluationTargetMetadata.directoryIds,
         evaluationId: websiteEvaluations[index].id,
         pageId: page.id,
         url: page.url,
-      } as EvaluationJobData,
+      } ,
       opts: {
         jobId: `evaluation-job-${websiteEvaluations[index].id}`,
       },

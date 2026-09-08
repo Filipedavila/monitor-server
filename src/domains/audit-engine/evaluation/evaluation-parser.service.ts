@@ -97,7 +97,7 @@ export class EvaluationParserService {
 
   public parseIngestionMetrics(
     evaluationId: number,
-    directoryId: number,
+    directoryIds: number[],
     institutionId: number,
     websiteId: number,
     pageId: number,
@@ -108,10 +108,10 @@ export class EvaluationParserService {
     return Object.entries(metrics)
       .map(([key, value]) => {
         try {
-          const { rule_id, rule_trust, rule_type, rule_score } = getRuleMetadata(key);
+          const { rule_id, rule_trust, rule_type, rule_score, rule_result } = getRuleMetadata(key);
           return {
             evaluation_id: evaluationId,
-            directory_id: directoryId,
+            directories_ids: directoryIds,
             institution_id: institutionId,
             website_id: websiteId,
             page_id: pageId,
@@ -119,9 +119,7 @@ export class EvaluationParserService {
             score: score,
             rule_id: rule_id,
             count: Number(value),
-            rule_trust: Number(rule_trust),
-            rule_type: rule_type,
-            rule_score: rule_score,
+            rule_result: rule_result,
           };
         } catch (error) {
           this.logger.error(

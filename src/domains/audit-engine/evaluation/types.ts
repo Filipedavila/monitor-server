@@ -12,7 +12,7 @@ export interface EvaluationIdentifier {
 
 export interface IMetricData {
   evaluation_id: number;
-  directory_id: number;
+  directories_ids: number[];
   institution_id: number;
   website_id: number;
   page_id: number;
@@ -34,7 +34,7 @@ export interface EvaluationMeta {
 
 export interface AdditionalMetadata {
   institutionId: number;
-  //directoryId:number;
+  directoryIds: number[];
 }
 
 export interface EvaluationJobData extends EvaluationMeta, PageMetadata, AdditionalMetadata {}
@@ -92,4 +92,10 @@ export interface EvaluationScoring {
   AA: number;
   AAA: number;
   createdAt: string;
+}
+
+export interface EvaluationTargetMetadata {
+  websiteId: number;
+  institutionId: number;
+  directoryIds: number[];
 }
