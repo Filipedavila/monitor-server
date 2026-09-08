@@ -147,35 +147,8 @@ export class CrawlerWebsiteService extends BaseService {
       `Crawl jobs added to queue for userId: ${securityContext.user.id} with crawlWebsiteIds: ${savedCrawls.map((c) => c.id).join(', ')}`,
     );
   }
-  /*
-  public async handleCrawl(crawlerWebsiteId: number) {
-    const websiteCrawler = await this.crawlerWebsiteRepository.findById(crawlerWebsiteId);
-    if (!websiteCrawler) {
-      return;
-    }
-    const urls = await this.startCrawlerWebsite(websiteCrawler);
 
-    for (const url of urls || []) {
-      try {
-        // Nota: A criação de páginas em lote ou individual passa a ser responsabilidade de quem processa
-        // ou do repositório correspondente, mantendo o acoplamento limpo.
-      } catch (e) {
-        this.logger.error("Error saving crawled page", e);
-      }
-    }
-    
-    websiteCrawler.status = CrawlerStatus.COMPLETED;
-    const websiteCrawled = await this.crawlerWebsiteRepository.save(websiteCrawler);
-    const responseDto = plainToInstance(
-      CrawlWebsiteResponseDTO,
-      websiteCrawled,
-      { excludeExtraneousValues: true, enableImplicitConversion: true },
-    );
-    this.eventEmitter.emit(
-      "crawler.finished",
-      websiteCrawler.createdBy,
-      responseDto,
-    );
+  async importCrawlers(securityContext: SecurityContext, crawlerIds: number[]): Promise<void> {
+    await this.crawlerWebsiteRepository.importCrawlers(crawlerIds, securityContext);
   }
-*/
 }

@@ -27,6 +27,7 @@ import { JwtAuthGuard } from 'src/core/authentication/guards/jwt-auth.guard';
 import { Roles } from 'src/core/authorization/decorators/roles.decorator';
 import { FgaGuard } from 'src/core/authorization/guards/fga.guard';
 import { FgaAuthorized } from 'src/core/authorization/decorators/fga-authorization.decorator';
+import { CrawlerImportDTO } from './dto/crawler-import.dto';
 
 @DiscoveryDocs.controller()
 @Controller('discovery')
@@ -43,6 +44,18 @@ export class CrawlerWebsiteController {
   ): Promise<any> {
     const securityContext: SecurityContext = { user };
     return await this.crawlerWebsiteService.getMany(query, securityContext);
+  }
+
+  @DiscoveryDocs.importCrawlers()
+  @Roles(RoleSlug.ADMIN, RoleSlug.MONITOR)
+  @HttpCode(HttpStatus.OK)
+  @Post('import')
+  async importCrawlers(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() crawlerImport: CrawlerImportDTO,
+  ): Promise<void> {
+    const securityContext: SecurityContext = { user };
+    await this.crawlerWebsiteService.importCrawlers(securityContext, crawlerImport.crawlerIds);
   }
 
   @DiscoveryDocs.crawlWebsite()

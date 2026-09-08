@@ -1,7 +1,6 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository, SelectQueryBuilder, WhereExpressionBuilder } from 'typeorm';
-import { BaseTransactionalRepository } from '../../../../common/repositories/base-transactional.repository';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { FilterMap, QueryRequest, SortingMap } from 'src/common/repositories/base.repository';
 import { CrawlerPage } from './crawler-page.entity';
 import { BaseFilter, BasePagination, BaseSort, SortCriteria } from 'src/common/interfaces/types';
@@ -10,6 +9,9 @@ import { ConfigService } from '@nestjs/config';
 import { SecurityContext } from 'src/core/authentication/interfaces/types';
 import { getContextIdByRole } from 'src/domains/inventory/context/context.enum';
 import { CrawlerPageDTO } from './dto/crawler-page.dto';
+import { ContextAwareRepository } from 'src/common/repositories/context-aware.repository';
+import { RepositoryTableConfig } from 'src/common/repositories/base-context';
+import { CRAWLER_PAGE_CONTEXT_METADATA_CONFIG } from './crawler-page.constants';
 
 export interface PageCrawlerFilter extends BaseFilter {
   crawlerWebsiteId: number;
@@ -23,14 +25,14 @@ export interface PageCrawlerSorting extends BaseSort {
 }
 
 @Injectable()
-export class CrawlerPageRepository extends BaseTransactionalRepository<
+export class CrawlerPageRepository extends ContextAwareRepository<
   CrawlerPage,
   PageCrawlerFilter,
   PageCrawlerSorting,
   BasePagination
 > {
-  protected readonly alias = 'crawler_page';
-  protected readonly contextAlias = 'crawler_context';
+  protected readonly alias = 'cp';
+
   protected filterMap: FilterMap<PageCrawlerFilter, CrawlerPage> = {
     crawlerWebsiteId: (query: any, crawlerWebsiteId: number) =>
       query.andWhere(`${this.alias}.crawlerWebsiteId = :crawlerWebsiteId`, {
@@ -59,9 +61,10 @@ export class CrawlerPageRepository extends BaseTransactionalRepository<
     private readonly ormRepo: Repository<CrawlerPage>,
     protected readonly logger: AppLoggerService,
     protected readonly configService: ConfigService,
+    @Inject(CRAWLER_PAGE_CONTEXT_METADATA_CONFIG)
+    tableConfig: RepositoryTableConfig,
   ) {
-    logger.setContext(CrawlerPageRepository.name);
-    super(ormRepo, logger, configService);
+    super(ormRepo, logger, configService, tableConfig);
   }
 
   async findPagesCrawler(
@@ -70,12 +73,20 @@ export class CrawlerPageRepository extends BaseTransactionalRepository<
     securityContext: SecurityContext,
     queryParams: QueryRequest<PageCrawlerFilter, PageCrawlerSorting, BasePagination>,
   ): Promise<{ data: CrawlerPageDTO[]; meta: any }> {
+    const { mainTable, contextTable, helperTable } = this.tables;
+    if (!helperTable) {
+      throw new Error('Crawler website table configuration is missing');
+    }
     const query = this.ormRepo
       .createQueryBuilder(this.alias)
       .where(`${this.alias}.crawlerWebsiteId = :crawlerWebsiteId`, {
         crawlerWebsiteId: crawlerWebsiteId,
       })
-      .innerJoin('crawler_websites', 'cw', 'cw.id = crawler_page.crawlerWebsiteId')
+      .innerJoin(
+        `${helperTable.table}`,
+        `${helperTable.alias}`,
+        `${helperTable.alias}.id = ${this.alias}.crawlerWebsiteId`,
+      )
       .innerJoin('websites', 'w', 'w.id = cw.websiteId')
       .andWhere(`w.id = :websiteId`, { websiteId: websiteId })
       .select([
@@ -85,7 +96,7 @@ export class CrawlerPageRepository extends BaseTransactionalRepository<
       ]);
 
     const { filters, sortings, pagination } = queryParams;
-    this.applyContextFilter(query, securityContext);
+    this.customContextRuleQuery(query, securityContext);
     this.applyDynamicFilters(query, filters);
     this.applyDynamicSorting(query, sortings);
 
@@ -120,50 +131,6 @@ export class CrawlerPageRepository extends BaseTransactionalRepository<
     return result.data.map((page) => page.url);
   }
 
-  private applyContextFilter(
-    query: WhereExpressionBuilder,
-    securityContext: SecurityContext,
-  ): void {
-    const contextId = getContextIdByRole(securityContext.user.role_slug);
-    if (!contextId) {
-      throw new BadRequestException('User role does not have an associated context');
-    }
-
-    const suffix = Math.random().toString(36).substring(2, 7);
-    const paramContextId = `ctxId_${suffix}`;
-    const paramUserId = `usrId_${suffix}`;
-
-    query.andWhere(
-      `EXISTS (` +
-        `SELECT 1 FROM crawler_websites_contexts cwc ` +
-        `WHERE cwc.crawler_id = ${this.alias}.crawler_website_id ` +
-        `AND cwc.context_id = :${paramContextId}` +
-        `)`,
-      { [paramContextId]: contextId },
-    );
-
-    if (contextId !== 1) {
-      query.andWhere(
-        new Brackets((qb) => {
-          qb.where(
-            `EXISTS (` +
-              `SELECT 1 FROM users_websites uw ` +
-              `WHERE uw.website_id = ${this.alias}.website_id ` +
-              `AND uw.user_id = :${paramUserId}` +
-              `)`,
-          ).orWhere(
-            `EXISTS (` +
-              `SELECT 1 FROM team_websites tw ` +
-              `INNER JOIN team_member ut ON ut.team_id = tw.team_id ` +
-              `WHERE tw.website_id = ${this.alias}.website_id ` +
-              `AND ut.user_id = :${paramUserId}` +
-              `)`,
-          );
-        }),
-        { [paramUserId]: securityContext.user.id },
-      );
-    }
-  }
   public async deleteCrawlerPages(
     websiteId: number,
     crawlerWebsiteId: number,
@@ -173,7 +140,7 @@ export class CrawlerPageRepository extends BaseTransactionalRepository<
     if (!crawlerPageIds?.length) {
       return false;
     }
-
+    1;
     const contextId = getContextIdByRole(securityContext.user.role_slug);
     if (!contextId) {
       throw new BadRequestException('User role does not have an associated context');

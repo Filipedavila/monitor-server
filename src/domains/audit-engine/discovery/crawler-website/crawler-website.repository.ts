@@ -1,8 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 import { CrawlerStatus, CrawlerWebsite } from './entities/crawler-website.entity';
-import { BaseTransactionalRepository } from '../../../../common/repositories/base-transactional.repository';
+import { ContextAwareRepository } from 'src/common/repositories/context-aware.repository';
 import { FilterMap, SortingMap } from 'src/common/repositories/base.repository';
 import { BaseFilter, BasePagination, BaseSort, SortCriteria } from 'src/common/interfaces/types';
 import { AppLoggerService } from 'src/core/app-logger/app-logger.service';
@@ -11,6 +11,8 @@ import { getContextIdByRole } from 'src/domains/inventory/context/context.enum';
 import { SecurityContext } from 'src/core/authentication/interfaces/types';
 import { CrawlerPage } from '../crawler-page/crawler-page.entity';
 import xxhash from 'xxhash-wasm';
+import { RepositoryTableConfig } from 'src/common/repositories/base-context';
+import { CRAWLER_WEBSITE_CONTEXT_METADATA_CONFIG } from './crawler-website.constants';
 
 export interface WebsiteCrawlerFilter extends BaseFilter {
   id: number;
@@ -33,7 +35,7 @@ type WebsiteCrawlerQueryRequest = {
   securityContext: SecurityContext;
 };
 @Injectable()
-export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
+export class CrawlerWebsiteRepository extends ContextAwareRepository<
   CrawlerWebsite,
   WebsiteCrawlerFilter,
   WebsiteCrawlerSorting,
@@ -44,12 +46,14 @@ export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
     private readonly ormRepo: Repository<CrawlerWebsite>,
     protected readonly logger: AppLoggerService,
     protected readonly configService: ConfigService,
+    @Inject(CRAWLER_WEBSITE_CONTEXT_METADATA_CONFIG)
+    protected readonly tableConfig: RepositoryTableConfig,
   ) {
     logger.setContext(CrawlerWebsiteRepository.name);
-    super(ormRepo, logger, configService);
+    super(ormRepo, logger, configService, tableConfig);
   }
-  protected readonly alias = 'crawler_website';
-  protected readonly contextAlias = 'crawler_context';
+  protected readonly alias = 'cw';
+
   protected readonly filterMap: FilterMap<WebsiteCrawlerFilter, CrawlerWebsite> = {
     id: (q, val) => this.addFilter(q, 'id', val),
     ids: (q, val) => this.addFilter(q, 'id', val, 'in'),
@@ -66,50 +70,12 @@ export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
     pagesCount: (q, order) => this.addSort(q, 'pagesCount', order),
   };
 
-  private applyContextFilter(
-    query: SelectQueryBuilder<CrawlerWebsite>,
-    securityContext: SecurityContext,
-  ): void {
-    const contextId = getContextIdByRole(securityContext.user.role_slug);
-    if (!contextId) {
-      throw new BadRequestException('User role does not have an associated context');
-    }
-    query.innerJoin(
-      'crawler_websites_contexts',
-      this.contextAlias,
-      `${this.contextAlias}.crawler_id = ${this.alias}.id`,
-    );
-    query.andWhere(`${this.contextAlias}.context_id = :contextId`, {
-      contextId: contextId,
-    });
-    // TODO: Remove Magic number
-    if (contextId != 1) {
-      query.andWhere(
-        new Brackets((qb) => {
-          qb.where(
-            `EXISTS (
-              SELECT 1 FROM users_websites uw 
-              WHERE uw.website_id = ${this.alias}.website_id AND uw.user_id = :userId
-            )`,
-          ).orWhere(
-            `EXISTS (
-              SELECT 1 FROM team_websites tw 
-              JOIN team_member ut ON ut.team_id = tw.team_id 
-              WHERE tw.website_id = ${this.alias}.website_id AND ut.user_id = :userId
-            )`,
-          );
-        }),
-        { userId: securityContext.user.id },
-      );
-    }
-  }
-
   public async getAllCrawlersWebsites(
     queryArgs: WebsiteCrawlerQueryRequest,
   ): Promise<{ data: CrawlerWebsite[]; meta: any }> {
     const query = this.ormRepo.createQueryBuilder(this.alias);
 
-    this.applyContextFilter(query, queryArgs.securityContext);
+    this.customContextRuleQuery(query, queryArgs.securityContext);
     this.applyDynamicFilters(query, queryArgs.filters);
     this.applyDynamicSorting(query, queryArgs.sortings);
 
@@ -145,6 +111,20 @@ export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
   ): Promise<CrawlerWebsite[]> {
     return this.runInTransaction(async (queryRunner) => {
       const savedEntities = await queryRunner.manager.save(data);
+
+      await queryRunner.manager
+        .createQueryBuilder()
+        .insert()
+        .into('crawler_websites_contexts')
+        .values(
+          savedEntities.map((entity) => ({
+            crawler_id: entity.id,
+            context_id: securityContext.user.context.id,
+          })),
+        )
+        .orIgnore()
+        .execute();
+
       return savedEntities;
     });
   }
@@ -170,6 +150,69 @@ export class CrawlerWebsiteRepository extends BaseTransactionalRepository<
         pageCount: crawlerPages.length,
         updatedAt: new Date(),
       });
+    });
+  }
+
+  async importCrawlers(crawlerIds: number[], securityContext: SecurityContext): Promise<void> {
+    if (!crawlerIds || crawlerIds.length === 0) {
+      return;
+    }
+
+    const contextId = getContextIdByRole(securityContext.user.role_slug);
+    if (!contextId) {
+      throw new BadRequestException('User role does not have an associated context');
+    }
+
+    const crawlerPages = await this.ormRepo
+      .createQueryBuilder()
+      .from('crawler_websites', 'cw')
+      .select('cw.id', 'crawlerWebsiteId')
+      .addSelect('cw.website_id', 'websiteId')
+      .addSelect('cp.url', 'url')
+      .addSelect('cp.url_hash', 'urlHash')
+      .where('cw.id IN (:...crawlerIds)', { crawlerIds })
+      .innerJoin('crawler_pages', 'cp', 'cp.crawler_website_id = cw.id')
+      .innerJoin(
+        'crawler_websites_contexts',
+        'cwc',
+        'cwc.crawler_id = cw.id AND cwc.context_id = :contextId',
+        { contextId },
+      )
+      .getRawMany();
+
+    const pagesInserts = crawlerPages.map((page) => ({
+      websiteId: page.websiteId,
+      url: page.url,
+      urlHash: page.urlHash,
+    }));
+
+    await this.runInTransaction(async (queryRunner) => {
+      if (pagesInserts.length > 0) {
+        const result = await queryRunner.manager
+          .createQueryBuilder()
+          .insert()
+          .into('pages')
+          .values(pagesInserts)
+          .orIgnore()
+          .returning('id')
+          .returning('id')
+          .execute();
+
+        const pageContextInserts = result.raw.map((row) => ({
+          pageId: row.id,
+          contextId: securityContext.user.context.id,
+        }));
+
+        if (pageContextInserts.length > 0) {
+          await queryRunner.manager
+            .createQueryBuilder()
+            .insert()
+            .into('page_contexts')
+            .values(pageContextInserts)
+            .orIgnore()
+            .execute();
+        }
+      }
     });
   }
 
