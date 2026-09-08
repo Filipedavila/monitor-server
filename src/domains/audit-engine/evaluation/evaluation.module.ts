@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+import { Logger, Module, Provider } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EvaluationService } from './evaluation.service';
 import { Evaluation } from './entities/evaluation.entity';
@@ -25,6 +25,27 @@ import { Website } from 'src/domains/inventory/website/website.entity';
 import { EvaluationParserService } from './evaluation-parser.service';
 import { QualWebPlaywrightEngine } from './strategies/evaluation-engine-playwright.strategy';
 import { EvaluationPublishingService } from './evaluation-publish.service';
+import { RepositoryTableConfig } from 'src/common/repositories/base-context';
+import { EVALUATION_CONTEXT_METADATA_CONFIG } from './evaluation.constatnts';
+
+export const EvaluationTableConfigProvider: Provider = {
+  provide: EVALUATION_CONTEXT_METADATA_CONFIG,
+  useFactory: (): RepositoryTableConfig => ({
+    mainTable: {
+      table: 'evaluations',
+      alias: 'evaluation',
+      pk: 'id',
+      fk: 'evaluation_id',
+    },
+    contextTable: {
+      table: 'evaluation_contexts',
+      alias: 'evaluation_context',
+      pk: 'id',
+      fk: 'evaluation_id',
+    },
+    hasHelperTable: false,
+  }),
+};
 
 @Module({
   imports: [
@@ -60,6 +81,7 @@ import { EvaluationPublishingService } from './evaluation-publish.service';
     Logger,
     EvaluationProducer,
     EvaluationConsumer,
+    EvaluationTableConfigProvider,
   ],
   controllers: [EvaluationController],
 })

@@ -1,21 +1,18 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { RepositoryTableConfig } from 'src/common/repositories/base-context';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, QueryBuilder, Repository, SelectQueryBuilder, In } from 'typeorm';
+import { Repository, SelectQueryBuilder, In } from 'typeorm';
 import { Evaluation, EvaluationStatus, PublishStatus } from './entities/evaluation.entity';
-import { BaseTransactionalRepository } from '@common/repositories/base-transactional.repository';
 import { FilterMap, SortingMap } from '@common/repositories/base.repository';
 import { BaseFilter, BasePagination, BaseSort, SortCriteria } from 'src/common/interfaces/types';
 import { AppLoggerService } from '@core/app-logger/app-logger.service';
 import { ConfigService } from '@nestjs/config';
 import { SecurityContext } from 'src/core/authorization/SecurityContext';
-import {
-  ContextEnum,
-  ContextMapByRole,
-  getContextIdByCode,
-  getContextIdByRole,
-} from 'src/domains/inventory/context/context.enum';
+import { ContextEnum } from 'src/domains/inventory/context/context.enum';
 import { EvaluationContext } from './entities/contexts-evaluation.entity';
-import { EvaluationScoring } from './types';
+import { EvaluationScoring, EvaluationTargetMetadata } from './types';
+import { ContextAwareRepository } from 'src/common/repositories/context-aware.repository';
+import { EVALUATION_CONTEXT_METADATA_CONFIG } from './evaluation.constatnts';
 
 export interface EvaluationFilter extends BaseFilter {
   id: number;
@@ -41,23 +38,24 @@ type EvaluationQueryRequest = {
 };
 
 @Injectable()
-export class EvaluationRepository extends BaseTransactionalRepository<
+export class EvaluationRepository extends ContextAwareRepository<
   Evaluation,
   EvaluationFilter,
   EvaluationSorting
 > {
+  protected readonly alias = 'evaluation';
+
   constructor(
     @InjectRepository(Evaluation)
     private readonly ormRepo: Repository<Evaluation>,
     protected readonly logger: AppLoggerService,
     protected readonly configService: ConfigService,
+    @Inject(EVALUATION_CONTEXT_METADATA_CONFIG)
+    protected readonly tableConfig: RepositoryTableConfig,
   ) {
-    super(ormRepo, logger, configService);
+    super(ormRepo, logger, configService, tableConfig);
     this.logger.setContext(EvaluationRepository.name);
   }
-
-  protected readonly alias = 'evaluation';
-  protected readonly contextAlias = 'evaluation_context';
 
   protected readonly filterMap: FilterMap<EvaluationFilter, Evaluation> = {
     id: (query, id) => query.andWhere({ id }),
@@ -76,33 +74,6 @@ export class EvaluationRepository extends BaseTransactionalRepository<
     updatedAt: (query, order: SortCriteria) => query.addOrderBy(`${this.alias}.updatedAt`, order),
   };
 
-  private applyContextFilter(
-    query: SelectQueryBuilder<Evaluation>,
-    contexts: ContextEnum[] | undefined,
-    securityContext: SecurityContext,
-  ): void {
-    const targetContexts: number[] =
-      contexts && contexts.length > 0
-        ? contexts
-            .map((context) => getContextIdByCode(context))
-            .filter((id): id is number => id !== undefined)
-        : [getContextIdByRole(securityContext.user.role_slug)].filter(
-            (id): id is number => id !== undefined,
-          );
-    if (!targetContexts || targetContexts.length === 0) {
-      throw new BadRequestException('User role does not have an associated context');
-    }
-    query
-      .innerJoin(
-        'evaluation_contexts',
-        this.contextAlias,
-        `${this.contextAlias}.evaluation_id = ${this.alias}.id`,
-      )
-      .andWhere(`${this.contextAlias}.context_id IN (:...contextIds)`, {
-        contextIds: targetContexts,
-      });
-  }
-
   public async getManyEvaluations(
     websiteId: number,
     pageId: number,
@@ -112,11 +83,11 @@ export class EvaluationRepository extends BaseTransactionalRepository<
     query
       .innerJoin(`${this.alias}.page`, 'p')
       .innerJoin('p.website', 'w')
+      .addSelect(`p`)
+      .addSelect(`w.id`, 'websiteId')
       .where('w.id = :websiteId', { websiteId })
       .andWhere(`${this.alias}.pageId = :pageId`, { pageId });
-    this.applyContextFilter(query, queryArgs.contexts, queryArgs.securityContext);
-    query.where({ websiteId: websiteId, pageId: pageId });
-    this.applyContextFilter(query, queryArgs.contexts, queryArgs.securityContext);
+    this.applyContextRules(query, queryArgs.contexts, queryArgs.securityContext);
     this.applyDynamicFilters(query, queryArgs.filters);
     this.applyDynamicSorting(query, queryArgs.sortings);
     this.applyPagination(query, queryArgs.pagination);
@@ -173,6 +144,7 @@ export class EvaluationRepository extends BaseTransactionalRepository<
     evaluation.AAA = evaluationData.AAA;
     evaluation.score = evaluationData.score;
     evaluation.createdAt = new Date(evaluationData.createdAt);
+    evaluation.updatedAt = new Date(evaluationData.createdAt);
     return await this.orm.save(evaluation);
   }
 
@@ -212,15 +184,55 @@ export class EvaluationRepository extends BaseTransactionalRepository<
     const query = this.getBaseQuery()
       .where(`${this.alias}.id = :evaluationId`, { evaluationId })
       .andWhere(`${this.alias}.pageId = :pageId`, { pageId })
-      .andWhere('w.id = :websiteId', { websiteId })
-      .innerJoin(
-        'evaluation_contexts',
-        this.contextAlias,
-        `${this.contextAlias}.evaluation_id = ${this.alias}.id`,
-      )
-      .andWhere(`${this.contextAlias}.contextId IN (:...contextIds)`, {
-        contextIds: [securityContext.user.context.id],
-      });
+      .andWhere('w.id = :websiteId', { websiteId });
+    this.applyContextRules(query, [], securityContext);
     return await query.getOne();
+  }
+
+  async getMetadataForEvaluation(websiteId: number): Promise<EvaluationTargetMetadata> {
+    const query = this.dataSource.query(
+      `WITH DirectoryRequirements AS (
+          SELECT 
+              d.id AS directory_id,
+              d.tag_matching_strategy,
+              COUNT(dt.tag_id) AS required_tags_count
+          FROM directories d
+          JOIN directory_tags dt ON dt.directory_id = d.id
+          GROUP BY d.id, d.tag_matching_strategy
+      ),
+      WebsiteDirectoryMatches AS (
+          SELECT 
+              wt.website_id,
+              dr.directory_id
+          FROM website_tags wt
+          JOIN directory_tags dt ON dt.tag_id = wt.tag_id
+          JOIN DirectoryRequirements dr ON dr.directory_id = dt.directory_id
+          WHERE wt.website_id = $1
+          GROUP BY wt.website_id, dr.directory_id, dr.tag_matching_strategy, dr.required_tags_count
+          HAVING 
+              (dr.tag_matching_strategy = 'UNION')
+              OR 
+              (dr.tag_matching_strategy = 'INTERSECTION' AND COUNT(DISTINCT wt.tag_id) = dr.required_tags_count)
+      ),
+      AggregatedDirectories AS (
+
+          SELECT 
+              website_id,
+              ARRAY_AGG(directory_id) AS directories_ids
+          FROM WebsiteDirectoryMatches
+          GROUP BY website_id
+      )
+      SELECT 
+          w.id AS website_id,
+          i.id AS institution_id,
+          COALESCE(ad.directories_ids, ARRAY[]::INTEGER[]) AS directories_ids
+      FROM websites w
+      LEFT JOIN AggregatedDirectories ad ON ad.website_id = w.id
+      LEFT JOIN institutions i ON i.id = w.institution_id
+      WHERE w.id = $1;`,
+      [websiteId],
+    );
+
+    return await query;
   }
 }
