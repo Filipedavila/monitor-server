@@ -1,6 +1,6 @@
 DROP TABLE IF EXISTS rules_source;
 CREATE TABLE IF NOT EXISTS rules_source (
-    rule_code String,
+    rule_id String,
     rule_title String,
     rule_description String,
     rule_type String,
@@ -12,11 +12,11 @@ CREATE TABLE IF NOT EXISTS rules_source (
     wcag_success_criteria Array(String),
     expected_result String
 ) ENGINE = MergeTree() 
-ORDER BY rule_code;
+ORDER BY rule_id;
 
 DROP DICTIONARY IF EXISTS rules_dict;
 CREATE DICTIONARY IF NOT EXISTS rules_dict (
-    rule_code String,
+    rule_id String,
     rule_title String,
     rule_description String,
     rule_type String,
@@ -28,10 +28,10 @@ CREATE DICTIONARY IF NOT EXISTS rules_dict (
     wcag_success_criteria Array(String),
     expected_result String
 )
-PRIMARY KEY rule_code
+PRIMARY KEY rule_id
 SOURCE(CLICKHOUSE(
     TABLE 'rules_source' 
-    DB 'default'
+    DB 'accessibility'
     USER 'default'
     PASSWORD 'your_clickhouse_password' 
 ))
@@ -40,7 +40,7 @@ LAYOUT(HASHED());
 
 
 
-INSERT INTO default.rules_source (rule_code, rule_title, rule_description, rule_type, target_element, test_method, weight_score, wcag_level, trust_factor, wcag_success_criteria, expected_result) VALUES 
+INSERT INTO accessibility.rules_source (rule_id, rule_title, rule_description, rule_type, target_element, test_method, weight_score, wcag_level, trust_factor, wcag_success_criteria, expected_result) VALUES 
 ('a_01a', 'Encontrei páginas em que o primeiro link permite saltar para o conteúdo principal', '<p>Disponibilize no topo da página um link que permita saltar diretamente para o conteúdo principal da mesma. Este link facilita a navegação a muitos utilizadores, nomeadamente os que usam software de seleção por varrimento. Estes utilizadores usam a visão para ler a informação pelo que o link tem de estar sempre visível ou ficar visível ao receber o foco.</p>', 'true', 'a', 'aSkipFirst', 10, 'A', 0.7, ['2.4.1'], 'warning'),
 ('a_01b', 'Encontrei páginas em que o primeiro link não permite saltar para o conteúdo principal da página', '<p>Disponibilize no topo da página um link que permita saltar diretamente para o conteúdo principal da mesma. Este link facilita a navegação a muitos utilizadores, nomeadamente os que usam software de seleção por varrimento. Estes utilizadores usam a visão para ler a informação pelo que o link tem de estar sempre visível ou ficar visível ao receber o foco.</p>', 'fals', 'a', 'aSkipFirstNo', 3, 'A', 0.9, ['2.4.1'], 'failed'),
 ('a_02a', 'Encontrei páginas em que não existem links para saltar blocos de texto', '<p>Verifique se de facto os links que encontrei proporcionam os saltos de conteúdo mais adequados; se os mesmos estão sempre visíveis ou se ficam visíveis ao receberem o foco via teclado.</p>', 'fals', 'a', 'aSkipNo', 3, 'A', 0.9, ['2.4.1'], 'failed'),
@@ -214,11 +214,98 @@ INSERT INTO default.rules_source (rule_code, rule_title, rule_description, rule_
 
 
 
-CREATE DICTIONARY observatory.directories_dict (
-    directoryId UInt32,
-    name String,
-    show_in_observatory UInt8
+
+DROP DICTIONARY IF EXISTS institution_websites_dict;
+
+CREATE DICTIONARY IF NOT EXISTS institution_websites_dict (
+    directories_ids Array(Int32),
+    website_id UInt64,
+    page_count UInt64,
+    institution_id Nullable(UInt64),
+    institution_name Nullable(String),
+    website_title String,
+    base_url String,
+    stamp Nullable(String),
+    declaration_status Nullable(String),
+    show_in_observatory Boolean
 )
-PRIMARY KEY directoryId
-SOURCE(MYSQL(port 3306 user 'root' password '...' db 'transacional' table 'Directory'))
-LIFETIME(MIN 300 MAX 600);
+PRIMARY KEY website_id
+SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'v_websites_metadata'))
+LIFETIME(MIN 5 MAX 20)
+LAYOUT(HASHED());
+
+
+DROP DICTIONARY IF EXISTS websites_context_dict;
+
+CREATE DICTIONARY IF NOT EXISTS websites_context_dict (
+    context_id UInt8,
+    website_id UInt32
+)
+PRIMARY KEY website_id
+SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'context_websites_observatory'))
+LIFETIME(MIN 20 MAX 60)
+LAYOUT(HASHED());
+
+
+
+DROP DICTIONARY IF EXISTS pages_context_dict;
+
+CREATE DICTIONARY IF NOT EXISTS pages_context_dict (
+    page_id UInt32
+)
+PRIMARY KEY page_id
+SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'page_contexts_observatory'))
+LIFETIME(MIN 20 MAX 60)
+LAYOUT(HASHED());
+
+
+DROP DICTIONARY IF EXISTS directories_metadata_dict;
+
+CREATE DICTIONARY IF NOT EXISTS directories_metadata_dict (
+    id UInt16,
+    name String,
+    website_ids Array(UInt32),
+    show_in_observatory Boolean,
+    website_count UInt32,
+    total_stamps UInt32,
+    total_gold_stamps UInt32,
+    total_silver_stamps UInt32,
+    total_bronze_stamps UInt32,
+    total_declarations UInt32,
+    total_conform_declarations UInt32,
+    total_nonconform_declarations UInt32,
+    total_partiallyconform_declarations UInt32
+)
+PRIMARY KEY id
+SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'v_directory_websites'))
+LIFETIME(MIN 0 MAX 60)
+LAYOUT(HASHED());
+
+
+
+DROP DICTIONARY IF EXISTS stamps_dict;
+
+CREATE DICTIONARY IF NOT EXISTS stamps_dict (
+    website_id UInt32,
+    stamp String
+)
+PRIMARY KEY website_id
+SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'website_stamps'))
+LIFETIME(MIN 0 MAX 60)
+LAYOUT(HASHED());
+
+
+
+DROP DICTIONARY IF EXISTS declarations_dict;
+
+CREATE DICTIONARY IF NOT EXISTS declarations_dict (
+    website_id UInt32,
+    status String
+)
+PRIMARY KEY website_id
+SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'website_declarations'))
+LIFETIME(MIN 0 MAX 60)
+LAYOUT(HASHED());
+
+
+

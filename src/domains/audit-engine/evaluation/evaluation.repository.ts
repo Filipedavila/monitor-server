@@ -12,7 +12,7 @@ import { ContextEnum } from 'src/domains/inventory/context/context.enum';
 import { EvaluationContext } from './entities/contexts-evaluation.entity';
 import { EvaluationScoring, EvaluationTargetMetadata } from './types';
 import { ContextAwareRepository } from 'src/common/repositories/context-aware.repository';
-import { EVALUATION_CONTEXT_METADATA_CONFIG } from './evaluation.constatnts';
+import { EVALUATION_CONTEXT_METADATA_CONFIG } from './evaluation.constants';
 
 export interface EvaluationFilter extends BaseFilter {
   id: number;

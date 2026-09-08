@@ -26,7 +26,7 @@ import { EvaluationParserService } from './evaluation-parser.service';
 import { QualWebPlaywrightEngine } from './strategies/evaluation-engine-playwright.strategy';
 import { EvaluationPublishingService } from './evaluation-publish.service';
 import { RepositoryTableConfig } from 'src/common/repositories/base-context';
-import { EVALUATION_CONTEXT_METADATA_CONFIG } from './evaluation.constatnts';
+import { EVALUATION_CONTEXT_METADATA_CONFIG } from './evaluation.constants';
 
 export const EvaluationTableConfigProvider: Provider = {
   provide: EVALUATION_CONTEXT_METADATA_CONFIG,
