@@ -1,15 +1,17 @@
-import { RoleSlug } from "src/core/authentication/interfaces/types";
+import { RoleSlug } from 'src/core/authentication/interfaces/types';
+
+export const ADMIN_CONTEXT_ID = 1;
 
 export enum ContextEnum {
-  AMS = "AMS",
-  MONITOR = "MONITOR",
-  OBSERVATORY = "OBSERVATORY"
+  AMS = 'AMS',
+  MONITOR = 'MONITOR',
+  OBSERVATORY = 'OBSERVATORY',
 }
 
 export const ContextMap: Record<ContextEnum, number> = {
   [ContextEnum.AMS]: 1,
   [ContextEnum.MONITOR]: 2,
-  [ContextEnum.OBSERVATORY]: 3
+  [ContextEnum.OBSERVATORY]: 3,
 };
 
 export const ContextMapByRole: Record<RoleSlug, ContextEnum> = {

@@ -1,11 +1,11 @@
-import { DataSource, QueryRunner, Repository } from "typeorm";
-import { EntityRepository } from "./base.repository";
-import { IsolationLevel } from "typeorm/driver/types/IsolationLevel.js";
+import { DataSource, QueryRunner, Repository } from 'typeorm';
+import { EntityRepository } from './base.repository';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel.js';
 
-import { BaseFilter, BasePagination, BaseSort } from "../interfaces/types";
-import { AppLoggerService } from "@core/app-logger/app-logger.service";
-import { IdentifiableModel } from "../interfaces/Identifiable.interface";
-import { ConfigService } from "@nestjs/config";
+import { BaseFilter, BasePagination, BaseSort } from '../interfaces/types';
+import { AppLoggerService } from '@core/app-logger/app-logger.service';
+import { IdentifiableModel } from '../interfaces/Identifiable.interface';
+import { ConfigService } from '@nestjs/config';
 
 export abstract class BaseTransactionalRepository<
   T extends IdentifiableModel,
@@ -25,7 +25,7 @@ export abstract class BaseTransactionalRepository<
 
   async runInTransaction<R>(
     operation: (queryRunner: QueryRunner) => Promise<R>,
-    isolationLevel: IsolationLevel = "READ COMMITTED",
+    isolationLevel: IsolationLevel = 'READ COMMITTED',
   ): Promise<R> {
     const queryRunner = this.dataSource.createQueryRunner();
 
