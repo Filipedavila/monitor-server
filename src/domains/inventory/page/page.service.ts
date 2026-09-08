@@ -1,20 +1,18 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Page } from './page.entity';
-import { PageRepository, PageFilter, PageSort, PagePagination } from './page.repository';
+import { PageRepository } from './page.repository';
 import { SecurityContext } from 'src/core/authorization/SecurityContext';
 
 import { QueryRequest, PaginationResponse } from 'src/common/repositories/base.repository';
+import type { PageFilter, PageSort, PagePagination } from './types';
 import { CreatePageDto } from './dto/create-page.dto';
-import { FgaService } from 'src/core/authorization/fga.service';
-import { ContextEnum, ContextMapByRole } from '../context/context.enum';
+import { ContextEnum } from '../context/context.enum';
 import { PageEvalDTO } from './dto/page-detailed.dto';
+import xxhash from 'xxhash-wasm';
 
 @Injectable()
 export class PageService {
-  constructor(
-    private readonly pageRepo: PageRepository,
-    private readonly fgaService: FgaService,
-  ) {}
+  constructor(private readonly pageRepo: PageRepository) {}
 
   async findAll(
     queryArgs: QueryRequest<PageFilter, PageSort, PagePagination>,
@@ -31,13 +29,21 @@ export class PageService {
     return await this.pageRepo.findManyWithLastEvalScore(query);
   }
 
-  async create(dto: CreatePageDto, securityContext: SecurityContext): Promise<Page[]> {
-    const rawPages = dto.pagesUrl.map((url) => ({
-      websiteId: dto.websiteId,
-      url,
-    }));
-    if (rawPages.length === 0) return [];
-    return await this.pageRepo.createPages(dto.websiteId, dto.pagesUrl, securityContext);
+  async create(dto: CreatePageDto, securityContext: SecurityContext): Promise<void> {
+    const { h64 } = await xxhash();
+    const rawPages = dto.pagesUrl.map((url) => {
+      const rawUint64 = h64(url.trim());
+      const signedInt64 = BigInt.asIntN(64, rawUint64).toString();
+
+      return {
+        websiteId: dto.websiteId,
+        url,
+        urlHash: signedInt64,
+      };
+    });
+    if (rawPages.length === 0) return;
+
+    await this.pageRepo.upsertPages(dto.websiteId, rawPages, securityContext);
   }
 
   async findPageById(
@@ -50,28 +56,17 @@ export class PageService {
 
     return page;
   }
-  async handlePageRemoval(pageIds: number[], securityContext: SecurityContext): Promise<void> {
-    const roleSlug = securityContext.user.role_slug;
-    const contextEnum = ContextMapByRole[roleSlug];
-    if (!contextEnum) {
-      throw new ForbiddenException('User role does not have an associated context');
-    }
-    const states = await this.pageRepo.getOwnershipStates(pageIds);
-
-    const toUnlink = states.filter((s) => s.contextCount > 1).map((s) => s.pageId);
-    const toDelete = states.filter((s) => s.contextCount === 1).map((s) => s.pageId);
-
-    await this.pageRepo.batchExecuteRemoval(toUnlink, toDelete, contextEnum);
-  }
 
   async changePageContexts(
     pageId: number[],
     contexts: ContextEnum[],
-    actorId: number,
-  ): Promise<Page[]> {
-    const updatePages = await this.pageRepo.updateContextsMany(pageId, contexts);
+    securityContext: SecurityContext,
+  ): Promise<void> {
+    await this.pageRepo.changePageContexts(pageId, contexts, securityContext);
+  }
 
-    return updatePages;
+  async handlePageRemoval(pageIds: number[], securityContext: SecurityContext): Promise<void> {
+    await this.pageRepo.deletePagesWithContextCheck(pageIds, securityContext);
   }
 
   async importPages(
@@ -79,6 +74,16 @@ export class PageService {
     websiteId: number,
     crawlPages: string[],
   ): Promise<void> {
-    await this.pageRepo.createPages(websiteId, crawlPages, securityContext);
+    const { h64 } = await xxhash();
+
+    const crawlerPages = crawlPages.map((url) => {
+      const rawUint64 = h64(url.trim());
+      const signedInt64 = BigInt.asIntN(64, rawUint64).toString();
+      return {
+        url,
+        urlHash: signedInt64,
+      };
+    });
+    await this.pageRepo.upsertPages(websiteId, crawlerPages, securityContext);
   }
 }

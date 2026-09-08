@@ -110,7 +110,7 @@ export class PageController implements LoggableController {
     return this.pageService.changePageContexts(
       updatePageContextDto.pageIds,
       updatePageContextDto.contexts,
-      user.id,
+      { user },
     );
   }
 }

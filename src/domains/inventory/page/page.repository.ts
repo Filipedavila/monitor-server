@@ -1,65 +1,42 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Page } from './page.entity';
 import { PageContext } from './page-contexts.entity';
 import { BaseFilter, BasePagination, BaseSort, SortCriteria } from 'src/common/interfaces/types';
 import { FilterMap, PaginationResponse, SortingMap } from 'src/common/repositories/base.repository';
-import { EntityManager, In, QueryRunner, Repository, SelectQueryBuilder } from 'typeorm';
+import { EntityManager, In, QueryRunner, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config/dist/config.service';
 import { AppLoggerService } from 'src/core/app-logger/app-logger.service';
 import { InjectRepository } from '@nestjs/typeorm/dist/common/typeorm.decorators';
-import { BaseTransactionalRepository } from 'src/common/repositories/base-transactional.repository';
 import { OutboxService } from 'src/core/outbox/outbox.service';
 import { Context } from '../context/context.identity';
-import {
-  ContextEnum,
-  ContextMap,
-  ContextMapByRole,
-  getContextIdByCode,
-  getContextIdByRole,
-} from '../context/context.enum';
+import { ContextEnum } from '../context/context.enum';
 import { SecurityContext } from 'src/core/authentication/interfaces/types';
 import { PageEvalDTO } from './dto/page-detailed.dto';
-export interface PageFilter extends BaseFilter {
-  url?: string;
-  websiteId?: number;
-  contexts?: Context[];
-}
-
-export interface PageSort extends BaseSort {
-  url?: SortCriteria;
-  createdAt?: SortCriteria;
-  score?: SortCriteria;
-}
-
-type PageQueryRequest = {
-  filters: Partial<PageFilter>;
-  sortings: Partial<PageSort>;
-  pagination: Partial<BasePagination>;
-  contexts: ContextEnum[];
-  securityContext: SecurityContext;
-};
-
-export interface PagePagination extends BasePagination {}
+import { ContextAwareRepository } from 'src/common/repositories/context-aware.repository';
+import type { PageFilter, PageSort, PagePagination, PageQueryRequest, PageRecord } from './types';
+import {
+  BASE_CONTEXT_CONFIG_TOKEN,
+  RepositoryTableConfig,
+} from 'src/common/repositories/base-context';
 
 @Injectable()
-export class PageRepository extends BaseTransactionalRepository<
+export class PageRepository extends ContextAwareRepository<
   Page,
   PageFilter,
   PageSort,
   PagePagination
 > {
-  protected readonly alias = 'page';
+  protected readonly alias = 'p';
 
   constructor(
     @InjectRepository(Page) orm: Repository<Page>,
     logger: AppLoggerService,
     configService: ConfigService,
-    private readonly outboxService: OutboxService,
+    @Inject(BASE_CONTEXT_CONFIG_TOKEN)
+    tableConfig: RepositoryTableConfig,
   ) {
-    super(orm, logger, configService);
+    super(orm, logger, configService, tableConfig);
   }
-
-  protected readonly contextAlias = 'page_context';
 
   protected readonly filterMap: FilterMap<PageFilter, Page> = {
     ids: (query, value) => query.andWhereInIds(value),
@@ -90,7 +67,7 @@ export class PageRepository extends BaseTransactionalRepository<
     const { filters, sortings, pagination } = queryArgs;
     const connection = this.getOrmRepository().manager.connection;
     const query = connection.createQueryBuilder().from(Page, 'page');
-    this.applyContextFilter(query, queryArgs.contexts, queryArgs.securityContext);
+    this.applyContextRules(query, queryArgs.contexts, queryArgs.securityContext);
 
     const subQuery = connection
       .createQueryBuilder()
@@ -152,219 +129,119 @@ export class PageRepository extends BaseTransactionalRepository<
       .andWhere(`${this.alias}.website_id = :websiteId`, { websiteId });
     return await query.getOne();
   }
-  private applyContextFilter(
-    query: SelectQueryBuilder<Page>,
-    contexts: ContextEnum[] | undefined,
-    securityContext: SecurityContext,
-  ): void {
-    const targetContexts: number[] =
-      contexts && contexts.length > 0
-        ? contexts
-            .map((context) => getContextIdByCode(context))
-            .filter((id): id is number => id !== undefined)
-        : [getContextIdByRole(securityContext.user.role_slug)].filter(
-            (id): id is number => id !== undefined,
-          );
-    if (!targetContexts || targetContexts.length === 0) {
-      throw new BadRequestException('User role does not have an associated context');
-    }
-    query
-      .innerJoin(
-        'page_contexts',
-        this.contextAlias,
-        `${this.contextAlias}.page_id = ${this.alias}.id`,
-      )
-      .andWhere(`${this.contextAlias}.context_id IN (:...contextIds)`, {
-        contextIds: targetContexts,
-      });
-  }
 
-  async createPages(
+  async upsertPages(
     websiteId: number,
-    urls: string[],
+    records: PageRecord[],
     securityContext: SecurityContext,
-  ): Promise<Page[]> {
-    if (urls.length === 0) return [];
-    // TODO validate same Origin (websiteId) for all URLs
-    return this.runInTransaction<Page[]>(async (queryRunner: QueryRunner) => {
-      const txManager = queryRunner.manager;
-      const rawPages = urls.map((url) => {
-        const page = new Page();
-        page.websiteId = Number(websiteId);
-        page.url = url;
-        return page;
-      });
-
-      await txManager
-        .createQueryBuilder(Page, 'page')
-        .insert()
-        .into(Page)
-        .values(rawPages)
-        .orIgnore()
-        .execute();
-
-      const finalPages = await txManager.find(Page, {
-        where: { websiteId: Number(websiteId), url: In(urls) },
-      });
-
-      const pageContexts = finalPages.flatMap((page) => {
-        const pageContext = new PageContext();
-        pageContext.pageId = page.id;
-        pageContext.contextId = securityContext.user.context.id;
-        return pageContext;
-      });
-      await txManager
-        .createQueryBuilder(PageContext, 'page_contexts')
-        .insert()
-        .into(PageContext)
-        .values(pageContexts)
-        .orIgnore()
-        .execute();
-
-      return finalPages;
-    });
-  }
-
-  /*
-  async createPages(websiteId: number, urls: string[], securityContext: ContextEnum[] | undefined): Promise<Page[]> {
-    if (urls.length === 0) return [];
-    // TODO validate same Origin (websiteId) for all URLs
-
-
-    return this.runInTransaction<Page[]>(async (queryRunner: QueryRunner) => {
-      const txManager = queryRunner.manager;
-       const rawPages = urls.map(url => {
-        const page = new Page();
-        page.websiteId = Number(websiteId);
-        page.url = url;
-        return page;
-      });
-      await txManager
-        .createQueryBuilder(Page, 'page')
-        .insert()
-        .into(Page)
-        .values(rawPages)
-        .orIgnore()
-        .execute();
-
-      const finalPages = await txManager.find(Page, {
-        where: { websiteId: Number(websiteId), url: In(urls) },
-      });
-
-      if (securityContext && securityContext.length > 0) {
-        const pageContexts = finalPages.flatMap(page => {
-          return securityContext.map(contextEnum => {
-            const pageContext = new PageContext();
-            pageContext.pageId = page.id;
-            pageContext.contextId = ContextMap[contextEnum];
-            return pageContext;
-          });
-        });
-        await txManager.save(PageContext, pageContexts);
-      }
-
-     
-      return finalPages;
-    });
-  }
-*/
-  updateContexts(pageId: number, contextEnums: ContextEnum[]): Promise<Page> {
-    return this.runInTransaction<Page>(async (queryRunner: QueryRunner) => {
-      const txManager = queryRunner.manager;
-      const page = await txManager.findOne(Page, { where: { id: pageId } });
-      if (!page) {
-        throw new Error(`Page with ID ${pageId} not found`);
-      }
-
-      await txManager.delete(PageContext, { pageId });
-
-      if (contextEnums && contextEnums.length > 0) {
-        const pageContexts = contextEnums.map((contextEnum) => ({
-          pageId,
-          contextId: ContextMap[contextEnum],
-        }));
-        await txManager.save(PageContext, pageContexts);
-      }
-
-      return page;
-    });
-  }
-
-  updateContextsMany(pageIds: number[], contextEnums: ContextEnum[]): Promise<Page[]> {
-    return this.runInTransaction<Page[]>(async (queryRunner: QueryRunner) => {
-      const txManager = queryRunner.manager;
-      const pages = await txManager.find(Page, { where: { id: In(pageIds) } });
-      if (pages.length === 0) {
-        throw new Error(`No pages found with IDs ${pageIds}`);
-      }
-
-      await txManager.delete(PageContext, { pageId: In(pageIds) });
-
-      if (contextEnums && contextEnums.length > 0) {
-        const pageContexts = pages.flatMap((page) =>
-          contextEnums.map((contextEnum) => ({
-            pageId: page.id,
-            contextId: ContextMap[contextEnum],
-          })),
-        );
-        await txManager.save(PageContext, pageContexts);
-      }
-
-      return pages;
-    });
-  }
-
-  async getOwnershipStates(ids: number[]): Promise<{ pageId: number; contextCount: number }[]> {
-    return this.orm
-      .createQueryBuilder('pc')
-      .select('pc.pageId', 'pageId')
-      .addSelect('COUNT(pc.id)', 'contextCount')
-      .from(PageContext, 'pc')
-      .where('pc.pageId IN (:...ids)', { ids })
-      .groupBy('pc.pageId')
-      .getRawMany();
-  }
-
-  async removeAssociations(
-    ids: number[],
-    contextEnum: ContextEnum,
-    tx?: EntityManager,
   ): Promise<void> {
-    const contextId = ContextMap[contextEnum];
-    const manager = tx || this.orm;
-    await manager
-      .createQueryBuilder()
-      .delete()
-      .from(PageContext)
-      .where('pageId IN (:...ids)', { ids })
-      .andWhere('contextId = :contextId', { contextId })
-      .execute();
+    if (!records.length) return;
+
+    const urls = records.map((r) => r.url);
+    const hashes = records.map((r) => r.urlHash);
+
+    const query = `
+      WITH incoming_data AS (
+        SELECT 
+          $1::int AS website_id,
+          u.url,
+          u.url_hash::bigint AS url_hash
+        FROM unnest($2::text[], $3::text[]) AS u(url, url_hash)
+      )
+      INSERT INTO pages (website_id, url, url_hash, created_by_id, updated_by_id)
+      SELECT website_id, url, url_hash, $4::int, $4::int
+      FROM incoming_data
+      ON CONFLICT (website_id, url_hash) DO UPDATE
+      SET updated_at = CURRENT_TIMESTAMP
+      RETURNING id;
+    `;
+
+    this.runInTransaction(async (queryRunner) => {
+      const rows: { id: number }[] = await queryRunner.query(query, [
+        websiteId,
+        urls,
+        hashes,
+        securityContext.user.id ?? null,
+      ]);
+
+      this.addContextRules(
+        queryRunner,
+        rows.map((r) => r.id),
+        undefined,
+        securityContext,
+      );
+      return rows.map((r) => r.id);
+    });
   }
 
-  async deletePages(ids: number[], tx?: EntityManager): Promise<void> {
-    const manager = tx || this.orm;
-    await manager
-      .createQueryBuilder()
-      .delete()
-      .from(Page)
-      .where('id IN (:...ids)', { ids })
-      .execute();
-  }
-
-  async batchExecuteRemoval(
-    toUnlink: number[],
-    toDelete: number[],
-    contextEnum: ContextEnum,
+  async deletePagesWithContextCheck(
+    pageIds: number[],
+    securityContext: SecurityContext,
   ): Promise<void> {
-    await this.runInTransaction(async (queryRunner: QueryRunner) => {
-      const manager = queryRunner.manager;
-      if (toUnlink.length > 0) {
-        await this.removeAssociations(toUnlink, contextEnum, manager);
-      }
+    if (!pageIds.length) {
+      return;
+    }
+    await this.runInTransaction(async (queryRunner) => {
+      const query = `
+      WITH target_pages AS (
+        -- 1. Lock determinístico nas páginas para evitar race conditions
+        SELECT p.id
+        FROM pages p
+        WHERE p.id = ANY($1::int[])
+          AND p.deleted_at IS NULL
+        ORDER BY p.id ASC
+        FOR UPDATE
+      ),
+      removed_contexts AS (
+        -- 2. Remove estritamente o meu contexto das páginas alvo
+        DELETE FROM page_contexts pc
+        USING target_pages tp
+        WHERE pc.page_id = tp.id
+          AND pc.context_id = $2::int
+        RETURNING pc.page_id
+      ),
+      orphaned_pages AS (
+        -- 3. Identifica as páginas afetadas que já NÃO possuem nenhum outro contexto
+        SELECT rc.page_id AS id
+        FROM removed_contexts rc
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM page_contexts pc
+          WHERE pc.page_id = rc.page_id
+        )
+      ),
+      soft_deleted_pages AS (
+        -- 4. Aplica soft delete apenas às que ficaram órfãs de contexto
+        UPDATE pages p
+        SET 
+          deleted_at = CURRENT_TIMESTAMP,
+          updated_by_id = $3::int
+        FROM orphaned_pages op
+        WHERE p.id = op.id
+        RETURNING p.id
+      )
+      SELECT 
+        (SELECT COUNT(*)::int FROM removed_contexts) AS unlinked_count,
+        (SELECT COUNT(*)::int FROM soft_deleted_pages) AS soft_deleted_count;
+    `;
 
-      if (toDelete.length > 0) {
-        await this.deletePages(toDelete, manager);
-      }
+      const result = await queryRunner.query(query, [
+        pageIds,
+        securityContext.user.context.id,
+        securityContext.user.id ?? null,
+      ]);
+    });
+
+    // No need to return anything as the method now returns void
+  }
+
+  public changePageContexts(
+    pageId: number[],
+    contexts: ContextEnum[],
+    securityContext: SecurityContext,
+  ): Promise<void> {
+    return this.runInTransaction(async (queryRunner) => {
+      await this.substituteContextRules(queryRunner, pageId, contexts, securityContext);
     });
   }
 }
