@@ -1,8 +1,7 @@
-import { testColors, ruleset } from "@a12e/accessmonitor-rulesets";
-import { ConformanceErrors, EvaluationScoring } from "./types";
+import { ruleset } from '@a12e/accessmonitor-rulesets';
+import { AuditReport, ConformanceErrors, EvaluationScoring } from './types';
 
-const SEPARATOR = "@";
-
+const SEPARATOR = '@';
 
 /**
  * Calculates total number of HTML elements from tags frequency map
@@ -11,10 +10,10 @@ const SEPARATOR = "@";
  * @throws Error if tags is not an object
  */
 export function calculateTotalElements(tags: Record<string, number>): number {
-  if (!tags || typeof tags !== "object") {
+  if (!tags || typeof tags !== 'object') {
     return 0;
   }
-  
+
   return Object.values(tags).reduce((sum, count) => sum + (count ?? 0), 0);
 }
 
@@ -30,8 +29,8 @@ export function calculateConform(results: Record<string, unknown>): string {
     AA: 0,
     AAA: 0,
   };
-  
-  if (!results || typeof results !== "object") {
+
+  if (!results || typeof results !== 'object') {
     return `${errors.A}${SEPARATOR}${errors.AA}${SEPARATOR}${errors.AAA}`;
   }
 
@@ -39,10 +38,10 @@ export function calculateConform(results: Record<string, unknown>): string {
     if (ruleId && ruleset[ruleId]) {
       try {
         const level = ruleset[ruleId].level.toUpperCase() as keyof ConformanceErrors;
-        if (testColors[ruleId] === "R" && level in errors) {
+        if (ruleset[ruleId].result === 'failed' && level in errors) {
           errors[level]++;
         }
-      } catch  {
+      } catch {
         // Skip invalid rule entries
         continue;
       }
@@ -58,24 +57,34 @@ export function calculateConform(results: Record<string, unknown>): string {
  * @returns Size in encoded URI characters
  */
 export function calculatePageSize(html: string): number {
-  if (!html || typeof html !== "string") {
+  if (!html || typeof html !== 'string') {
     return 0;
   }
   return encodeURI(html).split(/%..|./).length - 1;
 }
 
+const toSafeCount = (val: unknown): number => {
+  const num = Number(val);
+  return Number.isFinite(num) ? num : 0;
+};
 
-export function createEvaluationData(rawTitle:string,rawConform:string,score:string,createdAt:string): EvaluationScoring {
-  const title = rawTitle.replace(/"/g, "").replace(/[\u0800-\uFFFF]/g, "");
-  
-  const conform = (rawConform || "0@0@0").split("@");
+export function createEvaluationEntity(report: AuditReport): EvaluationScoring {
+  const rawTitle = report.metadata.title;
+  const rawConform = report.scoring.conform as string;
+  const score = report.scoring.score;
+  const createdAt = report.metadata.evaluatedAt;
+
+  const title = rawTitle.replace(/"/g, '').replace(/[\u0800-\uFFFF]/g, '');
+
+  const conform = (rawConform || '0@0@0').split('@');
 
   return {
     title,
-    score: String(score ?? ""),
-    A: Number(conform[0]) || -1,
-    AA: Number(conform[1]) || -1,
-    AAA: Number(conform[2]) || -1,
-    createdAt: createdAt
+    score: String(score ?? ''),
+    A: toSafeCount(conform[0]),
+    AA: toSafeCount(conform[1]),
+    AAA: toSafeCount(conform[2]),
+    createdAt: createdAt,
+    tagCount: report.telemetry.totalHtmlTags,
   };
 }

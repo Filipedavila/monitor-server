@@ -23,7 +23,6 @@ import { EvaluationPersister } from './types/evaluation-persister.interface';
 import { EvaluationDocumentStrategy } from './strategies/evaluation-document.strategy';
 import { Website } from 'src/domains/inventory/website/website.entity';
 import { EvaluationParserService } from './evaluation-parser.service';
-import { QualWebPlaywrightEngine } from './strategies/evaluation-engine-playwright.strategy';
 import { EvaluationPublishingService } from './evaluation-publish.service';
 import { RepositoryTableConfig } from 'src/common/repositories/base-context';
 import { EVALUATION_CONTEXT_METADATA_CONFIG } from './evaluation.constants';
@@ -62,7 +61,7 @@ export const EvaluationTableConfigProvider: Provider = {
   providers: [
     {
       provide: EvaluationEngine,
-      useClass: QualWebPlaywrightEngine,
+      useClass: QualWebPuppeteerEngine,
     },
     {
       provide: EvaluationStorage,

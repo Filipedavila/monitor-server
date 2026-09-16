@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { RepositoryTableConfig } from 'src/common/repositories/base-context';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder, In } from 'typeorm';
@@ -188,51 +188,53 @@ export class EvaluationRepository extends ContextAwareRepository<
     this.applyContextRules(query, [], securityContext);
     return await query.getOne();
   }
-
   async getMetadataForEvaluation(websiteId: number): Promise<EvaluationTargetMetadata> {
-    const query = this.dataSource.query(
-      `WITH DirectoryRequirements AS (
-          SELECT 
-              d.id AS directory_id,
-              d.tag_matching_strategy,
-              COUNT(dt.tag_id) AS required_tags_count
-          FROM directories d
-          JOIN directory_tags dt ON dt.directory_id = d.id
-          GROUP BY d.id, d.tag_matching_strategy
-      ),
-      WebsiteDirectoryMatches AS (
-          SELECT 
-              wt.website_id,
-              dr.directory_id
-          FROM website_tags wt
-          JOIN directory_tags dt ON dt.tag_id = wt.tag_id
-          JOIN DirectoryRequirements dr ON dr.directory_id = dt.directory_id
-          WHERE wt.website_id = $1
-          GROUP BY wt.website_id, dr.directory_id, dr.tag_matching_strategy, dr.required_tags_count
-          HAVING 
-              (dr.tag_matching_strategy = 'UNION')
-              OR 
-              (dr.tag_matching_strategy = 'INTERSECTION' AND COUNT(DISTINCT wt.tag_id) = dr.required_tags_count)
-      ),
-      AggregatedDirectories AS (
+    const query = `
+    WITH DirectoryRequirements AS (
+        SELECT 
+            d.id AS directory_id,
+            d.tag_matching_strategy,
+            COUNT(dt.tag_id) AS required_tags_count
+        FROM directories d
+        LEFT JOIN directory_tags dt ON dt.directory_id = d.id
+        GROUP BY d.id, d.tag_matching_strategy
+    ),
+    WebsiteDirectoryMatches AS (
+        SELECT 
+            wt.website_id,
+            dr.directory_id
+        FROM website_tags wt
+        JOIN directory_tags dt ON dt.tag_id = wt.tag_id
+        JOIN DirectoryRequirements dr ON dr.directory_id = dt.directory_id
+        WHERE wt.website_id = $1
+        GROUP BY wt.website_id, dr.directory_id, dr.tag_matching_strategy, dr.required_tags_count
+        HAVING 
+            (dr.tag_matching_strategy = 'UNION')
+            OR 
+            (dr.tag_matching_strategy = 'INTERSECTION' AND COUNT(DISTINCT wt.tag_id) = dr.required_tags_count)
+    ),
+    AggregatedDirectories AS (
+        SELECT 
+            website_id,
+            ARRAY_AGG(directory_id) AS directories_ids
+        FROM WebsiteDirectoryMatches
+        GROUP BY website_id
+    )
+    SELECT 
+        w.id AS website_id,
+        w.institution_id,
+        COALESCE(ad.directories_ids, ARRAY[]::INTEGER[]) AS directories_ids
+    FROM websites w
+    LEFT JOIN AggregatedDirectories ad ON ad.website_id = w.id
+    WHERE w.id = $1;
+  `;
 
-          SELECT 
-              website_id,
-              ARRAY_AGG(directory_id) AS directories_ids
-          FROM WebsiteDirectoryMatches
-          GROUP BY website_id
-      )
-      SELECT 
-          w.id AS website_id,
-          i.id AS institution_id,
-          COALESCE(ad.directories_ids, ARRAY[]::INTEGER[]) AS directories_ids
-      FROM websites w
-      LEFT JOIN AggregatedDirectories ad ON ad.website_id = w.id
-      LEFT JOIN institutions i ON i.id = w.institution_id
-      WHERE w.id = $1;`,
-      [websiteId],
-    );
+    const rows = await this.dataSource.query<EvaluationTargetMetadata[]>(query, [websiteId]);
 
-    return await query;
+    if (!rows || rows.length === 0) {
+      throw new NotFoundException(`Website with ID ${websiteId} not found`);
+    }
+
+    return rows[0];
   }
 }

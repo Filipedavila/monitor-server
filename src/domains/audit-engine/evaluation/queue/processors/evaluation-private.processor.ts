@@ -29,16 +29,27 @@ export class EvaluationPrivateWorker extends WorkerHost {
     super();
   }
 
-  async process(job: Job<EvaluationJobData, void, string>): Promise<any> {
+  async process(job: Job<EvaluationJobData, void, string>): Promise<void> {
     const { evaluationId, institutionId, directoryIds, websiteId, pageId, url } = job.data;
 
     const evaluationResult = await this.evaluationEngine.evaluate(url);
     if (!evaluationResult) throw Error('Evaluation Engine returned no result');
     job.updateProgress(50);
     job.log('Received Evaluation from Engine');
-    const { data, pagecode, evaluationData } =
+    const { evaluationReport, evaluationData } =
       this.evaluationParser.parseEvaluation(evaluationResult);
-    job.log('Parsed Evaluation from result');
+    const evaluationDate = evaluationReport.metadata.evaluatedAt;
+
+    this.evaluationStore.save({
+      htmlContent: evaluationReport.snapshot.html,
+      nodes: evaluationReport.scoring.assertionEvidence,
+      evalIdentifier: {
+        evaluationId,
+        websiteId,
+        pageId,
+        evaluationDate,
+      },
+    });
 
     const ingestionMetrics = this.evaluationParser.parseIngestionMetrics(
       evaluationId,
@@ -46,24 +57,24 @@ export class EvaluationPrivateWorker extends WorkerHost {
       institutionId,
       websiteId,
       pageId,
-      data.score,
-      data.date,
-      data.metrics,
+      evaluationReport.scoring.score,
+      evaluationDate,
+      evaluationReport.scoring.rulesOccurrences,
     );
 
     if (!ingestionMetrics) throw Error('Evaluation Parser returned no ingestion metrics');
     job.log('Prepared Metrics for ingestion');
 
-    const evaluationDate = new Date(data.date).toISOString().slice(0, 10);
+    const storageEvaluationDate = new Date(evaluationDate).toISOString().slice(0, 10);
 
     this.evaluationStore.save({
-      htmlContent: pagecode,
-      nodes: data.nodes,
+      htmlContent: evaluationReport.snapshot.html,
+      nodes: evaluationReport.scoring.assertionEvidence,
       evalIdentifier: {
         evaluationId,
         websiteId,
         pageId,
-        evaluationDate,
+        evaluationDate: storageEvaluationDate,
       },
     });
     job.log('Saved compressed files in  Storage');

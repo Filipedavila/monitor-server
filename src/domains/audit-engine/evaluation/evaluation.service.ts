@@ -1,5 +1,4 @@
 import {
-  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -19,11 +18,8 @@ import { SecurityContext } from 'src/core/authorization/SecurityContext';
 import { EvaluationStorage } from './types/evaluation-storage.interface';
 import { EvaluationRequestDTO } from './dto/EvaluationRequest.dto';
 import { RoleSlug } from 'src/core/authentication/interfaces/types';
-import { EvaluationProducer } from './redis/evaluation.producer';
 import { ReadStream } from 'node:fs';
-import { EvaluationJobData } from './types';
 import { Website } from 'src/domains/inventory/website/website.entity';
-import { EvaluationTriggerDTO } from './dto/EvaluationTrigger.dto';
 
 @Injectable()
 export class EvaluationService {
@@ -93,7 +89,7 @@ export class EvaluationService {
       securityContext,
     );
   }
-
+  /*
   public async triggerEvaluation(
     evaluationTriggerDTO: EvaluationTriggerDTO,
     securityContext: SecurityContext,
@@ -101,7 +97,7 @@ export class EvaluationService {
     // Implement the logic for triggering evaluation based on the evaluationTriggerDTO
     // ver que tipo de trigger é
   }
-
+*/
   public async evaluateManyPages(
     request: EvaluationRequestDTO,
     securityContext: SecurityContext,
@@ -152,12 +148,12 @@ export class EvaluationService {
       name: 'evaluation-job',
       data: {
         websiteId: request.websiteId,
-        institutionId: evaluationTargetMetadata.institutionId,
-        directoryIds: evaluationTargetMetadata.directoryIds,
+        institutionId: evaluationTargetMetadata.institution_id ?? 0,
+        directoryIds: evaluationTargetMetadata.directories_ids ?? [],
         evaluationId: websiteEvaluations[index].id,
         pageId: page.id,
         url: page.url,
-      } ,
+      },
       opts: {
         jobId: `evaluation-job-${websiteEvaluations[index].id}`,
       },

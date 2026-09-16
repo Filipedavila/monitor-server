@@ -6,6 +6,7 @@ import {
 import { EvaluationRepository } from '../evaluation.repository';
 import { Evaluation, EvaluationStatus } from '../entities/evaluation.entity';
 import { EvaluationPublishingService } from '../evaluation-publish.service';
+import { OutboxService } from 'src/core/outbox/outbox.service';
 
 @Injectable()
 export class EvaluationDocumentStrategy implements EvaluationPersister {
@@ -14,11 +15,11 @@ export class EvaluationDocumentStrategy implements EvaluationPersister {
   constructor(
     private readonly evaluationRepository: EvaluationRepository,
     private readonly evaluationPublishingService: EvaluationPublishingService,
+    private readonly outboxService: OutboxService,
   ) {}
 
   async persist(payload: EvaluationPersisterPayload): Promise<void> {
-    const { evaluationId, websiteId, directoryId, institutionId, evaluationMetrics, basicResult } =
-      payload;
+    const { evaluationId, evaluationMetrics, basicResult } = payload;
 
     try {
       this.logger.log(`Starting document persistence workflow for Evaluation ID: ${evaluationId}`);
@@ -28,6 +29,16 @@ export class EvaluationDocumentStrategy implements EvaluationPersister {
 
         // TODO : ATTENTION , FOR TESTING PURPOSE ONLY.. SHOULD BE PUT IN OUTBOX TO GARANTY AT LEAST ONCE DELIVERY
         await this.evaluationPublishingService.execute(evaluationMetrics);
+        /*
+        await this.outboxService.putInOutbox(queryRunner.manager, {
+          evaluationId,
+          websiteId,
+          directoryId,
+          institutionId,
+          payload: evaluationMetrics,
+          createdAt: new Date(basicResult.createdAt),
+        });
+        */
         /* await queryRunner.manager.upsert(UnpublishedEvaluation, {
           evaluationId,
           websiteId,
@@ -47,6 +58,8 @@ export class EvaluationDocumentStrategy implements EvaluationPersister {
             AAA: basicResult.AAA,
             evaluationDate: new Date(basicResult.createdAt),
             status: EvaluationStatus.COMPLETED,
+            score: basicResult.score,
+            tagCount: basicResult.tagCount,
           },
         );
       });

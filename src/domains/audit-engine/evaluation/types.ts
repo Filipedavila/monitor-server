@@ -51,38 +51,40 @@ export interface ConformanceErrors {
   AAA: number;
 }
 
-export interface EvaluationReport {
-  pagecode: string;
-  evaluationData: EvaluationScoring;
-  data: {
-    title: string;
-    rawUrl: string;
-    elems: Record<string, unknown>;
-    nodes: Record<string, unknown>;
-    date: string;
-    metrics: Record<string, unknown>;
-    score: number;
-    conform: string;
-    tot: {
-      info: {
-        url: string;
-        title: string;
-        date: string;
-        htmlTags: number;
-        roles: Record<string, unknown>;
-        cTags: Record<string, number>;
-        size: number;
-        encoding: string;
-        content: string;
-        hash: string;
-        tests: number;
-        score: number;
-        conform: string;
-      };
-      elems: Record<string, unknown>;
-      results: Record<string, unknown>;
-    };
-  };
+export interface PageSnapshot {
+  html: string;
+  sizeInBytes: number;
+  hash: string;
+}
+export interface EvaluationMetadata {
+  title: string;
+  url: string;
+  evaluatedAt: string;
+}
+
+export interface DomTelemetry {
+  totalHtmlTags: number;
+  tagCounter: Record<string, number>;
+  elementCounters: Record<string, number>;
+  roles: Record<string, number>;
+}
+export type ConformanceToken = `${number}@${number}@${number}`;
+export type ConformanceResultToken = `${number}@${number}`;
+
+export interface EvaluationDetail {
+  conform: ConformanceToken;
+  totalTests: number;
+  score: string;
+  rulesOccurrences: Record<string, number>;
+  assertionEvidence: Record<string, unknown>;
+  conformanceResults: Record<string, ConformanceResultToken>;
+}
+
+export interface AuditReport {
+  metadata: EvaluationMetadata;
+  snapshot: PageSnapshot;
+  telemetry: DomTelemetry;
+  scoring: EvaluationDetail;
 }
 
 export interface EvaluationScoring {
@@ -92,10 +94,11 @@ export interface EvaluationScoring {
   AA: number;
   AAA: number;
   createdAt: string;
+  tagCount: number;
 }
 
 export interface EvaluationTargetMetadata {
-  websiteId: number;
-  institutionId: number;
-  directoryIds: number[];
+  website_id: number;
+  institution_id: number | null;
+  directories_ids: number[];
 }
