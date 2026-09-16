@@ -13,6 +13,7 @@ import { WebsitesGateway } from './gateways/crawler.gateway';
 import { WebsiteModule } from 'src/domains/inventory/website/website.module';
 import { IWebsiteScraper } from './types/scraper.interface';
 import { PlaywrightWebsiteScraperAdapter } from './strategies/playwright-website-scraper.adapter';
+import { PuppeteerWebsiteScraperAdapter } from './strategies/puppeteer-website-scraper.adapter';
 import { CrawlPublicWorker } from './processors/crawler-public.processor';
 import { CrawlWebsiteHandler } from './handlers/crawl-websites.handler';
 import { CRAWLER_WEBSITE_CONTEXT_METADATA_CONFIG } from './crawler-website.constants';
@@ -55,7 +56,7 @@ export const CrawlerWebsiteTableConfigProvider: Provider = {
     WebsitesGateway,
     {
       provide: IWebsiteScraper,
-      useClass: PlaywrightWebsiteScraperAdapter,
+      useClass: PuppeteerWebsiteScraperAdapter,
     },
     CrawlWebsiteHandler,
     CrawlerWebsiteTableConfigProvider,

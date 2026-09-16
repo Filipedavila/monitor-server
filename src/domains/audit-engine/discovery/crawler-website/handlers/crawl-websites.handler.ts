@@ -1,7 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { CrawlerWebsite } from '../entities/crawler-website.entity';
 import { IWebsiteScraper } from '../types/scraper.interface';
-import { CrawlerPage } from '../../crawler-page/crawler-page.entity';
 import { CrawlerWebsiteRepository } from '../crawler-website.repository';
 
 interface CrawlWebsiteHandlerRequest {
@@ -20,6 +18,8 @@ export class CrawlWebsiteHandler {
     const scrapedPages = await this.scraper.scrapeWebsite(website.baseUrl);
     if (scrapedPages.length > 0) {
       await this.crawlerWebsiteRepo.saveWebsiteCrawl(website.id, scrapedPages);
+    } else {
+      throw new Error(`No pages were scraped for website with ID: ${website.id}`);
     }
   }
 }
