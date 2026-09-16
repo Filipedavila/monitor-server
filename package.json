@@ -41,7 +41,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@a12e/accessmonitor-rulesets": "1.1.0",
+    "@a12e/accessmonitor-rulesets": "2.0.0",
     "@bull-board/api": "^6.20.6",
     "@bull-board/express": "^6.20.6",
     "@bull-board/nestjs": "^6.20.6",
@@ -112,7 +112,7 @@
     "@nestjs/testing": "^11.0.0",
     "@swc/core": "^1.15.18",
     "@swc/jest": "^0.2.39",
-    "@testcontainers/postgresql": "^12.0.3",
+    "@testcontainers/postgresql": "^12.1.0",
     "@types/compression": "^1.8.1",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
@@ -131,7 +131,7 @@
     "madge": "^8.0.0",
     "pg": "^8.21.0",
     "prettier": "^3.8.1",
-    "testcontainers": "^12.0.3",
+    "testcontainers": "^12.1.0",
     "ts-jest": "^29.2.5",
     "ts-loader": "^9.4.2",
     "ts-node": "^10.9.1",
