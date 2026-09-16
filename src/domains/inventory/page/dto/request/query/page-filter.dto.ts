@@ -1,34 +1,16 @@
-import {  BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
-import {
-  IsOptional,
-  IsNumber,
-  IsBoolean,
-  IsString,
-  IsArray,
-} from "class-validator";
-import { Type, Transform } from "class-transformer";
-import { WebsiteCrawlerFilter } from "src/domains/audit-engine/discovery/crawler-website/crawler-website.repository";
-import { Page } from "../../../page.entity";
+import { BaseFilterDTO } from 'src/common/dto/request/base-filter.dto';
+import { IsOptional, IsNumber, IsString, IsUrl } from 'class-validator';
+import { Type } from 'class-transformer';
+import { Page } from '../../../page.entity';
 
 export class PageFilterDTO
   extends BaseFilterDTO<Page>
-  implements Partial<Record<keyof Page, any>>
+  implements Partial<Pick<Page, 'id' | 'websiteId' | 'url'>>
 {
-
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  tagId?: number;
-
-  @IsOptional()
-  @IsArray()
-  @IsNumber({}, { each: true })
-  @Type(() => Number)
-  tagsId?: number[];
-
-  @IsOptional()
-  @IsString()
-  tagName?: string;
+  id?: number;
 
   @IsOptional()
   @IsNumber()
@@ -36,9 +18,8 @@ export class PageFilterDTO
   websiteId?: number;
 
   @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === "true" || value === true)
-  isDone?: boolean;
+  @IsUrl({}, { message: 'URL must be a valid URL' })
+  url?: string;
 
   @IsOptional()
   @IsString()

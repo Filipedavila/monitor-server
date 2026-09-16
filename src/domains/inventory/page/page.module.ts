@@ -19,7 +19,7 @@ const PageTableConfigProvider: Provider = {
   provide: BASE_CONTEXT_CONFIG_TOKEN,
   useFactory: (): RepositoryTableConfig => ({
     mainTable: {
-      table: 'page',
+      table: 'pages',
       alias: 'p',
       pk: 'id',
       fk: 'page_id',

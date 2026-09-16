@@ -1,14 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Page } from './page.entity';
-import { PageContext } from './page-contexts.entity';
-import { BaseFilter, BasePagination, BaseSort, SortCriteria } from 'src/common/interfaces/types';
 import { FilterMap, PaginationResponse, SortingMap } from 'src/common/repositories/base.repository';
-import { EntityManager, In, QueryRunner, Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config/dist/config.service';
 import { AppLoggerService } from 'src/core/app-logger/app-logger.service';
 import { InjectRepository } from '@nestjs/typeorm/dist/common/typeorm.decorators';
-import { OutboxService } from 'src/core/outbox/outbox.service';
-import { Context } from '../context/context.identity';
 import { ContextEnum } from '../context/context.enum';
 import { SecurityContext } from 'src/core/authentication/interfaces/types';
 import { PageEvalDTO } from './dto/page-detailed.dto';
@@ -39,17 +35,29 @@ export class PageRepository extends ContextAwareRepository<
   }
 
   protected readonly filterMap: FilterMap<PageFilter, Page> = {
-    ids: (query, value) => query.andWhereInIds(value),
-    url: (query, val) => this.addFilter(query, 'url', val, 'like'),
-    websiteId: (query, val) => {
-      query
-        .innerJoin('page.websites', 'website')
-        .andWhere('website.id = :websiteId', { websiteId: val });
+    id: (query, value) => this.addFilter(query, 'id', value, 'eq'),
+    ids: (query, value) => this.addFilter(query, 'id', value, 'in'),
+    searchTerm: (query, val) => {
+      if (val && val.trim().length >= 3) {
+        const term = `%${val.trim()}%`;
+
+        query.andWhere(
+          new Brackets((qb) => {
+            qb.where(`${this.alias}.url ILIKE :searchTerm`, { searchTerm: term }).orWhere(
+              `${this.alias}.website_id IN (
+              SELECT w.id FROM websites w WHERE w.title ILIKE :searchTerm
+              )`,
+              { searchTerm: term },
+            );
+          }),
+        );
+      }
     },
+    websiteId: (query, val) => this.addFilter(query, 'websiteId', val, 'eq'),
     contexts: (query, val) => {
       if (val && val.length > 0) {
         query
-          .innerJoin('page.contexts', 'context')
+          .innerJoin(`${this.alias}.contexts`, 'context')
           .andWhere('context.code IN (:...contextCodes)', { contextCodes: val.map((c) => c.code) });
       }
     },
@@ -61,58 +69,58 @@ export class PageRepository extends ContextAwareRepository<
     score: (query, order) => query.addOrderBy('evaluation.score', order),
     createdAt: (query, order) => query.addOrderBy('evaluation.createdAt', order),
   };
+
   async findManyWithLastEvalScore(
     queryArgs: PageQueryRequest,
   ): Promise<PaginationResponse<PageEvalDTO>> {
     const { filters, sortings, pagination } = queryArgs;
     const connection = this.getOrmRepository().manager.connection;
-    const query = connection.createQueryBuilder().from(Page, 'page');
+
+    const query = connection.createQueryBuilder().from(Page, this.alias);
+
     this.applyContextRules(query, queryArgs.contexts, queryArgs.securityContext);
-
-    const subQuery = connection
-      .createQueryBuilder()
-      .select('e.id', 'id')
-      .addSelect('e.page_id', 'page_id')
-      .addSelect('e.score', 'score')
-      .addSelect('e.created_at', 'created_at')
-      .addSelect('"e"."A"', 'A')
-      .addSelect('"e"."AA"', 'AA')
-      .addSelect('"e"."AAA"', 'AAA')
-      .addSelect('"e"."tag_count"', 'tag_count')
-
-      .from('evaluations', 'e')
-      .distinctOn(['e.page_id'])
-      .orderBy('e.page_id', 'ASC')
-      .addOrderBy('e.created_at', 'DESC');
-
-    query.innerJoin(`(${subQuery.getQuery()})`, 'evaluation', 'evaluation.page_id = page.id');
-
-    query.select([
-      'page.id AS id',
-      'page.url AS url',
-      'page.website_id AS "websiteId"',
-      'page.created_at AS "createdAt"',
-      'page.updated_at AS "updatedAt"',
-      `json_build_object(
-        'id', evaluation.id,
-        'score', evaluation.score,
-        'createdAt', evaluation.created_at,
-        'A', evaluation."A",
-        'AA', evaluation."AA",
-        'AAA', evaluation."AAA",
-        'tagCount', evaluation."tag_count"
-      ) AS evaluation`,
-    ]);
-
     this.applyDynamicFilters(query, filters);
     this.applyDynamicSorting(query, sortings);
+
+    const countQuery = connection.createQueryBuilder().from(Page, this.alias);
+    this.applyContextRules(countQuery, queryArgs.contexts, queryArgs.securityContext);
+    this.applyDynamicFilters(countQuery, filters);
+    countQuery.select(`COUNT(${this.alias}.id)`, 'total');
+
+    query.select([
+      `${this.alias}.id AS id`,
+      `${this.alias}.url AS url`,
+      `${this.alias}.website_id AS "websiteId"`,
+      `${this.alias}.created_at AS "createdAt"`,
+      `${this.alias}.updated_at AS "updatedAt"`,
+      `(
+      SELECT json_build_object(
+        'id', e.id,
+        'score', e.score,
+        'createdAt', e.created_at,
+        'A', e."A",
+        'AA', e."AA",
+        'AAA', e."AAA",
+        'tagCount', e.tag_count
+      )
+      FROM evaluations e
+      WHERE e.page_id = ${this.alias}.id
+      ORDER BY e.created_at DESC
+      LIMIT 1
+    ) AS evaluation`,
+    ]);
+
     this.applyPagination(query, pagination);
 
-    const rawData = await query.getRawMany();
-    const count = await query.getCount();
+    const [rawData, countResult] = await Promise.all([
+      query.getRawMany(),
+      countQuery.getRawOne<{ total: string }>(),
+    ]);
+
+    const totalCount = parseInt(countResult?.total ?? '0', 10);
 
     const metadataPagination = this.calculatePaginationMeta(
-      count,
+      totalCount,
       pagination?.page ?? 1,
       pagination?.limit ?? 10,
     );
@@ -184,7 +192,6 @@ export class PageRepository extends ContextAwareRepository<
     await this.runInTransaction(async (queryRunner) => {
       const query = `
       WITH target_pages AS (
-        -- 1. Lock determinístico nas páginas para evitar race conditions
         SELECT p.id
         FROM pages p
         WHERE p.id = ANY($1::int[])
@@ -193,7 +200,6 @@ export class PageRepository extends ContextAwareRepository<
         FOR UPDATE
       ),
       removed_contexts AS (
-        -- 2. Remove estritamente o meu contexto das páginas alvo
         DELETE FROM page_contexts pc
         USING target_pages tp
         WHERE pc.page_id = tp.id
@@ -201,7 +207,6 @@ export class PageRepository extends ContextAwareRepository<
         RETURNING pc.page_id
       ),
       orphaned_pages AS (
-        -- 3. Identifica as páginas afetadas que já NÃO possuem nenhum outro contexto
         SELECT rc.page_id AS id
         FROM removed_contexts rc
         WHERE NOT EXISTS (
@@ -225,14 +230,12 @@ export class PageRepository extends ContextAwareRepository<
         (SELECT COUNT(*)::int FROM soft_deleted_pages) AS soft_deleted_count;
     `;
 
-      const result = await queryRunner.query(query, [
+      await queryRunner.query(query, [
         pageIds,
         securityContext.user.context.id,
         securityContext.user.id ?? null,
       ]);
     });
-
-    // No need to return anything as the method now returns void
   }
 
   public changePageContexts(

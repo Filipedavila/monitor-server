@@ -4,8 +4,9 @@ import { ContextEnum } from '../context/context.enum';
 import { SecurityContext } from 'src/core/authentication/interfaces/types';
 
 export interface PageFilter extends BaseFilter {
-  url?: string;
+  id?: number;
   websiteId?: number;
+  searchTerm?: string;
   contexts?: Context[];
 }
 
@@ -26,4 +27,6 @@ export interface PageRecord {
   url: string;
   urlHash: string;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface PagePagination extends BasePagination {}
