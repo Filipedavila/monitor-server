@@ -1,0 +1,29 @@
+graph TD
+    %% Ingestion
+    Input[Data Sources] --> RedisStream[Redis Stream]
+
+    subgraph Ingestion_Layer [Ingestion Layer]
+        RedisStream --> |Consume| Batch[Batch Consumer]
+        Batch --> |"XACK"| RedisStream
+        RedisStream --> |"Recurrent Fail"| DLQ[Dead Letter Queue]
+    end
+
+    subgraph ClickHouse_DB [ClickHouse DB]
+        Batch --> LogTable[Raw Evaluations Append-Only]
+        
+        %% Transformation
+        LogTable --> |"Materialized View Triggers"| MVs[Snapshots MVs]
+        
+        subgraph Snapshots [Materialized Snapshots]
+            Global[Global]
+            Web[Websites]
+            Pag[Pages]
+            Dir[Directories]
+            Ent[Institutions]
+        end
+        
+        MVs --> Global & Web & Pag & Dir & Ent
+    end
+
+    %% Query
+    Global & Web & Pag & Dir & Ent --> Consult[Analytics API - Read Optimized]

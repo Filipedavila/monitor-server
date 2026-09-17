@@ -1,0 +1,44 @@
+graph TD
+    %% Base Objects
+    Subj([User])
+    Website[Website]
+    T[Team]
+    R[Role]
+
+    %% Website Computed Relations
+    W_CM{can_manage}
+    W_CE{can_edit}
+    W_CV{can_view}
+
+    %% (The Granularity)
+    
+    
+    CAN_MANAGE_USERS((can_manage_users))
+    CAN_EDIT_USERS((can_edit_users))
+    CAN_VIEW_USERS((can_view_users))
+
+    %% Website Routing
+    Website --- W_CM & W_CE & W_CV
+
+    W_CM -. owner .-> Subj
+    W_CM -. manager .-> R
+    R -- can_manage_users --> CAN_MANAGE_USERS
+
+    CAN_MANAGE_USERS -.-> Subj
+
+    %% Website Edit incorporates Team logic and Role logic
+    W_CE -. manager .-> R
+    
+    W_CE -. parent .-> T
+    T -. admin/member .-> Subj
+    T -. manager .-> R
+
+    %% View incorporates Edit granularities
+    R -- can_edit_users --> CAN_EDIT_USERS
+    CAN_EDIT_USERS -.-> Subj
+    %% View incorporates view granularities
+    W_CV -. manager .-> R
+    R -- can_view_users --> CAN_VIEW_USERS
+    CAN_VIEW_USERS -.-> Subj
+    
+

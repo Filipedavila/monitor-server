@@ -1,0 +1,27 @@
+graph TD
+    %% Capability Providers (The Roles)
+    RoleManager[Role: can_manage_users]
+    RoleViewer[Role: can_view_users]
+    RoleEditor[Role: can_edit_users]
+
+    %% Contextual / Resource Path
+    Subj([User])
+    T[Team]
+    W[Website]
+
+    %% The restricted Role transit
+    Subj -- holds --> RoleManager
+    Subj -- holds --> RoleViewer
+    Subj -- holds --> RoleEditor
+
+    %% The Role Capabilities (Strictly two paths)
+    RoleManager -.-> T
+    RoleManager -.-> W
+    RoleViewer -.-> W
+    RoleEditor -.-> W
+
+    %% Hierarchy path
+    T -- parent --> W
+    Subj -- admin/member --> T
+    Subj -- owner --> W
+

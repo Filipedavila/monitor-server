@@ -1,0 +1,29 @@
+graph TD
+    %% Subgrafos Semânticos
+    subgraph Execution ["Execution Pipeline"]
+        Creation[CREATED] --> Processing((PROCESSING))
+    end
+
+    subgraph Resolution ["Resolution & Ingestion"]
+        Completed[COMPLETED] --> Imported((IMPORTED))
+    end
+
+    subgraph FaultHandling ["Error Recovery & Deadlock"]
+        Failed((FAILED))
+        Cancelled((CANCELLED))
+    end
+
+    Deleted([DELETED])
+
+    %% Happy Path
+    Processing --> |Pipeline Succeeded| Completed
+    Imported --> |Manual Purge / Retention Policy| Deleted
+
+    %% Retry & Failure Loops
+    Processing --> |Non-recoverable Error / URLs Missing| Failed
+    Failed --> |Retry Attempt <= 3| Processing
+    Failed --> |Max Retries Exceeded| Deleted
+
+    %% Abort Path
+    Processing --> |User Cancelled| Cancelled
+    Cancelled --> |Purge Record| Deleted
