@@ -37,7 +37,7 @@
     "openfga:test": "fga model test --tests openfga/tests.fga.yaml",
     "check:unused": "npx knip",
     "security:scan": "semgrep scan --config .semgrep.yml",
-    "security:scan:ci": "semgrep scan --config .semgrep.yml --json --output results.json",
+    "security:scan:ci": "semgrep scan --pro --config .semgrep/ --config p/nestjs --config p/typescript --config p/secrets --json --output results.json",
     "prepare": "husky"
   },
   "dependencies": {

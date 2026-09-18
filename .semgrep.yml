@@ -1,6 +1,0 @@
-rules:
-  - p/typescript
-  - p/nodejs
-  - p/express
-  - p/security-audit
-  - p/secrets
