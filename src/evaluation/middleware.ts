@@ -88,7 +88,8 @@ function generateScore(report: any): string {
 
   for (const test in report.data.tot.results) {
     const value = ruleset[test];
-
+    if(!value) continue;
+    
     if (value.result === "warning") {
       continue;
     }
@@ -229,12 +230,17 @@ function calculateConform(results: any): string {
     AAA: 0,
   };
   
-  for (const ee in results || {}) {
-    if (ee) {
-      let level =  ruleset[ee].level.toUpperCase();
-      if (testColors[ee] === "R") {
-        errors[level]++;
-      }
+  for (const ruleId of Object.keys(results)) {
+    const rule = ruleset[ruleId];
+    
+    if (!rule || !rule.level) {
+      continue;
+    }
+
+    const level = rule.level.toUpperCase();
+
+    if (level in errors && testColors[ruleId] === 'R') {
+      errors[level]++;
     }
   }
 
