@@ -2,14 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository, SelectQueryBuilder } from 'typeorm';
 import { User } from '../user.entity';
-import { BaseTransactionalRepository } from "@common/repositories/base-transactional.repository";
-import { FilterMap, SortingMap } from "@common/repositories/base.repository";
-import {
-  BaseFilter,
-  BasePagination,
-  BaseSort,
-  SortCriteria,
-} from "src/common/interfaces/types";
+import { BaseTransactionalRepository } from '@common/repositories/base-transactional.repository';
+import { FilterMap, PaginationResponse, SortingMap } from '@common/repositories/base.repository';
+import { BaseFilter, BasePagination, BaseSort, SortCriteria } from 'src/common/interfaces/types';
 import { SecurityContext } from 'src/core/authorization/SecurityContext';
 import { AppLoggerService } from 'src/core/app-logger/app-logger.service';
 import { ConfigService } from '@nestjs/config';
@@ -19,8 +14,7 @@ import { FGA_RESOURCE } from 'src/core/authorization/types/fga.types';
 import { AuthorizationEvent } from 'src/core/authorization/queue/payload.types';
 import { AUTHORIZATION_ACTION } from 'src/core/authorization/registry/registry.keys';
 
-
-export interface UserFilter extends BaseFilter, Pick<User, "id" | "username" > {
+export interface UserFilter extends BaseFilter, Pick<User, 'id' | 'username'> {
   id: number;
   username: string;
   searchTerm: string;
@@ -45,26 +39,25 @@ type UserQueryRequest = {
 
 @Injectable()
 export class UserRepository extends BaseTransactionalRepository<User, UserFilter, UserSorting> {
-  constructor(@InjectRepository(User) private readonly ormRepo: Repository<User>,
-                                      protected readonly logger: AppLoggerService,
-                                      protected readonly configService: ConfigService,
-                                      protected readonly outboxService: OutboxService,
-
+  constructor(
+    @InjectRepository(User) private readonly ormRepo: Repository<User>,
+    protected readonly logger: AppLoggerService,
+    protected readonly configService: ConfigService,
+    protected readonly outboxService: OutboxService,
   ) {
     super(ormRepo, logger, configService);
     this.logger.setContext(UserRepository.name);
   }
-    protected readonly alias = "user";
-
+  protected readonly alias = 'user';
 
   protected readonly filterMap: FilterMap<UserFilter, User> = {
     ids: (query, ids) => ids?.length && query.andWhere(`${this.alias}.id IN (:...ids)`, { ids }),
     id: (query, id) => query.andWhere(`${this.alias}.id = :id`, { id }),
-    username: (query, username) => query.andWhere(`${this.alias}.username = :username`, { username }),
-    searchTerm: (query, term) => 
-      query.andWhere(`(${this.alias}.username LIKE :term)`, { term: `%${term}%` }),
+    username: (query, username) =>
+      query.andWhere(`${this.alias}.username = :username`, { username }),
+    searchTerm: (query, term) =>
+      query.andWhere(`(${this.alias}.username ILIKE :term)`, { term: `%${term}%` }),
     role: (query, role) => query.andWhere(`role.slug = :role`, { role }),
-
   };
 
   protected readonly sortMap: SortingMap<UserSorting, User> = {
@@ -76,91 +69,138 @@ export class UserRepository extends BaseTransactionalRepository<User, UserFilter
     role: (query, order) => query.addOrderBy(`role.displayName`, order),
   };
 
-  
-async findByUniqueCriteria(criteria: { ccNumber?: string, username: string }): Promise<User[] | null> {
+  async findManyWithMetadata(queryArgs: UserQueryRequest): Promise<PaginationResponse<User>> {
+    const { filters, sortings, pagination } = queryArgs;
+    const connection = this.getOrmRepository().manager.connection;
+
+    const query = connection.createQueryBuilder().from(User, this.alias);
+
+    this.applyDynamicFilters(query, filters);
+    this.applyDynamicSorting(query, sortings);
+
+    const countQuery = connection.createQueryBuilder().from(User, this.alias);
+    this.applyDynamicFilters(countQuery, filters);
+    countQuery.select(`COUNT(${this.alias}.id)`, 'total');
+    this.joinUserRole(query);
+    this.joinUserRole(countQuery);
+    query.select([
+      `${this.alias}.id AS id`,
+      `${this.alias}.username AS username`,
+      `${this.alias}.created_at AS "createdAt"`,
+      `${this.alias}.updated_at AS "updatedAt"`,
+      `${this.alias}.last_login AS "lastLogin"`,
+      `json_build_object(
+        'id', role.id,
+        'displayName', role.display_name,
+        'description', role.description
+      ) AS role`,
+      `( SELECT COUNT(1) FROM team_member TM WHERE TM.user_id = ${this.alias}.id) AS "teamCount"`,
+      `( SELECT COUNT(1) FROM users_websites UW WHERE UW.user_id = ${this.alias}.id) AS "websiteCount"`,
+    ]);
+
+    this.applyPagination(query, pagination);
+
+    const [rawData, countResult] = await Promise.all([
+      query.getRawMany(),
+      countQuery.getRawOne<{ total: string }>(),
+    ]);
+
+    const totalCount = parseInt(countResult?.total ?? '0', 10);
+
+    const metadataPagination = this.calculatePaginationMeta(
+      totalCount,
+      pagination?.page ?? 1,
+      pagination?.limit ?? 10,
+    );
+
+    return {
+      data: rawData,
+      meta: metadataPagination,
+    };
+  }
+
+  async joinUserRole(query: SelectQueryBuilder<User>): Promise<void> {
+    query.leftJoin('roles', 'role', `role.id = ${this.alias}.role_id`);
+  }
+
+  async findByUniqueCriteria(criteria: {
+    ccNumber?: string;
+    username: string;
+  }): Promise<User[] | null> {
     const { ccNumber, username } = criteria;
 
-    const whereConditions: FindOptionsWhere<User>[] = [
-      { username }
-    ];
+    const whereConditions: FindOptionsWhere<User>[] = [{ username }];
 
     if (ccNumber) {
       whereConditions.push({ ccNumber });
     }
 
     return this.ormRepo.find({
-      where: whereConditions
+      where: whereConditions,
     });
   }
 
-  async createUser(user: User, role:RoleSlug, permission: UserPermission): Promise<User> {
-
-   return  this.runInTransaction(async (queryRunner) => {
-
+  async createUser(user: User, role: RoleSlug, permission: UserPermission): Promise<User> {
+    return this.runInTransaction(async (queryRunner) => {
       const savedUser = await queryRunner.manager.save(User, user);
       const manager = queryRunner.manager;
-       await this.outboxService.putInOutbox(manager, {
-              aggregateType: FGA_RESOURCE.USER,
-              aggregateId: savedUser.id,
-              eventType: AuthorizationEvent.AUTHORIZATION,
-              payload: { 
-                resourceType: FGA_RESOURCE.USER, 
-                resourceId: savedUser.id.toString(), 
-                action: AUTHORIZATION_ACTION.USER_CREATE, 
-                userId: savedUser.id,
-                role: role,
-                permission: permission,
-              }
-              }, 
-            );
-            
-            return savedUser;
-          });
-    }
+      await this.outboxService.putInOutbox(manager, {
+        aggregateType: FGA_RESOURCE.USER,
+        aggregateId: savedUser.id,
+        eventType: AuthorizationEvent.AUTHORIZATION,
+        payload: {
+          resourceType: FGA_RESOURCE.USER,
+          resourceId: savedUser.id.toString(),
+          action: AUTHORIZATION_ACTION.USER_CREATE,
+          userId: savedUser.id,
+          role: role,
+          permission: permission,
+        },
+      });
 
-    async updateUser(user: User, role:RoleSlug, permission: UserPermission): Promise<User> {
-      return this.runInTransaction(async (queryRunner) => {
-        const updatedUser = await queryRunner.manager.save(User, user);
-        const manager = queryRunner.manager;
+      return savedUser;
+    });
+  }
 
-         await this.outboxService.putInOutbox(manager, {
-                aggregateType: FGA_RESOURCE.USER,
-                aggregateId: updatedUser.id,
-                eventType: AuthorizationEvent.AUTHORIZATION,
-                payload: { 
-                  resourceType: FGA_RESOURCE.USER, 
-                  resourceId: updatedUser.id.toString(), 
-                  action: AUTHORIZATION_ACTION.USER_UPDATE, 
-                  userId: updatedUser.id,
-                  role: role,
-                  permission: permission,
-                }
-                }, 
-              );
-              
-              return updatedUser;
-            });
-          }
+  async updateUser(user: User, role: RoleSlug, permission: UserPermission): Promise<User> {
+    return this.runInTransaction(async (queryRunner) => {
+      const updatedUser = await queryRunner.manager.save(User, user);
+      const manager = queryRunner.manager;
 
-      async deleteUser(userId: number): Promise<void> {
-        return this.runInTransaction(async (queryRunner) => {
-          await queryRunner.manager.delete(User, { id: userId });
-          const manager = queryRunner.manager;
-          
-           await this.outboxService.putInOutbox(manager, {
-                  aggregateType: FGA_RESOURCE.USER,
-                  aggregateId: userId,
-                  eventType: AuthorizationEvent.AUTHORIZATION,
-                  payload: { 
-                    resourceType: FGA_RESOURCE.USER, 
-                    resourceId: userId.toString(), 
-                    action: AUTHORIZATION_ACTION.USER_DELETE, 
-                    userId: userId,
-                  }
-                  }, 
-                );
-                
-            });
-          }
-  
+      await this.outboxService.putInOutbox(manager, {
+        aggregateType: FGA_RESOURCE.USER,
+        aggregateId: updatedUser.id,
+        eventType: AuthorizationEvent.AUTHORIZATION,
+        payload: {
+          resourceType: FGA_RESOURCE.USER,
+          resourceId: updatedUser.id.toString(),
+          action: AUTHORIZATION_ACTION.USER_UPDATE,
+          userId: updatedUser.id,
+          role: role,
+          permission: permission,
+        },
+      });
+
+      return updatedUser;
+    });
+  }
+
+  async deleteUser(userId: number): Promise<void> {
+    return this.runInTransaction(async (queryRunner) => {
+      await queryRunner.manager.delete(User, { id: userId });
+      const manager = queryRunner.manager;
+
+      await this.outboxService.putInOutbox(manager, {
+        aggregateType: FGA_RESOURCE.USER,
+        aggregateId: userId,
+        eventType: AuthorizationEvent.AUTHORIZATION,
+        payload: {
+          resourceType: FGA_RESOURCE.USER,
+          resourceId: userId.toString(),
+          action: AUTHORIZATION_ACTION.USER_DELETE,
+          userId: userId,
+        },
+      });
+    });
+  }
 }
