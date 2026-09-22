@@ -1,0 +1,30 @@
+graph TD
+    %% Contextos
+    subgraph Core [CORE DOMAIN]
+        Audit[Audit Engine Context]
+        Compliance[Compliance Context]
+    end
+
+    subgraph Supporting [SUPPORTING DOMAIN]
+        Inventory[Inventory Context]
+    end
+
+    subgraph Generic [GENERIC DOMAIN]
+        Identity[Identity Context]
+        Access[Access Control / ReBAC]
+    end
+
+    %% Fluxos de Negócio (Linguagem Clara)
+    Inventory -->|1. Seed URLs & Scopes| Audit
+    Audit -->|2. Discovered Pages| Inventory
+    Audit -->|3. Evaluation Results| Compliance
+
+    %% Segurança / Autorização
+    Identity -->|User & Team Claims| Access
+    Inventory -->|Resource IDs| Access
+    Access -.->|Enforces Access| Audit
+    Access -.->|Enforces Access| Compliance
+
+    class Audit,Compliance core;
+    class Inventory supporting;
+    class Identity,Access generic;
