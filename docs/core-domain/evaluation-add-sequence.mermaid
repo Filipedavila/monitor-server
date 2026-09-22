@@ -1,0 +1,119 @@
+sequenceDiagram
+    autonumber
+    actor Client as Client / Frontend
+    participant Controller as API Controller
+    participant Service as EvaluationService
+    participant EvalRepo as EvaluationsRepository
+    participant OutboxSvc as OutboxService
+    participant PG as PostgreSQL (OLTP)
+    participant Relay as Outbox Relay (Poller / CDC)
+    participant BullMQ as BullMQ (Redis Queue)
+    participant Worker as EvaluationProcessorWorker
+    participant Storage as Storage (Local / S3)
+    participant Stream as Redis Stream (Creations Buffer)
+    participant BatchWorker as EvaluationBatchWorker
+    participant IngestionWorker as ClickHouseIngestionWorker
+    participant CH as ClickHouse (OLAP)
+
+    %% 1. Synchronous Transactional Boundary
+    rect
+    Note over Client, PG: 1. Synchronous Transactional Boundary (ACID)
+    Client->>Controller: POST /evaluations (payload)
+    activate Controller
+    Controller->>Service: evaluateWebsite(dto,securityContext)
+    activate Service
+
+    Service->>PG: Begin Transaction 
+    Service->>EvalRepo: createEvaluations(websiteId, SecurityContext)
+    EvalRepo->>PG: INSERT INTO evaluations (status = PENDING, metadata, ...)
+    
+    Service->>OutboxSvc: publish('PROCESS_CREATE_EVALUATIONS', payload, txContext)
+    OutboxSvc->>PG: INSERT INTO outbox_messages (PENDING)
+    
+    Service->>PG: Commit Transaction
+    Service-->>Controller: Evaluations Created
+    deactivate Service
+    Controller-->>Client: 201 Created (Evaluations[])
+    deactivate Controller
+    end
+
+    %% 2. Reliable Dispatch to BullMQ
+    rect 
+    Note over PG, Worker: 2. Reliable Dispatch (Deduplicated via Deterministic jobId)
+    Relay->>PG: Poll unprocessed records (FOR UPDATE SKIP LOCKED)
+    Relay->>BullMQ: Add job (jobId = outboxId, payload)
+    BullMQ-->>Relay: Enqueued ACK
+    Relay->>OutboxSvc: markAsDispatched(outboxId)
+    OutboxSvc->>PG: UPDATE outbox_messages SET status = DISPATCHED
+    BullMQ->>Worker: Consume Job
+    end
+
+    %% 3. Artifact Generation & Stream Buffering
+    rect 
+    Note over Worker, Stream: 3. Artifact Persistence & Buffer to Redis Stream
+    activate Worker
+
+    Note over Worker, Storage: Process Audit / Generate Report Files
+    Worker->>Storage: Put artifact report (idempotent overwrite)
+    Storage-->>Worker: Acknowledge (URI / Path)
+
+    Worker->>PG: UPDATE evaluations SET status = COMPLETED, artifact_uri = :uri WHERE id = :id
+    PG-->>Worker: Updated
+
+    Note over Worker, Stream: Append Metrics Row to Stream
+    Worker->>Stream: XADD stream:evaluations:created (evaluationId, metricsPayload)
+    Stream-->>Worker: Entry ID
+
+    Worker-->>BullMQ: Complete Job (ACK)
+    deactivate Worker
+    end
+
+    %% 4. Asynchronous ClickHouse Micro-Batching
+    rect 
+    Note over Stream, BatchWorker: 4. Batch Sealing (Threshold: N items OR Timeout)
+    activate BatchWorker
+    loop Check Periodic Trigger
+        BatchWorker->>Stream: XLEN stream:evaluations:created
+        Stream-->>BatchWorker: Current pending count
+        
+        alt Condition Met: Count >= 500 OR Timeout >= 20m
+            BatchWorker->>Stream: XREADGROUP ... COUNT 500 STREAMS stream:evaluations:created >
+            Stream-->>BatchWorker: Raw entries with metrics (up to 500)
+            
+            Note over Stream, BatchWorker: Generate idempotentKey = hash(first_id + "_" + last_id + "_" + count)
+            BatchWorker->>Stream: XADD stream:evaluations:createdBucket (idempotentKey, batchRecords)
+            Stream-->>BatchWorker: Entry ID
+            BatchWorker->>Stream: XACK stream:evaluations:created (Ack read IDs)
+        else Condition Not Met
+            Note over Stream, BatchWorker: Standby / wait until threshold or timeout is reached
+        end
+    end
+    deactivate BatchWorker
+    end
+
+    %% 5. Ingestion of Deterministic Buckets into ClickHouse
+    rect
+    Note over Stream, CH: 5. Ingestion of Deterministic Buckets into ClickHouse
+    activate IngestionWorker
+    
+    loop Check Pending Buckets
+        IngestionWorker->>Stream: XLEN stream:evaluations:createdBucket
+        Stream-->>IngestionWorker: Current bucket count
+        
+        alt Buckets Available (XLEN >= 1)
+            IngestionWorker->>Stream: XREADGROUP ... COUNT 1 STREAMS stream:evaluations:createdBucket >
+            Stream-->>IngestionWorker: Sealed bucket (idempotentKey, batchRecords)
+            
+            Note over IngestionWorker, CH: Native Deduplication via Token
+            IngestionWorker->>CH: Batch INSERT INTO evaluations_metrics SETTINGS insert_deduplication_token = :idempotentKey VALUES (:batchRecords)
+            CH-->>IngestionWorker: Acknowledge (Single compact part written / deduplicated)
+            
+            IngestionWorker->>Stream: XACK stream:evaluations:createdBucket (Ack processed bucket ID)
+            Stream-->>IngestionWorker: Ack confirmed
+        else No Buckets Available (XLEN == 0)
+            Note over IngestionWorker: Standby / wait for next poll cycle
+        end
+    end
+    
+    deactivate IngestionWorker
+    end
