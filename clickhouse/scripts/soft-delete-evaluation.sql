@@ -16,7 +16,8 @@ INSERT INTO accessibility.evaluations_temp (
     rule_counts,
     is_deleted
 )
-SELECT evaluation_id,
+SELECT 
+    evaluation_id,
     directories_ids,
     institution_id,
     website_id,
@@ -30,39 +31,7 @@ SELECT evaluation_id,
     rule_type,
     rule_result,
     rule_counts,
-    1 FROM evaluations_temp
+    1 AS is_deleted
+FROM accessibility.evaluations_temp FINAL
 PREWHERE is_deleted = 0 AND is_migrated = 0
-WHERE rule_code = 'landmark_08'
-
-
-
-
-
-
-
-SELECT
-    rule_id AS rule_code,
-    sum(toUInt32(count)) AS count
-FROM
-(
-    SELECT
-        rule_id,
-        rule_result,
-        is_migrated,
-        argMax(count, version) AS count,
-        argMax(is_deleted, version) AS latest_is_deleted
-    FROM evaluations_temp
-    GROUP BY
-        institution_id,
-        evaluation_date,
-        website_id,
-        evaluation_id,
-        rule_id,
-        rule_result,
-        is_migrated
-)
-WHERE latest_is_deleted = 0
-  AND is_migrated = 0
-  AND rule_result = 'passed'
-GROUP BY rule_id
-ORDER BY count DESC LIMIT 10;
+WHERE evaluation_id = {evaluationId:UInt32};
