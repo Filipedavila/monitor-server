@@ -34,12 +34,16 @@ import { ConfigService } from '@nestjs/config';
         defaultJobOptions: DEFAULT_JOB_OPTIONS,
       },
       {
-        name: QUEUE_NAMES.EVAL_PRIVATE_DQL,
+        name: QUEUE_NAMES.EVAL_PRIVATE_DLQ,
       },
       {
         name: QUEUE_NAMES.CRAWL_PUBLIC,
         defaultJobOptions: DEFAULT_JOB_OPTIONS,
       },
+      { name: QUEUE_NAMES.CRAWL_PRIVATE_DLQ },
+      { name: QUEUE_NAMES.CRAWL_PUBLIC_DLQ },
+      { name: QUEUE_NAMES.PRIVATE_PAGE_DISPATCH },
+      { name: QUEUE_NAMES.PUBLIC_PAGE_DISPATCH },
       { name: QUEUE_NAMES.AUTHORIZATION, defaultJobOptions: DEFAULT_JOB_OPTIONS },
     ),
     BullBoardModule.forFeature(
@@ -49,7 +53,11 @@ import { ConfigService } from '@nestjs/config';
       { name: QUEUE_NAMES.CRAWL_PUBLIC, adapter: BullMQAdapter },
       { name: QUEUE_NAMES.AUTHORIZATION, adapter: BullMQAdapter },
       { name: QUEUE_NAMES.EVAL_PUBLIC_DLQ, adapter: BullMQAdapter },
-      { name: QUEUE_NAMES.EVAL_PRIVATE_DQL, adapter: BullMQAdapter },
+      { name: QUEUE_NAMES.EVAL_PRIVATE_DLQ, adapter: BullMQAdapter },
+      { name: QUEUE_NAMES.CRAWL_PRIVATE_DLQ, adapter: BullMQAdapter },
+      { name: QUEUE_NAMES.CRAWL_PUBLIC_DLQ, adapter: BullMQAdapter },
+      { name: QUEUE_NAMES.PRIVATE_PAGE_DISPATCH, adapter: BullMQAdapter },
+      { name: QUEUE_NAMES.PUBLIC_PAGE_DISPATCH, adapter: BullMQAdapter },
     ),
     BullBoardModule.forRootAsync({
       inject: [ConfigService],
