@@ -23,6 +23,7 @@ import {
   RepositoryTableConfig,
   DEFAULT_CONTEXT_METADATA,
 } from './base-context';
+import { chunkArray } from '../utils/utils';
 
 export abstract class ContextAwareRepository<
   T extends IdentifiableModel,
@@ -209,140 +210,116 @@ export abstract class ContextAwareRepository<
       );
     }
   }
-
   protected async addContextRules(
     queryRunner: QueryRunner,
     relationIds: number[],
-    contexts: ContextEnum[] | undefined,
-    securityContext: SecurityContext,
-  ): Promise<void> {
-    if (!relationIds?.length) {
-      return;
-    }
-
-    const { contextTable, mainTable } = this.tables;
-
-    const resolvedIds: number[] =
-      contexts && contexts.length > 0
-        ? contexts
-            .map((code) => getContextIdByCode(code))
-            .filter((id): id is number => typeof id === 'number' && !Number.isNaN(id))
-        : [securityContext.user.context.id];
-
-    const uniqueContextIds = Array.from(new Set(resolvedIds));
-
-    if (uniqueContextIds.length === 0) {
-      return;
-    }
-
-    // Atomic operation:
-    // 1. Gera o produto cartesiano (entity_id x context_id).
-    // 2. Insere as associações que ainda não existam (idempotente).
-    // 3. Adquire lock das entidades alvo para sincronizar com operações de delete.
-    // 4. Restaura (revive) qualquer entidade que esteja soft-deleted (deleted_at = NULL).
-    const query = `
-    WITH target_pairs AS (
-      SELECT e_id, c_id
-      FROM unnest($1::int[]) AS e_id
-      CROSS JOIN unnest($2::int[]) AS c_id
-    ),
-    inserted_associations AS ( 
-      INSERT INTO ${contextTable.table} (${contextTable.fk}, context_id)
-      SELECT e_id, c_id
-      FROM target_pairs
-      ON CONFLICT (${contextTable.fk}, context_id) DO NOTHING
-      RETURNING ${contextTable.fk} AS entity_id
-    ),
-    locked_entities AS (
-      SELECT e.id
-      FROM ${mainTable.table} e
-      WHERE e.id = ANY($1::int[])
-      FOR UPDATE
-    )
-    UPDATE ${mainTable.table}
-    SET deleted_at = NULL
-    WHERE id IN (SELECT id FROM locked_entities)
-      AND deleted_at IS NOT NULL;
-  `;
-
-    await queryRunner.query(query, [relationIds, uniqueContextIds]);
-  }
-  protected async substituteContextRules(
-    queryRunner: QueryRunner,
-    relationIds: number[],
-    contexts: ContextEnum[],
+    contexts?: ContextEnum[],
     securityContext?: SecurityContext,
   ): Promise<void> {
-    const cleanRelationIds = Array.from(new Set(relationIds)).filter(
-      (id) => typeof id === 'number' && !Number.isNaN(id) && id > 0,
-    );
+    const cleanRelationIds = Array.from(new Set(relationIds))
+      .filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0)
+      .sort((a, b) => a - b);
 
     if (cleanRelationIds.length === 0) {
       return;
     }
 
-    // Se contexts for passado vazio, a semântica de "substituir por vazio" é desassociar tudo.
-    // Caso contrário, resolve os IDs de contexto.
-    const resolvedIds: number[] = contexts?.length
-      ? contexts
-          .map((code) => getContextIdByCode(code))
-          .filter((id): id is number => typeof id === 'number' && !Number.isNaN(id))
-      : securityContext?.user?.context?.id
-        ? [securityContext.user.context.id]
-        : [];
+    let resolvedIds: number[] = [];
 
-    const uniqueContextIds = Array.from(new Set(resolvedIds));
-    const { contextTable, mainTable } = this.tables;
+    if (contexts !== undefined) {
+      resolvedIds = contexts
+        .map((code) => getContextIdByCode(code))
+        .filter((id): id is number => typeof id === 'number' && !Number.isNaN(id));
+    } else if (securityContext?.user?.context?.id) {
+      resolvedIds = [securityContext.user.context.id];
+    }
 
-    // Se a substituição for por um conjunto vazio, apenas desassocia tudo o que estas entidades têm
+    const uniqueContextIds = Array.from(new Set(resolvedIds)).sort((a, b) => a - b);
+
     if (uniqueContextIds.length === 0) {
-      const clearQuery = `
-      WITH locked_entities AS (
-        SELECT id 
-        FROM ${mainTable.table}
-        WHERE id = ANY($1::int[])
-        ORDER BY id ASC
-        FOR UPDATE
-      )
-      DELETE FROM ${contextTable.table}
-      WHERE ${contextTable.fk} IN (SELECT id FROM locked_entities);
-    `;
-      await queryRunner.query(clearQuery, [cleanRelationIds]);
       return;
     }
 
-    // Substituição Diferencial Atómica:
-    // 1. Lock determinístico nas entidades principais para evitar deadlocks/concorrência.
-    // 2. Remove apenas as associações que NÃO pertencem ao novo conjunto alvo.
-    // 3. Insere em lote as associações novas via CROSS JOIN (idempotente com ON CONFLICT).
-    // 4. (Opcional) Garante que a entidade alvo está ativa se isso fizer parte do contrato.
-    const query = `
-    WITH locked_entities AS (
-      SELECT id
-      FROM ${mainTable.table}
-      WHERE id = ANY($1::int[])
-      ORDER BY id ASC
-      FOR UPDATE
-    ),
-    pruned_old_associations AS (
-      -- Remove o que já não deve existir
-      DELETE FROM ${contextTable.table}
-      WHERE ${contextTable.fk} IN (SELECT id FROM locked_entities)
-        AND NOT (context_id = ANY($2::int[]))
-    ),
-    target_pairs AS (
-      -- Gera o produto cartesiano das entidades com a nova lista de contextos
-      SELECT e.id AS e_id, c_id
-      FROM locked_entities e
-      CROSS JOIN unnest($2::int[]) AS c_id
-    )
-    -- Insere apenas o que estiver em falta
-    INSERT INTO ${contextTable.table} (${contextTable.fk}, context_id)
-    SELECT e_id, c_id
-    FROM target_pairs
-    ON CONFLICT (${contextTable.fk}, context_id) DO NOTHING;
+    const { contextTable } = this.tables;
+
+    const insertQuery = `
+    INSERT INTO "${contextTable.table}" ("${contextTable.fk}", context_id)
+    SELECT r_id, c_id
+    FROM unnest($1::int[]) AS r_id
+    CROSS JOIN unnest($2::int[]) AS c_id
+    ON CONFLICT ("${contextTable.fk}", context_id) DO NOTHING;
   `;
 
-    await queryRunner.query(query, [cleanRelationIds, uniqueContextIds]);
+    const BATCH_SIZE = 1000;
+    const idBatches = chunkArray(cleanRelationIds, BATCH_SIZE);
+
+    for (const batch of idBatches) {
+      await queryRunner.query(insertQuery, [batch, uniqueContextIds]);
+    }
+  }
+  protected async substituteContextRules(
+    queryRunner: QueryRunner,
+    relationIds: number[],
+    contexts?: ContextEnum[],
+    securityContext?: SecurityContext,
+  ): Promise<void> {
+    const cleanRelationIds = Array.from(new Set(relationIds))
+      .filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0)
+      .sort((a, b) => a - b);
+
+    if (cleanRelationIds.length === 0) {
+      return;
+    }
+
+    let resolvedIds: number[] = [];
+
+    if (contexts !== undefined) {
+      resolvedIds = contexts
+        .map((code) => getContextIdByCode(code))
+        .filter((id): id is number => typeof id === 'number' && !Number.isNaN(id));
+    } else if (securityContext?.user?.context?.id) {
+      resolvedIds = [securityContext.user.context.id];
+    }
+
+    const uniqueContextIds = Array.from(new Set(resolvedIds)).sort((a, b) => a - b);
+    const { contextTable } = this.tables;
+
+    const BATCH_SIZE = 1000;
+    const idBatches = chunkArray(cleanRelationIds, BATCH_SIZE);
+
+    // Caso 1: Desassociação total em lotes
+    if (uniqueContextIds.length === 0) {
+      const clearQuery = `
+      DELETE FROM "${contextTable.table}"
+      WHERE "${contextTable.fk}" = ANY($1::int[]);
+    `;
+
+      for (const batch of idBatches) {
+        await queryRunner.query(clearQuery, [batch]);
+      }
+      return;
+    }
+
+    // Caso 2: Sincronização diferencial em lote
+    const syncQuery = `
+    WITH target_pairs AS (
+      SELECT r_id, c_id
+      FROM unnest($1::int[]) AS r_id
+      CROSS JOIN unnest($2::int[]) AS c_id
+    ),
+    pruned_associations AS (
+      DELETE FROM "${contextTable.table}"
+      WHERE "${contextTable.fk}" = ANY($1::int[])
+        AND NOT (context_id = ANY($2::int[]))
+    )
+    INSERT INTO "${contextTable.table}" ("${contextTable.fk}", context_id)
+    SELECT r_id, c_id
+    FROM target_pairs
+    ON CONFLICT ("${contextTable.fk}", context_id) DO NOTHING;
+  `;
+
+    for (const batch of idBatches) {
+      await queryRunner.query(syncQuery, [batch, uniqueContextIds]);
+    }
   }
 }
