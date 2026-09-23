@@ -1,4 +1,4 @@
-import { Expose, Transform, Type } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import { RoleDTO } from '../../role/role.dto';
 export class UserDTO {
   @Expose()
