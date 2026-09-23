@@ -29,7 +29,7 @@ export interface PageMetadata {
 }
 
 export interface EvaluationMeta {
-  evaluationId: number;
+  evaluationId?: number;
 }
 
 export interface AdditionalMetadata {
