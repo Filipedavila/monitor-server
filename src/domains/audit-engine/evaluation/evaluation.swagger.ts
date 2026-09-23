@@ -10,7 +10,7 @@ import {
 
 import { Evaluation } from './entities/evaluation.entity';
 import { CreateWebsiteDto } from 'src/domains/inventory/website/dto/create-website.dto';
-import { EvaluationRequestDTO } from './dto/EvaluationRequest.dto';
+import { EvaluationQueryDTO } from './dto/request/evaluation-request.dto';
 
 export const EvaluationDocs = {
   controller: () =>
@@ -23,7 +23,7 @@ export const EvaluationDocs = {
   findAll: () =>
     applyDecorators(
       ApiOperation({ summary: 'Get all evaluations that you are authorized to view' }),
-      ApiQuery({ type: EvaluationRequestDTO }),
+      ApiQuery({ type: EvaluationQueryDTO }),
     ),
 
   findOne: () =>

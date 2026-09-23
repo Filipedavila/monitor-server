@@ -1,15 +1,18 @@
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EvaluationStatus } from '../../entities/evaluation.entity';
+import { Evaluation, PublishStatus } from '../../entities/evaluation.entity';
 
 import { QUEUE_NAMES } from 'src/core/queues/queues.config';
-import { EvaluationStorage } from '../../types/evaluation-storage.interface';
-import { EvaluationEngine } from '../../types/evaluation-engine.interface';
+import { EvaluationEngine } from '../../contracts/evaluation-engine.contract';
+import { EvaluationStorage } from '../../contracts/evaluation-storage.contract';
 import { EvaluationParserService } from '../../evaluation-parser.service';
 import { EvaluationRepository } from '../../evaluation.repository';
 import { EvaluationJobData } from '../../types';
 import { Inject } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { PageStatus } from 'src/domains/inventory/page/page-contexts.entity';
 
 @Processor(QUEUE_NAMES.EVAL_PUBLIC, {
   concurrency: 10,
@@ -25,6 +28,8 @@ export class EvaluationPublicWorker extends WorkerHost {
     @Inject(EvaluationParserService)
     private readonly evaluationParser: EvaluationParserService,
     private readonly evaluationRepository: EvaluationRepository,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
 
     private eventEmitter: EventEmitter2,
   ) {
@@ -32,8 +37,8 @@ export class EvaluationPublicWorker extends WorkerHost {
   }
 
   async process(job: Job<EvaluationJobData, void, string>): Promise<void> {
-    const { evaluationId, websiteId, pageId, url } = job.data;
-
+    const { websiteId, evaluationId, pageId, url } = job.data;
+    let evaluationIdJob = evaluationId;
     const evaluationResult = await this.evaluationEngine.evaluate(url);
     job.updateProgress(50);
     job.log('Received Evaluation from Engine');
@@ -41,11 +46,22 @@ export class EvaluationPublicWorker extends WorkerHost {
       this.evaluationParser.parseEvaluation(evaluationResult);
     const evaluationDate = evaluationReport.metadata.evaluatedAt;
 
+    if (!evaluationIdJob) {
+      const evaluation = new Evaluation();
+      evaluation.evaluationDate = new Date(evaluationDate);
+      evaluation.pageId = pageId;
+      evaluationIdJob = (await this.evaluationRepository.save(evaluation)).id;
+      await job.updateData({
+        ...job.data,
+        evaluationId: evaluationIdJob,
+      });
+    }
+
     this.evaluationStore.save({
       htmlContent: evaluationReport.snapshot.html,
       nodes: evaluationReport.scoring.assertionEvidence,
       evalIdentifier: {
-        evaluationId,
+        evaluationId: evaluationIdJob,
         websiteId,
         pageId,
         evaluationDate,
@@ -54,10 +70,10 @@ export class EvaluationPublicWorker extends WorkerHost {
     job.log('Saved compressed files in  Storage');
     job.updateProgress(70);
 
-    await this.evaluationRepository.updateEntityFromRawData(evaluationId, evaluationData);
+    await this.evaluationRepository.updateEntityFromRawData(evaluationIdJob, evaluationData);
     job.updateProgress(100);
     job.log('Evaluation Resolution Ended');
-    await this.evaluationRepository.updateStatus(evaluationId, EvaluationStatus.COMPLETED);
+    await this.evaluationRepository.updateStatus(evaluationIdJob, PublishStatus.STAGED);
   }
 
   @OnWorkerEvent('active')
@@ -67,8 +83,16 @@ export class EvaluationPublicWorker extends WorkerHost {
   }
 
   @OnWorkerEvent('completed')
-  onCompleted(job: Job) {
+  async onCompleted(job: Job) {
     console.log(`Job ${job.id} terminou com sucesso!`);
+    await this.dataSource.query(
+      `
+            UPDATE page_contexts_monitor
+            SET page_status = $1
+            WHERE page_id = $2;
+            `,
+      [PageStatus.EVALUATED, job.data.pageId],
+    );
     this.eventEmitter.emit('evaluation.completed', job.data);
   }
 
@@ -78,7 +102,17 @@ export class EvaluationPublicWorker extends WorkerHost {
       job.retry();
     } else {
       await this.dldqueue.add('failed-job', job);
-      await this.evaluationRepository.updateStatus(job.data.evaluationId, EvaluationStatus.FAILED);
+      if (job.data.evaluationId) {
+        await this.evaluationRepository.delete(job.data.evaluationId);
+      }
+      await this.dataSource.query(
+        `
+            UPDATE page_contexts_monitor
+            SET page_status = $1
+            WHERE page_id = $2;
+            `,
+        [PageStatus.FAILED, job.data.pageId],
+      );
 
       this.eventEmitter.emit('evaluation.failed', { jobData: job.data, error: error.message });
       console.error(` Job ${job.id} falhou: ${error.message}`);

@@ -8,20 +8,19 @@ import { WCAGTechniques } from '@qualweb/wcag-techniques';
 import { BestPractices } from '@qualweb/best-practices';
 import { Counter } from '@qualweb/counter';
 import { z } from 'zod';
-import { EvaluationEngine } from '../types/evaluation-engine.interface';
-
+import { EvaluationEngine } from '../../contracts/evaluation-engine.contract';
 chromium.use(StealthPlugin());
 interface EvaluationReports {
   [key: string]: any;
 }
-
 
 const TIMEOUT_SECONDS = 240;
 const TIMEOUT_MS = TIMEOUT_SECONDS * 1000;
 const QUALWEB_START_TIMEOUT = TIMEOUT_MS * 2;
 const MAX_CONCURRENCY = 2;
 
-const USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36';
+const USER_AGENT =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36';
 const LANGUAGE = 'pt-pt,pt';
 
 const BROWSER_ARGS = [
@@ -106,14 +105,16 @@ export class QualWebPlaywrightEngine implements EvaluationEngine {
   public async evaluate(url: string): Promise<any> {
     const parseResult = UrlSchema.safeParse(url);
     if (!parseResult.success) {
-      throw new Error(`Invalid evaluation parameter: URL must be a valid format. Details: ${parseResult.error.message}`);
+      throw new Error(
+        `Invalid evaluation parameter: URL must be a valid format. Details: ${parseResult.error.message}`,
+      );
     }
 
     const driver = new PlaywrightDriver({
       browser: 'chromium',
       launchOptions: { headless: true },
     });
-    
+
     const qualweb = new QualWeb(undefined, driver);
 
     try {
@@ -131,8 +132,7 @@ export class QualWebPlaywrightEngine implements EvaluationEngine {
       }
 
       return evaluationReport;
-     //   return reports as EvaluationReports;
-
+      //   return reports as EvaluationReports;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`QualWeb evaluation failed for URL ${url}: ${errorMsg}`);

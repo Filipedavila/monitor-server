@@ -5,7 +5,7 @@ import { WCAGTechniques } from '@qualweb/wcag-techniques';
 import { BestPractices } from '@qualweb/best-practices';
 import { Counter } from '@qualweb/counter';
 import { z } from 'zod';
-import { EvaluationEngine } from '../types/evaluation-engine.interface';
+import { EvaluationEngine } from '../../contracts/evaluation-engine.contract';
 
 const TIMEOUT_SECONDS = 240;
 const TIMEOUT_MS = TIMEOUT_SECONDS * 1000;

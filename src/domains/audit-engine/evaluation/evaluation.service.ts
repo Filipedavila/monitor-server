@@ -1,34 +1,26 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-  BadRequestException,
-  Inject,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Evaluation } from './entities/evaluation.entity';
 import { EvaluationRepository } from './evaluation.repository';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { EvaluationQueryDTO } from './dto/request/evaluation-request.dto';
-import { Page } from 'src/domains/inventory/page/page.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
 import { AppLoggerService } from 'src/core/app-logger/app-logger.service';
 import { SecurityContext } from 'src/core/authorization/SecurityContext';
-import { EvaluationStorage } from './types/evaluation-storage.interface';
-import { EvaluationRequestDTO } from './dto/EvaluationRequest.dto';
-import { RoleSlug } from 'src/core/authentication/interfaces/types';
 import { ReadStream } from 'node:fs';
-import { Website } from 'src/domains/inventory/website/website.entity';
+import { EvaluationStorage } from './contracts/evaluation-storage.contract';
+import { EvaluationQueryDTO } from './dto/request/evaluation-request.dto';
+import { EvaluationInitiatorRegistry } from './registries/evaluation-initiator.registry';
+import { EvaluationTriggerType } from './dto/evaluation-trigger.dto';
+import { Repository } from 'typeorm';
+import { Page } from 'src/domains/inventory/page/page.entity';
+import { EvaluationDTO } from './dto/evaluation.dto';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class EvaluationService {
   constructor(
     private readonly evaluationRepository: EvaluationRepository,
-    @InjectRepository(Website) private readonly websiteRepository: Repository<Website>,
-    @InjectRepository(Page) private readonly pageRepository: Repository<Page>,
-    @InjectQueue('evaluation-queue-public') private readonly publicEvaluationQueue: Queue,
-    @InjectQueue('evaluation-queue-private') private readonly privateEvaluationQueue: Queue,
+    @InjectRepository(Page)
+    private readonly pageRepository: Repository<Page>,
+    private readonly evaluationInitiatorRegistry: EvaluationInitiatorRegistry,
     private readonly logger: AppLoggerService,
     @Inject(EvaluationStorage)
     private readonly evaluationStore: EvaluationStorage,
@@ -56,7 +48,7 @@ export class EvaluationService {
     pageId: number,
     evaluationId: number,
     securityContext: SecurityContext,
-  ): Promise<Evaluation> {
+  ): Promise<EvaluationDTO> {
     const evaluation = await this.evaluationRepository.findEvaluationById(
       websiteId,
       pageId,
@@ -66,105 +58,17 @@ export class EvaluationService {
     if (!evaluation) {
       throw new NotFoundException(`Evaluation with ID ${evaluationId} not found`);
     }
-    return evaluation;
+    const evaluationDto = plainToInstance(EvaluationDTO, evaluation);
+    return evaluationDto;
   }
 
-  public async evaluateWebsite(websiteId: number, securityContext: SecurityContext): Promise<void> {
-    const website = await this.websiteRepository.findOne({ where: { id: websiteId } });
-    if (!website) {
-      throw new NotFoundException(`Website with ID ${websiteId} not found`);
-    }
-
-    const pages = await this.pageRepository.find({ where: { websiteId } });
-    if (!pages.length) {
-      throw new NotFoundException(`No pages found for website with ID ${websiteId}`);
-    }
-
-    await this.evaluateManyPages(
-      {
-        websiteId,
-        pagesIds: pages.map((page) => page.id),
-        userId: securityContext.user.id,
-      },
-      securityContext,
-    );
-  }
-  /*
-  public async triggerEvaluation(
-    evaluationTriggerDTO: EvaluationTriggerDTO,
+  public async evaluate(
+    targetType: EvaluationTriggerType,
+    targetIds: number[],
     securityContext: SecurityContext,
   ): Promise<void> {
-    // Implement the logic for triggering evaluation based on the evaluationTriggerDTO
-    // ver que tipo de trigger é
-  }
-*/
-  public async evaluateManyPages(
-    request: EvaluationRequestDTO,
-    securityContext: SecurityContext,
-  ): Promise<void> {
-    if (!request.pagesIds?.length) {
-      throw new BadRequestException('At least one page ID must be provided.');
-    }
-
-    this.logger.log(
-      `Evaluating ${request.pagesIds.length} pages for website ID: ${request.websiteId}`,
-    );
-
-    // Validação estrita de existência de páginas vinculadas ao website
-    const pages = await this.pageRepository.find({
-      where: {
-        id: In(request.pagesIds),
-        websiteId: request.websiteId,
-      },
-    });
-
-    if (pages.length !== request.pagesIds.length) {
-      throw new BadRequestException(
-        'One or more provided pages do not exist or do not belong to the specified website.',
-      );
-    }
-
-    const websiteEvaluations = pages.map((page) => {
-      const evaluation = new Evaluation();
-      evaluation.pageId = page.id;
-      evaluation.createdById = securityContext.user.id;
-      return evaluation;
-    });
-
-    const evaluationTargetMetadata = await this.evaluationRepository.getMetadataForEvaluation(
-      request.websiteId,
-    );
-
-    const result = await this.evaluationRepository.createManyEvaluations(
-      websiteEvaluations,
-      securityContext.user.context.id,
-    );
-
-    if (!result) {
-      throw new InternalServerErrorException('Failed to create evaluations for the website pages');
-    }
-
-    const jobs = pages.map((page, index) => ({
-      name: 'evaluation-job',
-      data: {
-        websiteId: request.websiteId,
-        institutionId: evaluationTargetMetadata.institution_id ?? 0,
-        directoryIds: evaluationTargetMetadata.directories_ids ?? [],
-        evaluationId: websiteEvaluations[index].id,
-        pageId: page.id,
-        url: page.url,
-      },
-      opts: {
-        jobId: `evaluation-job-${websiteEvaluations[index].id}`,
-      },
-    }));
-
-    const targetQueue =
-      securityContext.user.role_slug === RoleSlug.ADMIN
-        ? this.privateEvaluationQueue
-        : this.publicEvaluationQueue;
-
-    await targetQueue.addBulk(jobs);
+    const initiator = this.evaluationInitiatorRegistry.get(targetType);
+    await initiator.initiate(securityContext, targetIds);
   }
 
   public async saveExternalEvaluation(
@@ -219,7 +123,7 @@ export class EvaluationService {
         evaluationId: evaluation.id,
         websiteId,
         pageId: evaluation.pageId,
-        evaluationDate: evaluation.evaluationDate.toString(),
+        evaluationDate: evaluation.evaluationDate!.toString(),
       },
       'nodes',
     );
@@ -243,7 +147,7 @@ export class EvaluationService {
         evaluationId: evaluation.id,
         websiteId,
         pageId: evaluation.pageId,
-        evaluationDate: evaluation.evaluationDate.toString(),
+        evaluationDate: evaluation.evaluationDate!.toString(),
       },
       'html',
     );

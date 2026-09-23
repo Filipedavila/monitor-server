@@ -2,7 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { RepositoryTableConfig } from 'src/common/repositories/base-context';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder, In } from 'typeorm';
-import { Evaluation, EvaluationStatus, PublishStatus } from './entities/evaluation.entity';
+import { Evaluation, PublishStatus } from './entities/evaluation.entity';
 import { FilterMap, SortingMap } from '@common/repositories/base.repository';
 import { BaseFilter, BasePagination, BaseSort, SortCriteria } from 'src/common/interfaces/types';
 import { AppLoggerService } from '@core/app-logger/app-logger.service';
@@ -148,7 +148,7 @@ export class EvaluationRepository extends ContextAwareRepository<
     return await this.orm.save(evaluation);
   }
 
-  async updateStatus(evaluationId: number, status: EvaluationStatus): Promise<Evaluation> {
+  async updateStatus(evaluationId: number, status: PublishStatus): Promise<Evaluation> {
     const evaluation = await this.findByIdOrFail(evaluationId);
     evaluation.status = status;
     return await this.orm.save(evaluation);
@@ -156,7 +156,7 @@ export class EvaluationRepository extends ContextAwareRepository<
 
   async updatePublishStatus(evaluationId: number, status: PublishStatus): Promise<Evaluation> {
     const evaluation = await this.findByIdOrFail(evaluationId);
-    evaluation.publishStatus = status;
+    evaluation.status = status;
     return await this.orm.save(evaluation);
   }
 

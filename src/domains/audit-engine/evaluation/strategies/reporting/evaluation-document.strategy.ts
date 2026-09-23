@@ -1,12 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { PublishStatus } from '../../entities/evaluation.entity';
+import { OutboxService } from 'src/core/outbox/outbox.service';
 import {
   EvaluationPersister,
   EvaluationPersisterPayload,
-} from '../types/evaluation-persister.interface';
-import { EvaluationRepository } from '../evaluation.repository';
-import { Evaluation, EvaluationStatus } from '../entities/evaluation.entity';
-import { EvaluationPublishingService } from '../evaluation-publish.service';
-import { OutboxService } from 'src/core/outbox/outbox.service';
+} from '../../contracts/evaluation-persister.contract';
+import { EvaluationRepository } from '../../evaluation.repository';
+import { EvaluationPublishingService } from '../../evaluation-publish.service';
+import { Evaluation } from '../../entities/evaluation.entity';
 
 @Injectable()
 export class EvaluationDocumentStrategy implements EvaluationPersister {
@@ -57,7 +58,7 @@ export class EvaluationDocumentStrategy implements EvaluationPersister {
             AA: basicResult.AA,
             AAA: basicResult.AAA,
             evaluationDate: new Date(basicResult.createdAt),
-            status: EvaluationStatus.COMPLETED,
+            status: PublishStatus.STAGED,
             score: basicResult.score,
             tagCount: basicResult.tagCount,
           },

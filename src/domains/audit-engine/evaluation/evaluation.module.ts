@@ -15,17 +15,30 @@ import { EvaluationProducer } from './redis/evaluation.producer';
 import { EvaluationConsumer } from './redis/evaluation.consumer';
 import { ClickhouseModule } from 'src/core/clickhouse/clickhouse.module';
 import { EvaluationContext } from './entities/contexts-evaluation.entity';
-import { EvaluationEngine } from './types/evaluation-engine.interface';
-import { EvaluationStorage } from './types/evaluation-storage.interface';
-import { EvaluationLocalStorageStrategy } from './strategies/evaluation-local-storage.strategy';
-import { QualWebPuppeteerEngine } from './strategies/evaluation-engine-puppeteer.strategy';
-import { EvaluationPersister } from './types/evaluation-persister.interface';
-import { EvaluationDocumentStrategy } from './strategies/evaluation-document.strategy';
+
 import { Website } from 'src/domains/inventory/website/website.entity';
 import { EvaluationParserService } from './evaluation-parser.service';
 import { EvaluationPublishingService } from './evaluation-publish.service';
 import { RepositoryTableConfig } from 'src/common/repositories/base-context';
 import { EVALUATION_CONTEXT_METADATA_CONFIG } from './evaluation.constants';
+import { EvaluationEngine } from './contracts/evaluation-engine.contract';
+import { QualWebPuppeteerEngine } from './strategies/engines/evaluation-engine-puppeteer.strategy';
+import { EvaluationStorage } from './contracts/evaluation-storage.contract';
+import { EvaluationLocalStorageStrategy } from './strategies/storage/evaluation-local-storage.strategy';
+import { EvaluationPersister } from './contracts/evaluation-persister.contract';
+import { EvaluationDocumentStrategy } from './strategies/reporting/evaluation-document.strategy';
+import { EvaluationInitiatorRegistry } from './registries/evaluation-initiator.registry';
+import {
+  GlobalEvaluationInitiationStrategy,
+  TagEvaluationInitiationStrategy,
+  DirectoryEvaluationInitiationStrategy,
+  PageEvaluationInitiationStrategy,
+  WebsiteEvaluationInitiationStrategy,
+  InstitutionEvaluationInitiationStrategy,
+} from './strategies/initiation';
+import { QUEUE_NAMES } from 'src/core/queues/queues.config';
+import { PublicPageExtractorProcessor } from './queue/processors/page-public.processor';
+import { PrivatePageExtractorProcessor } from './queue/processors/page-private.processor';
 
 export const EvaluationTableConfigProvider: Provider = {
   provide: EVALUATION_CONTEXT_METADATA_CONFIG,
@@ -48,10 +61,13 @@ export const EvaluationTableConfigProvider: Provider = {
 
 @Module({
   imports: [
-    BullModule.registerQueue({ name: 'evaluation-queue-private' }),
-    BullModule.registerQueue({ name: 'evaluation-queue-public' }),
-    BullModule.registerQueue({ name: 'evaluation-queue-public-dql' }),
-    BullModule.registerQueue({ name: 'evaluation-queue-private-dlq' }),
+    BullModule.registerQueue({ name: QUEUE_NAMES.EVAL_PRIVATE_DLQ }),
+    BullModule.registerQueue({ name: QUEUE_NAMES.EVAL_PUBLIC }),
+    BullModule.registerQueue({ name: QUEUE_NAMES.EVAL_PUBLIC_DLQ }),
+    BullModule.registerQueue({ name: QUEUE_NAMES.EVAL_PRIVATE_DLQ }),
+    BullModule.registerQueue({ name: QUEUE_NAMES.EVAL_PRIVATE }),
+    BullModule.registerQueue({ name: QUEUE_NAMES.PUBLIC_PAGE_DISPATCH }),
+    BullModule.registerQueue({ name: QUEUE_NAMES.PRIVATE_PAGE_DISPATCH }),
     TypeOrmModule.forFeature([Website, Page, Evaluation, EvaluationContext]),
     RedisModule,
     AccessibilityStatementModule,
@@ -72,15 +88,24 @@ export const EvaluationTableConfigProvider: Provider = {
       useClass: EvaluationDocumentStrategy,
     },
     EvaluationPublishingService,
+    EvaluationInitiatorRegistry,
     EvaluationService,
     EvaluationParserService,
     EvaluationRepository,
     EvaluationPrivateWorker,
     EvaluationPublicWorker,
+    PublicPageExtractorProcessor,
+    PrivatePageExtractorProcessor,
     Logger,
     EvaluationProducer,
     EvaluationConsumer,
     EvaluationTableConfigProvider,
+    DirectoryEvaluationInitiationStrategy,
+    TagEvaluationInitiationStrategy,
+    PageEvaluationInitiationStrategy,
+    WebsiteEvaluationInitiationStrategy,
+    InstitutionEvaluationInitiationStrategy,
+    GlobalEvaluationInitiationStrategy,
   ],
   controllers: [EvaluationController],
 })
