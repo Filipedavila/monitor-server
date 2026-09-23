@@ -1,8 +1,9 @@
-import { rename, unlink } from 'fs/promises';
-import { createWriteStream } from 'node:fs';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
-import { createGzip } from 'node:zlib';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { gzip } from 'node:zlib';
+import { promisify } from 'node:util';
+
+const gzipAsync = promisify(gzip);
 
 export function chunkArray<T>(array: T[], size: number): T[][] {
   return Array.from({ length: Math.ceil(array.length / size) }, (v, i) =>
@@ -11,25 +12,10 @@ export function chunkArray<T>(array: T[], size: number): T[][] {
 }
 
 export async function saveAsGzip(data: unknown, filePath: string): Promise<void> {
-  const compressedPath = `${filePath}.gz`;
-  const tempPath = `${compressedPath}.${process.pid}.${Date.now()}.tmp`;
+  await mkdir(dirname(filePath), { recursive: true });
 
-  const gzipStream = createGzip();
+  const content = typeof data === 'string' ? data : JSON.stringify(data);
+  const compressedBuffer = await gzipAsync(Buffer.from(content, 'utf-8'));
 
-  const sourceStream = Readable.from([JSON.stringify(data)]);
-  const destinationStream = createWriteStream(tempPath);
-
-  try {
-    await pipeline(sourceStream, gzipStream, destinationStream);
-
-    await rename(tempPath, compressedPath);
-  } catch (err) {
-    try {
-      await unlink(tempPath);
-    } catch {
-      /* empty */
-    }
-    const error = err instanceof Error ? err : new Error(String(err));
-    throw error;
-  }
+  await writeFile(filePath, compressedBuffer);
 }
