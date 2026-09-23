@@ -37,7 +37,7 @@
     "openfga:test": "fga model test --tests openfga/tests.fga.yaml",
     "check:unused": "npx knip",
     "security:scan": "semgrep scan --config .semgrep.yml",
-    "security:scan:ci": "semgrep scan --pro --config .semgrep/ --config p/nestjs --config p/typescript --config p/secrets --json --output results.json",
+    "security:scan:ci": "semgrep scan --pro --config .semgrep/ --config p/nestjs --config p/typescript --config p/secrets --json ",
     "prepare": "husky"
   },
   "dependencies": {
@@ -67,6 +67,13 @@
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.0.2",
     "@openfga/sdk": "^0.9.5",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.80.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
+    "@opentelemetry/resources": "^2.11.0",
+    "@opentelemetry/sdk-node": "^0.222.0",
+    "@opentelemetry/sdk-trace-base": "^2.11.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
     "@qualweb/act-rules": "^0.8.5",
     "@qualweb/best-practices": "0.7.13",
     "@qualweb/core": "^0.9.4",

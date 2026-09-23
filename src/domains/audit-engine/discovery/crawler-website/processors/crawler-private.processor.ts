@@ -13,7 +13,7 @@ import { QUEUE_NAMES } from 'src/core/queues/queues.config';
 export class CrawlPrivateWorker extends WorkerHost {
   constructor(
     private readonly CrawlWebsiteHandler: CrawlWebsiteHandler,
-    @InjectQueue(QUEUE_NAMES.CRAWL_PRIVATE_DQL)
+    @InjectQueue(QUEUE_NAMES.CRAWL_PRIVATE_DLQ)
     private readonly dlqqueue: Queue,
     @InjectRepository(CrawlerWebsite)
     private readonly crawlerWebsiteRepository: Repository<CrawlerWebsite>,

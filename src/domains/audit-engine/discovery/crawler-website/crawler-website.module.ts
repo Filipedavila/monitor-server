@@ -12,7 +12,6 @@ import { CrawlPrivateWorker } from './processors/crawler-private.processor';
 import { WebsitesGateway } from './gateways/crawler.gateway';
 import { WebsiteModule } from 'src/domains/inventory/website/website.module';
 import { IWebsiteScraper } from './types/scraper.interface';
-import { PlaywrightWebsiteScraperAdapter } from './strategies/playwright-website-scraper.adapter';
 import { PuppeteerWebsiteScraperAdapter } from './strategies/puppeteer-website-scraper.adapter';
 import { CrawlPublicWorker } from './processors/crawler-public.processor';
 import { CrawlWebsiteHandler } from './handlers/crawl-websites.handler';
@@ -41,9 +40,9 @@ export const CrawlerWebsiteTableConfigProvider: Provider = {
   imports: [
     TypeOrmModule.forFeature([CrawlerWebsite]),
     BullModule.registerQueue({ name: QUEUE_NAMES.CRAWL_PRIVATE }),
-    BullModule.registerQueue({ name: QUEUE_NAMES.CRAWL_PRIVATE_DQL }),
+    BullModule.registerQueue({ name: QUEUE_NAMES.CRAWL_PRIVATE_DLQ }),
     BullModule.registerQueue({ name: QUEUE_NAMES.CRAWL_PUBLIC }),
-    BullModule.registerQueue({ name: QUEUE_NAMES.CRAWL_PUBLIC_DQL }),
+    BullModule.registerQueue({ name: QUEUE_NAMES.CRAWL_PUBLIC_DLQ }),
     WebsiteModule,
     CrawlerPageModule,
   ],
