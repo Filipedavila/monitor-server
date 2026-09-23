@@ -10,28 +10,16 @@ import {
   UpdateDateColumn,
   CreateDateColumn,
   PrimaryGeneratedColumn,
-  ManyToMany,
-  JoinTable,
-  PrimaryColumn,
-  OneToMany,
 } from 'typeorm';
 import { Page } from 'src/domains/inventory/page/page.entity';
 
-export enum EvaluationStatus {
-  PENDING = 'pending',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-}
-
 export enum PublishStatus {
-  PENDING = 'pending',
-  PUBLISHED = 'published',
-  FAILED = 'failed',
+  STAGED = 'STAGED',
+  PUBLISHED = 'PUBLISHED',
 }
 
 @Entity('evaluations')
-@Index('idx_evaluations_created_at', ['createdAt'])
+@Index('idx_evaluations_page_created', ['pageId', 'createdAt'])
 export class Evaluation implements IdentifiableModel, Auditable {
   @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
   id: number;
@@ -92,18 +80,11 @@ export class Evaluation implements IdentifiableModel, Auditable {
   @Column({
     name: 'status',
     type: 'enum',
-    enum: EvaluationStatus,
-    default: EvaluationStatus.PENDING,
-  })
-  status: EvaluationStatus;
-
-  @Column({
-    name: 'publish_status',
-    type: 'enum',
+    enumName: 'evaluations_publish_status_enum',
     enum: PublishStatus,
-    default: PublishStatus.PENDING,
+    default: PublishStatus.STAGED,
   })
-  publishStatus: PublishStatus;
+  status: PublishStatus;
 
   @Column({
     name: 'evaluation_date',
@@ -111,6 +92,14 @@ export class Evaluation implements IdentifiableModel, Auditable {
     nullable: true,
   })
   evaluationDate: Date;
+
+  @Column({
+    name: 'frozen_at',
+    type: 'timestamptz',
+    nullable: true,
+    default: null,
+  })
+  frozenAt: Date | null;
 
   @CreateDateColumn({
     name: 'created_at',
@@ -141,4 +130,8 @@ export class Evaluation implements IdentifiableModel, Auditable {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'updated_by_id' })
   updatedBy: User | null;
+
+  get isFrozen(): boolean {
+    return this.frozenAt !== null;
+  }
 }

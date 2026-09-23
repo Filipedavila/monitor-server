@@ -14,6 +14,7 @@ import { IdentifiableModel } from 'src/common/interfaces/Identifiable.interface'
 import { User } from 'src/domains/identity/user/user.entity';
 
 @Entity('pages')
+@Index('idx_pages_url_trgm', { synchronize: false })
 @Index(['websiteId', 'urlHash'], { unique: true })
 export class Page implements IdentifiableModel, Auditable {
   @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
@@ -32,6 +33,14 @@ export class Page implements IdentifiableModel, Auditable {
   @Column({ name: 'url_hash', type: 'bigint', nullable: false })
   urlHash: string;
 
+  @Column({
+    type: 'boolean',
+    nullable: true,
+    name: 'is_in_observatory',
+    default: false,
+  })
+  isInObservatory: boolean;
+
   @CreateDateColumn({
     name: 'created_at',
     type: 'timestamptz',
@@ -47,7 +56,6 @@ export class Page implements IdentifiableModel, Auditable {
   })
   updatedAt: Date;
 
-  @Index()
   @Column({ name: 'created_by_id', type: 'int', unsigned: true, nullable: true })
   createdById: number;
 
@@ -55,7 +63,6 @@ export class Page implements IdentifiableModel, Auditable {
   @JoinColumn({ name: 'created_by_id' })
   createdBy: User;
 
-  @Index()
   @Column({ name: 'updated_by_id', type: 'int', unsigned: true, nullable: true })
   updatedById: number | null;
 
