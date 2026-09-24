@@ -8,7 +8,7 @@ error-log
 coverage/
 .env.dev
 .env.prod
-storage/
+storage/evaluations
 migrations/
 documentation/
 migration/
