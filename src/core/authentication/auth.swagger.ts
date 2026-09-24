@@ -1,76 +1,88 @@
-import { applyDecorators } from "@nestjs/common";
-import { ApiOperation, ApiResponse, ApiTags, ApiBody, ApiExtraModels, getSchemaPath } from "@nestjs/swagger";
-import { LocalLoginDto } from "./dto/local-login.dto";
+import { applyDecorators } from '@nestjs/common';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiBody,
+  ApiExtraModels,
+  getSchemaPath,
+} from '@nestjs/swagger';
+import { LocalLoginDto } from './dto/local-login.dto';
 
 class LoginResponseDto {
   token: string;
+  amsEnv: string;
 }
 
 export const AuthDocs = {
   controller: () =>
     applyDecorators(
-      ApiTags("auth"),
-      ApiResponse({ status: 403, description: "Forbidden - Insufficient permissions" }),
-      ApiResponse({ status: 500, description: "Internal Server Error" }),
+      ApiTags('auth'),
+      ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' }),
+      ApiResponse({ status: 500, description: 'Internal Server Error' }),
     ),
 
   login: () =>
     applyDecorators(
-      ApiOperation({ summary: "Login via username/password" }),
+      ApiOperation({ summary: 'Login via username/password' }),
       ApiBody({
-          type: LocalLoginDto,
-          description: "User credentials for authentication",
+        type: LocalLoginDto,
+        description: 'User credentials for authentication',
       }),
       ApiResponse({
         status: 200,
-        description: "JWT Token returned successfully",
+        description: 'JWT Token returned successfully',
         schema: {
           type: 'object',
           properties: {
-            token: { type: 'string' }
-          }
-        }
+            token: { type: 'string' },
+            amsEnv: { type: 'string' },
+          },
+        },
       }),
-      ApiResponse({ status: 401, description: "Unauthorized - Invalid credentials or role mismatch" }),
+      ApiResponse({
+        status: 401,
+        description: 'Unauthorized - Invalid credentials or role mismatch',
+      }),
     ),
 
   logout: () =>
     applyDecorators(
-      ApiOperation({ summary: "Invalidate the current session token" }),
+      ApiOperation({ summary: 'Invalidate the current session token' }),
       ApiResponse({
         status: 200,
-        description: "Logout successful",
+        description: 'Logout successful',
         type: Boolean,
-      })
+      }),
     ),
 
   loginGov: () =>
     applyDecorators(
-      ApiOperation({ 
-        summary: "Start Oauth2 flow with Autenticação.Gov",
-        description: "Redirects the user to the government identity provider" 
+      ApiOperation({
+        summary: 'Start Oauth2 flow with Autenticação.Gov',
+        description: 'Redirects the user to the government identity provider',
       }),
       ApiResponse({
-        status: 302, 
-        description: "Redirecting to Autenticação.Gov portal",
-      })
+        status: 302,
+        description: 'Redirecting to Autenticação.Gov portal',
+      }),
     ),
 
   verifyToken: () =>
     applyDecorators(
       ApiOperation({
-        summary: "Verify AGov Token and Issue Local JWT",
-        description: "Callback endpoint after government authentication"
+        summary: 'Verify AGov Token and Issue Local JWT',
+        description: 'Callback endpoint after government authentication',
       }),
       ApiResponse({
         status: 200,
-        description: "Local session established",
+        description: 'Local session established',
         schema: {
           type: 'object',
           properties: {
-            token: { type: 'string' }
-          }
-        }
-      })
-    )
+            token: { type: 'string' },
+          },
+        },
+      }),
+    ),
 };

@@ -14,6 +14,11 @@ export const RoleSlugMap: Record<string, RoleSlug> = {
   monitor: RoleSlug.MONITOR,
 };
 
+export const FgaRoleSlug: Record<string, string> = {
+  nimda: 'ams',
+  monitor: 'monitor',
+};
+
 class Context {
   public id: number;
   public code: string;

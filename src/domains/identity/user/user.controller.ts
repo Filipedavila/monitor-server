@@ -73,6 +73,11 @@ export class UserController {
   }
 
   @UserDocs.update
+  @FgaAuthorized({
+        objectType: "role",
+        action: "can_manage_users",
+        resourceIdResolver: () => "ams"
+  })
   @Roles(RoleSlug.ADMIN)
   @Patch("")
   async updateUser(@Body() updateUserDto: UpdateUserDto): Promise<UserDTO> {

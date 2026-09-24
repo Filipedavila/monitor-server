@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClientWriteResponse, OpenFgaClient, Tuple, TupleKeyWithoutCondition } from '@openfga/sdk';
 import { FGA_CLIENT } from './fga.provider';
+import { FgaRoleSlug, RoleSlugMap, UserPermission } from '../authentication/interfaces/types';
 import {
   FgaTupleEnquire,
   ResourceType,
@@ -27,7 +28,26 @@ export class FgaService {
       object: `${type}:${id}`,
     };
   }
+  async getAuthorizationLevel(userId: number, roleSlug: string): Promise<UserPermission> {
+    const roleType = FgaRoleSlug[roleSlug];
+    if (!roleType) {
+      throw new Error(`Invalid role slug: ${roleSlug}`);
+    }
+    const isMANAGER = await this.check(`user:${userId}`, 'can_manage_users', `role:${roleType}`);
+    if (isMANAGER) {
+      return UserPermission.MANAGER;
+    }
+    const isEDITOR = await this.check(`user:${userId}`, 'can_edit_users', `role:${roleType}`);
+    if (isEDITOR) {
+      return UserPermission.EDITOR;
+    }
 
+    const isVIEWER = await this.check(`user:${userId}`, 'can_view_users', `role:${roleType}`);
+    if (isVIEWER) {
+      return UserPermission.VIEWER;
+    }
+    throw new Error(`User does not have any of the required roles for role slug: ${roleSlug}`);
+  }
   async removeUserRelations<T extends ResourceType, A extends AssignableResource>(
     type: T,
     userId: string,
