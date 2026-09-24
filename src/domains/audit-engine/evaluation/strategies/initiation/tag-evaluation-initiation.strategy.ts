@@ -1,13 +1,15 @@
 import { Injectable, OnModuleInit, ForbiddenException } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { EvaluationRepository } from '../../evaluation.repository';
 import { EvaluationInitiator } from '../../contracts/evaluation-initiator.contract';
 import { EvaluationTriggerType } from '../../dto/evaluation-trigger.dto';
 import { EvaluationInitiatorRegistry } from '../../registries/evaluation-initiator.registry';
 import { SecurityContext } from 'src/core/authorization/SecurityContext';
 import { FgaService } from 'src/core/authorization/fga.service';
+import { Queue } from 'bullmq';
+import { QUEUE_NAMES } from 'src/core/queues/queues.config';
 
 @Injectable()
 export class TagEvaluationInitiationStrategy implements EvaluationInitiator, OnModuleInit {
@@ -17,7 +19,8 @@ export class TagEvaluationInitiationStrategy implements EvaluationInitiator, OnM
     private readonly registry: EvaluationInitiatorRegistry,
     @InjectDataSource()
     private readonly dataSource: DataSource,
-    private readonly evaluationRepository: EvaluationRepository,
+    @InjectQueue(QUEUE_NAMES.PRIVATE_PAGE_DISPATCH)
+    private readonly pageProcessorQueue: Queue,
     private readonly openFgaService: FgaService,
   ) {}
 
@@ -38,11 +41,36 @@ export class TagEvaluationInitiationStrategy implements EvaluationInitiator, OnM
     if (!isAllowed) {
       throw new ForbiddenException('User is not allowed to trigger directory evaluations.');
     }
+    const contextId = securityContext.user.context.id;
 
-    // IR bucar todas as Páginas deste diredtorio
+    const websites = await this.dataSource.query<Array<{ id: number }>>(
+      'SELECT DISTINCT w.id FROM websites w INNER JOIN website_tags wt ON wt.website_id = w.id WHERE wt.tag_id IN(' +
+        targetIds.join(',') +
+        ')',
+    );
 
-    // Criar Id idemepotente
+    const bulkJobs = websites.map((website) => ({
+      name: 'evaluate-page',
+      data: {
+        contextId,
+        websiteId: website.id,
+      },
+      opts: {
+        jobId: `ctx-${contextId}-website-${website.id}`,
+        removeOnComplete: true,
+        removeOnFail: { age: 3600 },
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+      },
+    }));
 
-    // Adicionar ao job queue process website. por batch de 500 websites
+    const chunkSize = 500;
+    for (let i = 0; i < bulkJobs.length; i += chunkSize) {
+      const chunk = bulkJobs.slice(i, i + chunkSize);
+      await this.pageProcessorQueue.addBulk(chunk);
+    }
   }
 }
