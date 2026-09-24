@@ -20,7 +20,7 @@ export class EvaluationDocumentStrategy implements EvaluationPersister {
   ) {}
 
   async persist(payload: EvaluationPersisterPayload): Promise<void> {
-    const { evaluationId, evaluationMetrics, basicResult } = payload;
+    const { evaluationId, evaluationMetrics, basicResult, pageId } = payload;
 
     try {
       this.logger.log(`Starting document persistence workflow for Evaluation ID: ${evaluationId}`);
@@ -40,20 +40,13 @@ export class EvaluationDocumentStrategy implements EvaluationPersister {
           createdAt: new Date(basicResult.createdAt),
         });
         */
-        /* await queryRunner.manager.upsert(UnpublishedEvaluation, {
-          evaluationId,
-          websiteId,
-          directoryId,
-          institutionId,
-          payload: evaluationMetrics,
-          createdAt: new Date(basicResult.createdAt),
-        });*/
 
-        await queryRunner.manager.update(
+        await queryRunner.manager.upsert(
           Evaluation,
-          { id: evaluationId },
           {
+            id: evaluationId,
             pageTitle: basicResult.title,
+            pageId: pageId,
             A: basicResult.A,
             AA: basicResult.AA,
             AAA: basicResult.AAA,
@@ -62,6 +55,7 @@ export class EvaluationDocumentStrategy implements EvaluationPersister {
             score: basicResult.score,
             tagCount: basicResult.tagCount,
           },
+          ['id'],
         );
       });
     } catch (error) {
