@@ -7,10 +7,9 @@ import { Counter } from '@qualweb/counter';
 import { z } from 'zod';
 import { EvaluationEngine } from '../../contracts/evaluation-engine.contract';
 
-const TIMEOUT_SECONDS = 240;
+const TIMEOUT_SECONDS = 45;
 const TIMEOUT_MS = TIMEOUT_SECONDS * 1000;
-const QUALWEB_START_TIMEOUT = TIMEOUT_MS * 2;
-const MAX_CONCURRENCY = 2;
+const QUALWEB_START_TIMEOUT = 30_000;
 
 const USER_AGENT =
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36';
@@ -18,9 +17,6 @@ const LANGUAGE = 'pt-pt,pt';
 
 const BROWSER_ARGS = [
   '--no-sandbox',
-  '--ignore-certificate-errors',
-  '--disable-features=IsolateSandboxedIframes',
-  '--disable-site-isolation-trials',
   '--disable-setuid-sandbox',
   '--disable-gpu',
   '--disable-dev-shm-usage',
@@ -29,11 +25,26 @@ const BROWSER_ARGS = [
   '--disable-blink-features=AutomationControlled',
   '--disable-extensions',
   '--no-zygote',
+  '--js-flags="--max-old-space-size=512"',
   `--user-agent="${USER_AGENT}"`,
   `--lang=${LANGUAGE}`,
 ];
 
-const UrlSchema = z.string().url();
+const UrlSchema = z
+  .string()
+  .url()
+  .refine(
+    (val) => {
+      try {
+        const parsed = new URL(val);
+        const host = parsed.hostname.toLowerCase();
+        return !['localhost', '127.0.0.1', '169.254.169.254', '0.0.0.0'].includes(host);
+      } catch {
+        return false;
+      }
+    },
+    { message: 'URL resolve para um endereço restrito ou inválido (SSRF Protection).' },
+  );
 
 @Injectable()
 export class QualWebPuppeteerEngine implements EvaluationEngine {
@@ -67,34 +78,6 @@ export class QualWebPuppeteerEngine implements EvaluationEngine {
     }
   }
 
-  private async startQualWeb(qualweb: QualWeb): Promise<void> {
-    try {
-      await qualweb.start(
-        {
-          maxConcurrency: MAX_CONCURRENCY,
-          timeout: QUALWEB_START_TIMEOUT,
-        },
-        {
-          headless: true,
-          args: BROWSER_ARGS,
-        },
-      );
-    } catch (error) {
-      throw new Error(
-        `Failed to start QualWeb browser cluster: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-
-  private async stopQualWeb(qualweb: QualWeb): Promise<void> {
-    try {
-      await qualweb.stop();
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`[QualWeb Stop Failed]: ${errorMsg}`);
-    }
-  }
-
   public async evaluate(url: string): Promise<any> {
     const parseResult = UrlSchema.safeParse(url);
     if (!parseResult.success) {
@@ -103,30 +86,52 @@ export class QualWebPuppeteerEngine implements EvaluationEngine {
       );
     }
 
+    const targetUrl = parseResult.data;
+
     const qualweb = new QualWeb({
-      adBlock: true,
+      adBlock: false,
       stealth: true,
     });
 
     try {
-      await this.startQualWeb(qualweb);
+      await qualweb.start(
+        {
+          maxConcurrency: 1,
+          timeout: QUALWEB_START_TIMEOUT,
+        },
+        {
+          headless: true,
+          args: BROWSER_ARGS,
+        },
+      );
 
-      const options = this.createEvaluationOptions(url);
+      const options = this.createEvaluationOptions(targetUrl);
       const reports = await qualweb.evaluate(options);
 
-      this.validateReports(reports, url);
-      const evaluationReport = reports[url] || reports[Object.keys(reports)[0]];
+      this.validateReports(reports, targetUrl);
+
+      const reportKey =
+        Object.keys(reports).find(
+          (key) => key.replace(/\/$/, '') === targetUrl.replace(/\/$/, ''),
+        ) || Object.keys(reports)[0];
+
+      const evaluationReport = reports[reportKey];
 
       if (!evaluationReport) {
-        throw new Error(`QualWeb evaluation output missing report payload for URL: ${url}`);
+        throw new Error(`QualWeb evaluation output missing report payload for URL: ${targetUrl}`);
       }
+
       return evaluationReport;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`QualWeb evaluation failed for URL ${url}: ${errorMsg}`);
+      this.logger.error(`QualWeb evaluation failed for URL ${targetUrl}: ${errorMsg}`);
       throw new Error(`QualWeb evaluation failed: ${errorMsg}`);
     } finally {
-      await this.stopQualWeb(qualweb);
+      await qualweb.stop().catch((cleanupError) => {
+        const cleanupMsg =
+          cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+        this.logger.warn(`Failed to cleanly stop QualWeb for URL ${targetUrl}: ${cleanupMsg}`);
+      });
     }
   }
 }
