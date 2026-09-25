@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CrawlerStatus, CrawlerWebsite } from './entities/crawler-website.entity';
 import { ContextAwareRepository } from 'src/common/repositories/context-aware.repository';
 import { FilterMap, SortingMap } from 'src/common/repositories/base.repository';
@@ -18,7 +18,6 @@ export interface WebsiteCrawlerFilter extends BaseFilter {
   id: number;
   ids: number[] | string[];
   websiteId: number;
-  websiteIds: number[];
   status: CrawlerStatus;
   searchTerm: string;
 }
@@ -57,9 +56,12 @@ export class CrawlerWebsiteRepository extends ContextAwareRepository<
   protected readonly filterMap: FilterMap<WebsiteCrawlerFilter, CrawlerWebsite> = {
     id: (q, val) => this.addFilter(q, 'id', val),
     ids: (q, val) => this.addFilter(q, 'id', val, 'in'),
-    searchTerm: (q, val) => this.addFilter(q, 'baseUrl', val, 'like'),
+    searchTerm: (q, val) => {
+      q.innerJoin(`${this.alias}.website`, 'w')
+        .andWhere('w.title ILIKE :searchTerm', { searchTerm: `%${val}%` })
+        .andWhere('cw.baseUrl ILIKE :searchTerm', { searchTerm: `%${val}%` });
+    },
     websiteId: (q, val) => this.addFilter(q, 'websiteId', val),
-    websiteIds: (q, val) => this.addFilter(q, 'websiteId', val, 'in'),
     status: (q, val) => this.addFilter(q, 'status', val),
   };
 
@@ -70,9 +72,10 @@ export class CrawlerWebsiteRepository extends ContextAwareRepository<
     pagesCount: (q, order) => this.addSort(q, 'pagesCount', order),
   };
 
-  public async getAllCrawlersWebsites(
-    queryArgs: WebsiteCrawlerQueryRequest,
-  ): Promise<{ data: CrawlerWebsite[]; meta: any }> {
+  public async getAllCrawlersWebsites(queryArgs: WebsiteCrawlerQueryRequest): Promise<{
+    data: CrawlerWebsite[];
+    meta: { currentPage: number; itemsPerPage: number; totalItems: number; totalPages: number };
+  }> {
     const query = this.ormRepo.createQueryBuilder(this.alias);
 
     this.customContextRuleQuery(query, queryArgs.securityContext);
