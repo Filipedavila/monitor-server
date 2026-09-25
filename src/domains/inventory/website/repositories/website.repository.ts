@@ -48,8 +48,8 @@ export class WebsiteRepository extends ContextAwareRepository<
     searchTerm: (query, value) => {
       query.andWhere(
         new Brackets((qb) => {
-          qb.where(`${this.alias}.title LIKE :searchTerm`, { searchTerm: `%${value}%` }).orWhere(
-            `${this.alias}.base_url LIKE :searchTerm`,
+          qb.where(`${this.alias}.title ILIKE :searchTerm`, { searchTerm: `%${value}%` }).orWhere(
+            `${this.alias}.base_url ILIKE :searchTerm`,
             { searchTerm: `%${value}%` },
           );
         }),
@@ -57,6 +57,19 @@ export class WebsiteRepository extends ContextAwareRepository<
     },
     baseUrl: (query, value) => {
       query.andWhere(`${this.alias}.base_url = :baseUrl`, { baseUrl: value });
+    },
+    directoryId: (query, value) => {
+      query.innerJoin('v_websites_metadata', 'v', `v.website_id = ${this.alias}.id`);
+      query.andWhere(`v.directories_ids @> ARRAY[:directoryId]::int[]`, { directoryId: value });
+    },
+    institutionId: (query, value) => {
+      query.andWhere(`${this.alias}.institution_id = :institutionId`, {
+        institutionId: value,
+      });
+    },
+    tagId: (query, value) => {
+      query.innerJoin('website_tags', 'wt', `wt.website_id = ${this.alias}.id`);
+      query.andWhere(`wt.tag_id = :tagId`, { tagId: value });
     },
   };
 
