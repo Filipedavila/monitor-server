@@ -88,7 +88,7 @@ export class PrivatePageExtractorProcessor extends WorkerHost {
         opts: {
           jobId: `ctx-${contextId}-page-${pages.page_id}`,
           removeOnComplete: true,
-          removeOnFail: { age: 3600 },
+          removeOnFail: true,
           attempts: 3,
           backoff: {
             type: 'exponential',
