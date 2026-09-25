@@ -57,9 +57,7 @@ export class CrawlerWebsiteRepository extends ContextAwareRepository<
     id: (q, val) => this.addFilter(q, 'id', val),
     ids: (q, val) => this.addFilter(q, 'id', val, 'in'),
     searchTerm: (q, val) => {
-      q.innerJoin(`${this.alias}.website`, 'w')
-        .andWhere('w.title ILIKE :searchTerm', { searchTerm: `%${val}%` })
-        .andWhere('cw.baseUrl ILIKE :searchTerm', { searchTerm: `%${val}%` });
+      q.andWhere('cw.baseUrl ILIKE :searchTerm', { searchTerm: `%${val}%` });
     },
     websiteId: (q, val) => this.addFilter(q, 'websiteId', val),
     status: (q, val) => this.addFilter(q, 'status', val),
