@@ -11,7 +11,7 @@ import { AppLoggerService } from './core/app-logger/app-logger.service';
 import { useContainer } from 'class-validator';
 import { GlobalExceptionFilter } from './core/filters/all-exceptions.filter';
 import { FieldConflictExceptionFilter } from './core/filters/conflict-execption.filter';
-
+import { startProfiler } from './profiler';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
@@ -78,5 +78,8 @@ async function bootstrap() {
   await app.listen(port);
   console.log(` Server is running on: http://localhost:${port}/v2`);
   console.log(` Swagger documentation: http://localhost:${port}/api`);
+  if (process.env.NODE_ENV === 'development') {
+    startProfiler();
+  }
 }
 bootstrap();
