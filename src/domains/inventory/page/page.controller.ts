@@ -8,10 +8,8 @@ import {
   Query,
   UseGuards,
   ParseIntPipe,
-  Request,
   Logger,
   BadRequestException,
-  Patch,
 } from '@nestjs/common';
 import { PageService } from './page.service';
 import { AuthenticatedUser, RoleSlug } from 'src/core/authentication/interfaces/types';
@@ -121,7 +119,7 @@ export class PageController implements LoggableController {
     action: 'can_manage_users',
     resourceIdResolver: () => 'ams',
   })
-  @Patch('website/:websiteId/page/:pageId/toggle-observatory')
+  @Post('website/:websiteId/page/:pageId/toggle-observatory')
   async toggleObservatoryStatus(
     @Param('websiteId', ParseIntPipe) websiteId: number,
     @Param('pageId', ParseIntPipe) pageId: number,
