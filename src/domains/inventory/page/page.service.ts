@@ -86,4 +86,12 @@ export class PageService {
     });
     await this.pageRepo.upsertPages(websiteId, crawlerPages, securityContext);
   }
+
+  public async toggleObservatoryStatus(
+    websiteId: number,
+    pageId: number,
+    securityContext: SecurityContext,
+  ) {
+    await this.pageRepo.toggleObservatoryStatus(websiteId, pageId, securityContext);
+  }
 }

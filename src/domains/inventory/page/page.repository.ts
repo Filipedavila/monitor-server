@@ -247,4 +247,25 @@ export class PageRepository extends ContextAwareRepository<
       await this.substituteContextRules(queryRunner, pageId, contexts, securityContext);
     });
   }
+
+  public async toggleObservatoryStatus(
+    website: number,
+    pageId: number,
+    securityContext: SecurityContext,
+  ): Promise<void> {
+    const query = `
+      UPDATE pages
+        SET is_in_observatory = NOT is_in_observatory,
+            updated_by_id = $2::int,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1::int
+          AND website_id = $3::int  
+          AND EXISTS (
+              SELECT 1 
+              FROM page_contexts_ams 
+              WHERE page_id = $1::int 
+          );
+    `;
+    await this.dataSource.query(query, [pageId, securityContext.user.id ?? null, website]);
+  }
 }

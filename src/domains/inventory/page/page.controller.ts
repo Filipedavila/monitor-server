@@ -11,6 +11,7 @@ import {
   Request,
   Logger,
   BadRequestException,
+  Patch,
 } from '@nestjs/common';
 import { PageService } from './page.service';
 import { AuthenticatedUser, RoleSlug } from 'src/core/authentication/interfaces/types';
@@ -112,5 +113,20 @@ export class PageController implements LoggableController {
       updatePageContextDto.contexts,
       { user },
     );
+  }
+
+  @Roles(RoleSlug.ADMIN)
+  @FgaAuthorized({
+    objectType: 'role',
+    action: 'can_manage_users',
+    resourceIdResolver: () => 'ams',
+  })
+  @Patch('website/:websiteId/page/:pageId/toggle-observatory')
+  async toggleObservatoryStatus(
+    @Param('websiteId', ParseIntPipe) websiteId: number,
+    @Param('pageId', ParseIntPipe) pageId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.pageService.toggleObservatoryStatus(websiteId, pageId, { user });
   }
 }
