@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClientWriteResponse, OpenFgaClient, Tuple, TupleKeyWithoutCondition } from '@openfga/sdk';
 import { FGA_CLIENT } from './fga.provider';
-import { FgaRoleSlug, RoleSlugMap, UserPermission } from '../authentication/interfaces/types';
+import { FgaRoleSlug, UserPermission } from '../authentication/interfaces/types';
 import {
   FgaTupleEnquire,
   ResourceType,
@@ -117,40 +117,59 @@ export class FgaService {
     const { allowed } = await this.fgaClient.check({ user, relation, object });
     return allowed ?? false;
   }
+
   async filterAuthorizedIds<T extends ResourceType, C extends EnquireableResource>(
     user: FgaUserIdentifier<T>,
     objectType: T,
     objectIds: (string | number)[],
-    relation: FgaTupleEnquire<C>['relation'],
+    relation: FgaTupleEnquire<C>['relation'][],
   ): Promise<(string | number)[]> {
     if (!objectIds || objectIds.length === 0) {
       return [];
     }
 
     const uniqueIds = Array.from(new Set(objectIds));
+    const correlationMap = new Map<string, string | number>();
 
-    const checks = uniqueIds.map((id) => ({
-      user,
-      relation,
-      object: `${objectType}:${id}` as FgaObjectIdentifier<T>,
-    }));
+    const checks: {
+      user: FgaUserIdentifier<T>;
+      relation: FgaTupleEnquire<C>['relation'];
+      object: FgaObjectIdentifier<T>;
+      correlationId: string;
+    }[] = [];
+    for (const id of uniqueIds) {
+      for (const rel of relation) {
+        const correlationId = `${objectType}-${id}-${rel}`;
+        correlationMap.set(correlationId, id);
 
-    try {
-      const response = await this.fgaClient.batchCheck({ checks });
-
-      const authorizedIds: (string | number)[] = [];
-
-      for (let index = 0; index < response.result?.length; index++) {
-        const res = response.result[index];
-        if (res.allowed) {
-          authorizedIds.push(uniqueIds[index]);
-        }
+        checks.push({
+          user,
+          relation: rel,
+          object: `${objectType}:${id}` as FgaObjectIdentifier<T>,
+          correlationId,
+        });
       }
+    }
 
-      return authorizedIds;
-    } catch (error) {
+    const response = await this.fgaClient.batchCheck({ checks });
+
+    const authorizedIds: (string | number)[] = [];
+    const results = response.result;
+
+    if (!results || !Array.isArray(results)) {
       return [];
     }
+
+    for (const item of results) {
+      if (item && item.allowed === true && item.correlationId) {
+        const originalId = correlationMap.get(item.correlationId);
+        if (originalId !== undefined) {
+          authorizedIds.push(originalId);
+        }
+      }
+    }
+
+    return authorizedIds;
   }
 
   async createRelationship<T extends ResourceType, A extends AssignableResource>(
@@ -185,115 +204,85 @@ export class FgaService {
     });
   }
 
-  async findAllTuplesRelatedToUser(userId: number): Promise<{
-    asSubject: Tuple[];
-    asObject: Tuple[];
-    all: Tuple[];
-  }> {
+  async findAllTuplesRelatedToUser(userId: number): Promise<
+    {
+      user: string;
+      relation: string;
+      object: string;
+    }[]
+  > {
     const userIdentifier = `user:${userId}`;
-
-    const [subjectResponse, objectResponse] = await Promise.all([
-      this.fgaClient.read({
+    const objects = ['website', 'team', 'role'];
+    const tuples: { user: string; relation: string; object: string }[] = [];
+    for (const objectType of objects) {
+      const body = {
         user: userIdentifier,
-      }),
-
-      this.fgaClient.read({
-        object: userIdentifier,
-      }),
-    ]);
-
-    const asSubject = subjectResponse.tuples || [];
-    const asObject = objectResponse.tuples || [];
-
-    // Consolidação de segurança num único array limpo
-    const all = [...asSubject, ...asObject];
-
-    return {
-      asSubject,
-      asObject,
-      all,
-    };
+        object: `${objectType}:`,
+      };
+      const response = await this.fgaClient.read(body);
+      if (response.tuples && response.tuples.length > 0) {
+        tuples.push(
+          ...response.tuples.map((tuple) => ({
+            user: tuple.key.user,
+            relation: tuple.key.relation,
+            object: tuple.key.object,
+          })),
+        );
+      }
+    }
+    return tuples;
   }
 
   async findObjectsRelated<T extends ResourceType, A extends AssignableResource>(
     userId: number,
-    objectType?: A,
-    relation?: FgaTupleAssign<T, A>['relation'],
-  ): Promise<{
-    related: string[];
-  }> {
+    objectType: A,
+    relation: FgaTupleAssign<T, A>['relation'],
+  ): Promise<string[]> {
     const userIdentifier = `user:${userId}`;
-    const relatedObjects = new Set<string>();
-    let continuationToken: string | undefined = undefined;
 
-    do {
-      const response = await this.fgaClient.read(
-        {
-          user: userIdentifier,
-          relation: relation,
-          object: objectType,
-        },
-        {
-          continuationToken: continuationToken,
-        },
-      );
-
-      if (response.tuples && response.tuples.length > 0) {
-        for (const tuple of response.tuples) {
-          const fullObjectString = tuple.key.object;
-
-          if (objectType) {
-            const idOnly = fullObjectString.split(':')[1];
-            if (idOnly) relatedObjects.add(idOnly);
-          } else {
-            relatedObjects.add(fullObjectString);
-          }
-        }
-      }
-      continuationToken = response.continuation_token;
-    } while (continuationToken);
-
-    return {
-      related: Array.from(relatedObjects),
-    };
+    const response = await this.fgaClient.listObjects({
+      user: userIdentifier,
+      relation: relation,
+      type: objectType,
+    });
+    return response.objects || [];
   }
 
   async purgeAllTuplesForUser(userId: number): Promise<{ deletedCount: number }> {
     const userIdentifier = `user:${userId}`;
-    let continuationToken: string | undefined = undefined;
+    const resourceTypes: ResourceType[] = ['website', 'team', 'role'];
     let totalDeleted = 0;
 
-    do {
-      const response = await this.fgaClient.read(
-        {
-          user: userIdentifier,
-        },
-        {
-          continuationToken: continuationToken,
-        },
-      );
+    for (const type of resourceTypes) {
+      let continuationToken: string | undefined = undefined;
 
-      if (response.tuples && response.tuples.length > 0) {
-        const batchDeletes: TupleKeyWithoutCondition[] = response.tuples.map((tuple) => ({
-          user: tuple.key.user,
-          relation: tuple.key.relation,
-          object: tuple.key.object,
-        }));
+      do {
+        const response = await this.fgaClient.read(
+          {
+            user: userIdentifier,
+            object: `${type}:`,
+          },
+          { continuationToken },
+        );
 
-        const chunkSize = 100;
-        for (let i = 0; i < batchDeletes.length; i += chunkSize) {
-          const chunk = batchDeletes.slice(i, i + chunkSize);
+        if (response.tuples && response.tuples.length > 0) {
+          const batchDeletes: TupleKeyWithoutCondition[] = response.tuples.map((tuple) => ({
+            user: tuple.key.user,
+            relation: tuple.key.relation,
+            object: tuple.key.object,
+          }));
 
-          await this.fgaClient.write({
-            deletes: chunk,
-          });
-
-          totalDeleted += chunk.length;
+          const chunkSize = 100;
+          for (let i = 0; i < batchDeletes.length; i += chunkSize) {
+            const chunk = batchDeletes.slice(i, i + chunkSize);
+            await this.fgaClient.write({ deletes: chunk });
+            totalDeleted += chunk.length;
+          }
         }
-      }
 
-      continuationToken = response.continuation_token;
-    } while (continuationToken);
+        continuationToken = response.continuation_token;
+      } while (continuationToken);
+    }
 
     return { deletedCount: totalDeleted };
   }
