@@ -16,15 +16,16 @@ import { MaxOffsetLimitConstraint } from './core/validators/max-limit-pag.valida
 import { ClickhouseModule } from './core/clickhouse/clickhouse.module';
 import { ThrottlerModule } from '@nestjs/throttler/dist/throttler.module';
 import { ConfigService } from '@nestjs/config';
-import { RedisModule } from './redis/redis.module';
 import { DbConstraintExceptionFilter } from './core/filters/db-unique-contraint.filter';
-import { DevtoolsModule } from '@nestjs/devtools-integration';
+import { EvaluationConsumerModule } from './core/consumer/consumer.module';
 @Module({
   imports: [
     ConfigAppModule,
     EventEmitterModule.forRoot(),
 
     PersistenceModule,
+    EvaluationConsumerModule,
+
     ScheduleModule.forRoot(),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
@@ -48,7 +49,7 @@ import { DevtoolsModule } from '@nestjs/devtools-integration';
         };
       },
     }),
-    RedisModule,
+
     CoreModule,
     DomainsModule,
     IntegrationsModule,
