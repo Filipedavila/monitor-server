@@ -3,7 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { QUEUE_NAMES, DEFAULT_JOB_OPTIONS } from './queues.config';
-import { ExpressAdapter } from '@bull-board/express/dist/ExpressAdapter';
+import { ExpressAdapter } from '@bull-board/express';
 import { ConfigService } from '@nestjs/config';
 
 @Module({
@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
         connection: {
           host: configService.get<string>('REDIS_HOST'),
           port: configService.get<number>('REDIS_PORT'),
+          db: configService.get<number>('REDIS_DB_BULL') || 0,
         },
       }),
     }),
