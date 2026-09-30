@@ -93,6 +93,9 @@ export class PageRepository extends ContextAwareRepository<
       `${this.alias}.website_id AS "websiteId"`,
       `${this.alias}.created_at AS "createdAt"`,
       `${this.alias}.updated_at AS "updatedAt"`,
+      ...(queryArgs.securityContext.user.context.id === 1
+        ? [`${this.alias}.is_in_observatory AS "isInObservatory"`]
+        : []),
       `(
       SELECT json_build_object(
         'id', e.id,
