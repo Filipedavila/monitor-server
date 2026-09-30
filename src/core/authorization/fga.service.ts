@@ -153,7 +153,7 @@ export class FgaService {
 
     const response = await this.fgaClient.batchCheck({ checks });
 
-    const authorizedIds: (string | number)[] = [];
+    const authorizedIds: Set<string | number> = new Set();
     const results = response.result;
 
     if (!results || !Array.isArray(results)) {
@@ -164,12 +164,12 @@ export class FgaService {
       if (item && item.allowed === true && item.correlationId) {
         const originalId = correlationMap.get(item.correlationId);
         if (originalId !== undefined) {
-          authorizedIds.push(originalId);
+          authorizedIds.add(originalId);
         }
       }
     }
 
-    return authorizedIds;
+    return Array.from(authorizedIds);
   }
 
   async createRelationship<T extends ResourceType, A extends AssignableResource>(
