@@ -4,21 +4,26 @@ import Redis from 'ioredis';
 import { REDIS_CLIENT } from './types';
 
 @Module({
-    providers: [
-        {
-            provide: REDIS_CLIENT,
-            inject: [ConfigService],
-            useFactory: (configService: ConfigService) => {
-                return new Redis({
-                    host: configService.get<string>('REDIS_HOST') || 'localhost',
-                    port: parseInt(configService.get<string>('REDIS_PORT') || '6379', 10),
-                    password: configService.get<string>('REDIS_PASSWORD'),
-                    db: parseInt(configService.get<string>('REDIS_DB_BUFFER') || '1', 10),
-                });
-            },
-        },
-    ],
-    exports: [REDIS_CLIENT],
+  providers: [
+    {
+      provide: REDIS_CLIENT,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const client = new Redis({
+          host: configService.get<string>('REDIS_HOST') ?? '127.0.0.1',
+          port: Number(configService.get('REDIS_PORT') ?? 6379),
+          password: configService.get<string>('REDIS_PASSWORD') || undefined,
+          db: Number(configService.get('REDIS_DB_MONITOR') ?? 1),
+        });
+
+        client.on('error', (err) => {
+          console.error('[Redis] erro de ligação:', err.message);
+        });
+
+        return client;
+      },
+    },
+  ],
+  exports: [REDIS_CLIENT],
 })
-export class RedisModule {
-}
+export class RedisModule {}
