@@ -25,6 +25,8 @@ import { FgaGuard } from 'src/core/authorization/guards/fga.guard';
 import { FgaAuthorized } from 'src/core/authorization/decorators/fga-authorization.decorator';
 import { UpdateWebsiteContextDto } from './dto/update.website-context.dto';
 import { ContextFilterGuard } from 'src/core/authorization/guards/context.guard';
+import { AMS_ROLE_EDITOR, AMS_ROLE_MANAGER } from 'src/core/authorization/policies/role.policies';
+import { WebsiteDetailDTO } from './dto/website-detail.dto';
 
 @WebsiteDocs.controller()
 @UseGuards(JwtAuthGuard, RolesGuard, FgaGuard)
@@ -51,16 +53,12 @@ export class WebsiteController {
   async findOne(
     @Param('websiteId', ParseIntPipe) websiteId: number,
     @CurrentUser() user: AuthenticatedUser,
-  ) {
+  ): Promise<WebsiteDetailDTO> {
     return this.websiteService.findOne(websiteId, { user });
   }
 
   @WebsiteDocs.create()
-  @FgaAuthorized({
-    objectType: 'role',
-    action: 'can_manage_users',
-    resourceIdResolver: () => 'ams',
-  })
+  @FgaAuthorized(AMS_ROLE_MANAGER)
   @Roles(RoleSlug.ADMIN)
   @Post()
   async create(@Body() dto: CreateWebsiteDto, @CurrentUser() user: AuthenticatedUser) {
@@ -68,11 +66,7 @@ export class WebsiteController {
   }
 
   @WebsiteDocs.update()
-  @FgaAuthorized({
-    objectType: 'role',
-    action: 'can_edit_users',
-    resourceIdResolver: () => 'ams',
-  })
+  @FgaAuthorized(AMS_ROLE_EDITOR)
   @Roles(RoleSlug.ADMIN)
   @Patch(':websiteId')
   async update(
@@ -84,11 +78,7 @@ export class WebsiteController {
   }
 
   @WebsiteDocs.delete()
-  @FgaAuthorized({
-    objectType: 'role',
-    action: 'can_manage_users',
-    resourceIdResolver: () => 'ams',
-  })
+  @FgaAuthorized(AMS_ROLE_MANAGER)
   @Roles(RoleSlug.ADMIN)
   @Delete()
   async delete(
@@ -98,11 +88,7 @@ export class WebsiteController {
     return this.websiteService.delete(deleteBulkDto.websiteIds, { user });
   }
 
-  @FgaAuthorized({
-    objectType: 'role',
-    action: 'can_manage_users',
-    resourceIdResolver: () => 'ams',
-  })
+  @FgaAuthorized(AMS_ROLE_MANAGER)
   @Roles(RoleSlug.ADMIN)
   @Post(':websiteId/contexts')
   async changeWebsiteContexts(

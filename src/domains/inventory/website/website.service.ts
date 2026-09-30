@@ -1,16 +1,17 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { WebsiteDetailDTO } from './dto/website-detail.dto';
 
 import { Website } from './website.entity';
 import { SecurityContext } from 'src/core/authorization/SecurityContext';
-import { QueryRequest, PaginationResponse } from 'src/common/repositories/base.repository';
+import { PaginationResponse } from 'src/common/repositories/base.repository';
 import { WebsiteRepository } from './repositories/website.repository';
 import { UpdateWebsiteDto } from './dto/update-website.dto';
 import { CreateWebsiteDto } from './dto/create-website.dto';
-import { FgaService } from 'src/core/authorization/fga.service';
 import { BaseService } from 'src/common/services/base.service';
 import { ContextEnum, ContextMap } from '../context/context.enum';
 import { WebsiteDTO } from './dto/website.dto';
 import { WebsiteQueryRequestDTO } from './dto/request/query/website-query-request.dto';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class WebsiteService extends BaseService {
@@ -51,13 +52,17 @@ export class WebsiteService extends BaseService {
     return savedWebsite;
   }
 
-  async findOne(id: number, securityContext: SecurityContext): Promise<Website> {
-    const website: Website | null = await this.repository.findById(id);
+  async findOne(id: number, securityContext: SecurityContext): Promise<WebsiteDetailDTO> {
+    const website: Website | null = await this.repository.orm.findOne({
+      where: { id },
+      relations: ['institution'],
+    });
 
     if (!website) {
       throw new NotFoundException(`Website with ID ${id} not found`);
     }
-    return website;
+    const websiteDetail = plainToInstance(WebsiteDetailDTO, website);
+    return websiteDetail;
   }
 
   async update(
@@ -65,8 +70,10 @@ export class WebsiteService extends BaseService {
     updateDto: UpdateWebsiteDto,
     securityContext: SecurityContext,
   ): Promise<Website> {
-    const website = await this.findOne(websiteId, securityContext);
-
+    const website = await this.repository.findById(websiteId);
+    if (!website) {
+      throw new NotFoundException(`Website with ID ${websiteId} not found`);
+    }
     Object.assign(website, updateDto);
     website.updatedById = securityContext.user.id;
     return await this.repository.save(website);
