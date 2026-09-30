@@ -8,25 +8,16 @@ import { Page } from 'src/domains/inventory/page/page.entity';
 import { AccessibilityStatementModule } from 'src/domains/compliance/accessibility-statement/accessibility-statement.module';
 import { EvaluationRepository } from './evaluation.repository';
 
-import { EvaluationPublicWorker } from './queue/processors/evaluation-public.processor';
-import { EvaluationPrivateWorker } from './queue/processors/evaluation-private.processor';
 import { RedisModule } from 'src/redis/redis.module';
-import { EvaluationProducer } from './redis/evaluation.producer';
-import { EvaluationConsumer } from './redis/evaluation.consumer';
 import { ClickhouseModule } from 'src/core/clickhouse/clickhouse.module';
 import { EvaluationContext } from './entities/contexts-evaluation.entity';
 
 import { Website } from 'src/domains/inventory/website/website.entity';
 import { EvaluationParserService } from './evaluation-parser.service';
-import { EvaluationPublishingService } from './evaluation-publish.service';
 import { RepositoryTableConfig } from 'src/common/repositories/base-context';
 import { EVALUATION_CONTEXT_METADATA_CONFIG } from './evaluation.constants';
-import { EvaluationEngine } from './contracts/evaluation-engine.contract';
-import { QualWebPuppeteerEngine } from './strategies/engines/evaluation-engine-puppeteer.strategy';
 import { EvaluationStorage } from './contracts/evaluation-storage.contract';
 import { EvaluationLocalStorageStrategy } from './strategies/storage/evaluation-local-storage.strategy';
-import { EvaluationPersister } from './contracts/evaluation-persister.contract';
-import { EvaluationDocumentStrategy } from './strategies/reporting/evaluation-document.strategy';
 import { EvaluationInitiatorRegistry } from './registries/evaluation-initiator.registry';
 import {
   GlobalEvaluationInitiationStrategy,
@@ -76,29 +67,17 @@ export const EvaluationTableConfigProvider: Provider = {
   exports: [EvaluationService],
   providers: [
     {
-      provide: EvaluationEngine,
-      useClass: QualWebPuppeteerEngine,
-    },
-    {
       provide: EvaluationStorage,
       useClass: EvaluationLocalStorageStrategy,
     },
-    {
-      provide: EvaluationPersister,
-      useClass: EvaluationDocumentStrategy,
-    },
-    EvaluationPublishingService,
+
     EvaluationInitiatorRegistry,
     EvaluationService,
     EvaluationParserService,
     EvaluationRepository,
-    EvaluationPrivateWorker,
-    EvaluationPublicWorker,
     PublicPageExtractorProcessor,
     PrivatePageExtractorProcessor,
     Logger,
-    EvaluationProducer,
-    EvaluationConsumer,
     EvaluationTableConfigProvider,
     DirectoryEvaluationInitiationStrategy,
     TagEvaluationInitiationStrategy,

@@ -1,72 +1,27 @@
+// src/domains/audit-engine/evaluation/evaluation-parser.service.ts
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  processEvaluation,
-  getRuleMetadata,
-  EvaluationProcessingResult,
-} from '@a12e/accessmonitor-rulesets';
+import { getRuleMetadata } from '@a12e/accessmonitor-rulesets';
 import { createEvaluationEntity } from './evaluation-metrics.domain';
-import { generateMd5Hash } from 'src/common/security';
-import {
-  AuditReport,
-  ConformanceResultToken,
-  ConformanceToken,
-  EvaluationScoring,
-  IMetricData,
-} from './types';
+import { AuditReport, EvaluationScoring, IMetricData } from './types';
 
 @Injectable()
 export class EvaluationParserService {
   constructor(private readonly logger: Logger) {}
 
-  public parseEvaluation(evaluation): {
+  public parseEvaluation(leanReport: AuditReport): {
     evaluationReport: AuditReport;
     evaluationData: EvaluationScoring;
   } {
-    if (!evaluation || typeof evaluation !== 'object') {
+    if (!leanReport || typeof leanReport !== 'object') {
       throw new Error('Invalid evaluation: evaluation payload must be a non-null object.');
     }
 
-    if (!evaluation.system || !evaluation.system.page || !evaluation.system.page.dom) {
-      throw new Error(
-        `Invalid QualWeb payload structure for job: missing 'system.page.dom'. Raw payload type: ${evaluation.type || 'unknown'}`,
-      );
-    }
     try {
-      const evaluationProcessed: EvaluationProcessingResult = processEvaluation(evaluation);
-      const hash = generateMd5Hash(evaluationProcessed.metadata.metadata.evaluatedAt);
-
-      const report: AuditReport = {
-        metadata: evaluationProcessed.metadata.metadata,
-        snapshot: {
-          html: evaluationProcessed.html.html,
-          sizeInBytes: evaluationProcessed.html.pageSize,
-          hash: hash,
-        },
-        telemetry: {
-          elementCounters: evaluationProcessed.elementCounters,
-          roles: evaluationProcessed.metadata.telemetry.roles,
-          tagCounter: evaluationProcessed.metadata.telemetry.tagCounter,
-          totalHtmlTags: evaluationProcessed.metadata.telemetry.totalHtmlTags,
-        },
-        scoring: {
-          conform: evaluationProcessed.scoreDetails.conform as ConformanceToken,
-          totalTests: evaluationProcessed.scoreDetails.totalTests,
-          score: evaluationProcessed.scoreDetails.score,
-          rulesOccurrences: evaluationProcessed.rulesOccurrences,
-          assertionEvidence: evaluationProcessed.assertionEvidence,
-          conformanceResults: evaluationProcessed.conformanceResults as Record<
-            string,
-            ConformanceResultToken
-          >,
-        },
-      };
-
-      const evaluationData = createEvaluationEntity(report);
-
-      return { evaluationReport: report, evaluationData };
+      const evaluationData = createEvaluationEntity(leanReport);
+      return { evaluationReport: leanReport, evaluationData };
     } catch (error) {
       throw new Error(
-        `Failed to parse evaluation: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to parse evaluation entity: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error },
       );
     }
