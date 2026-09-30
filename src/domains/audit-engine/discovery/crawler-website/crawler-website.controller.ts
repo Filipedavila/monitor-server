@@ -26,8 +26,8 @@ import { RolesGuard } from 'src/core/authorization/guards/roles.guard';
 import { JwtAuthGuard } from 'src/core/authentication/guards/jwt-auth.guard';
 import { Roles } from 'src/core/authorization/decorators/roles.decorator';
 import { FgaGuard } from 'src/core/authorization/guards/fga.guard';
-import { FgaAuthorized } from 'src/core/authorization/decorators/fga-authorization.decorator';
 import { CrawlerImportDTO } from './dto/crawler-import.dto';
+import { CrawlerTagsCreateDTO } from './dto/crawler-create-tags.dto';
 
 @DiscoveryDocs.controller()
 @Controller('discovery')
@@ -57,28 +57,39 @@ export class CrawlerWebsiteController {
     const securityContext: SecurityContext = { user };
     await this.crawlerWebsiteService.importCrawlers(securityContext, crawlerImport.crawlerIds);
   }
-
-  @DiscoveryDocs.crawlWebsite()
-  @Roles(RoleSlug.ADMIN, RoleSlug.MONITOR)
-  @FgaAuthorized({
-    objectType: 'website',
-    action: 'can_view',
-    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId,
-  })
-  @Post(':websiteId')
-  async crawlWebsite(
-    @Param('websiteId', ParseIntPipe) websiteId: number,
-    @Body() crawlerCreate: CrawlerCreateDTO,
+  @Roles(RoleSlug.ADMIN)
+  @Post('tags')
+  async crawlWebsiteTags(
+    @Body() crawlerCreate: CrawlerTagsCreateDTO,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<any> {
+  ): Promise<void> {
     const securityContext: SecurityContext = { user };
-    const websites = [websiteId];
 
-    return await this.crawlerWebsiteService.crawlWebsites(securityContext, websites, {
+    await this.crawlerWebsiteService.crawlWebsitesTags(securityContext, crawlerCreate.tagsId, {
       maxDepth: crawlerCreate.maxDepth,
       maxPages: crawlerCreate.maxPages,
       waitJS: crawlerCreate.waitJS,
     });
+  }
+
+  @DiscoveryDocs.crawlWebsite()
+  @Roles(RoleSlug.ADMIN, RoleSlug.MONITOR)
+  @Post('')
+  async crawlWebsite(
+    @Body() crawlerCreate: CrawlerCreateDTO,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    const securityContext: SecurityContext = { user };
+
+    return await this.crawlerWebsiteService.crawlWebsites(
+      securityContext,
+      crawlerCreate.websitesId,
+      {
+        maxDepth: crawlerCreate.maxDepth,
+        maxPages: crawlerCreate.maxPages,
+        waitJS: crawlerCreate.waitJS,
+      },
+    );
   }
 
   @DiscoveryDocs.deleteCrawler()

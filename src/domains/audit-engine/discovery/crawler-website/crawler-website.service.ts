@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CrawlerWebsite } from './entities/crawler-website.entity';
 import { CrawlerWebsiteRepository } from './crawler-website.repository';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -83,7 +88,7 @@ export class CrawlerWebsiteService extends BaseService {
 
   async crawlWebsites(
     securityContext: SecurityContext,
-    websitesIds: number[],
+    websitesId: number[],
     options?: {
       maxDepth?: number;
       maxPages?: number;
@@ -91,21 +96,28 @@ export class CrawlerWebsiteService extends BaseService {
       tag?: number;
     },
   ): Promise<void> {
-    this.logger.log(
-      `Initiating crawl for userId: ${securityContext.user.id} with websites: ${websitesIds.join(', ')} and options: ${JSON.stringify(options)}`,
-    );
-
-    const websiteIds = websitesIds.map((id) => Number(id)).filter((id) => !isNaN(id));
-
-    if (websiteIds.length === 0) {
+    if (websitesId.length === 0) {
       this.logger.warn(
-        `No valid website IDs provided for userId: ${securityContext.user.id}. Provided IDs: ${websitesIds.join(', ')}`,
+        `No valid website IDs provided for userId: ${securityContext.user.id}. Provided IDs: ${websitesId.join(', ')}`,
       );
       throw new BadRequestException('No valid website IDs provided');
     }
 
+    const authorizedIds = await this.fgaService.filterAuthorizedIds(
+      `user:${securityContext.user.id}`,
+      'website',
+      websitesId,
+      ['can_manage', 'can_edit'],
+    );
+    if (authorizedIds.length === 0) {
+      this.logger.warn(
+        `UserId: ${securityContext.user.id} has no authorized website IDs. Provided IDs: ${websitesId.join(', ')}`,
+      );
+      throw new ForbiddenException('User has no authorization to the provided website IDs');
+    }
+
     const websiteObjs = await this.websiteRepository.findBy({
-      id: In(websiteIds),
+      id: In(authorizedIds),
     });
 
     const entities = websiteObjs.map((obj) => {
@@ -133,6 +145,85 @@ export class CrawlerWebsiteService extends BaseService {
         baseUrl: crawl.baseUrl,
         userId: securityContext.user.id,
         ...options,
+      },
+      opts: {
+        jobId: `crawl-job-${crawl.websiteId}`,
+        removeOnComplete: true,
+        removeOnFail: true,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000,
+        },
+      },
+    }));
+
+    await queue.addBulk(jobs);
+
+    this.eventEmitter.emit(
+      'crawler.created',
+      securityContext.user,
+      savedCrawls.map((c) => c.id),
+    );
+    this.logger.log(
+      `Crawl jobs added to queue for userId: ${securityContext.user.id} with crawlWebsiteIds: ${savedCrawls.map((c) => c.id).join(', ')}`,
+    );
+  }
+
+  async crawlWebsitesTags(
+    securityContext: SecurityContext,
+    tagsIds: number[],
+    options?: {
+      maxDepth?: number;
+      maxPages?: number;
+      waitJS?: number;
+      tag?: number;
+    },
+  ): Promise<void> {
+    this.logger.log(
+      `Initiating crawl for userId: ${securityContext.user.id} with tags: ${tagsIds.join(', ')} and options: ${JSON.stringify(options)}`,
+    );
+
+    if (tagsIds.length === 0) {
+      this.logger.warn(
+        `No valid tag IDs provided for userId: ${securityContext.user.id}. Provided IDs: ${tagsIds.join(', ')}`,
+      );
+      throw new BadRequestException('No valid tag IDs provided');
+    }
+    const websiteObjs = await this.crawlerWebsiteRepository.getWebsitesIdsByTags(tagsIds);
+
+    const entities = websiteObjs.map((obj) => {
+      const newCrawlWebsite = new CrawlerWebsite();
+      newCrawlWebsite.websiteId = obj.id;
+      newCrawlWebsite.baseUrl = obj.base_url;
+      newCrawlWebsite.createdById = securityContext.user.id;
+      return newCrawlWebsite;
+    });
+
+    const savedCrawls = await this.crawlerWebsiteRepository.saveManyCrawlWebsites(
+      entities,
+      securityContext,
+    );
+
+    const queue = this.crawlQueuePrivate;
+
+    const jobs = savedCrawls.map((crawl) => ({
+      name: 'crawl-job',
+      data: {
+        crawlerId: crawl.id,
+        baseUrl: crawl.baseUrl,
+        userId: securityContext.user.id,
+        ...options,
+      },
+      opts: {
+        jobId: `crawl-job-${crawl.websiteId}`,
+        removeOnComplete: true,
+        removeOnFail: true,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000,
+        },
       },
     }));
 

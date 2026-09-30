@@ -70,6 +70,18 @@ export class CrawlerWebsiteRepository extends ContextAwareRepository<
     pagesCount: (q, order) => this.addSort(q, 'pagesCount', order),
   };
 
+  public async getWebsitesIdsByTags(tagIds: number[]): Promise<{ id: number; base_url: string }[]> {
+    const results = await this.dataSource.query<{ id: number; base_url: string }[]>(
+      `
+      SELECT id,base_url FROM websites WHERE id IN
+      (SELECT website_id FROM 
+      website_tags WHERE tag_id = ANY($1))`,
+      [tagIds],
+    );
+
+    return results;
+  }
+
   public async getAllCrawlersWebsites(queryArgs: WebsiteCrawlerQueryRequest): Promise<{
     data: CrawlerWebsite[];
     meta: { currentPage: number; itemsPerPage: number; totalItems: number; totalPages: number };
@@ -105,29 +117,41 @@ export class CrawlerWebsiteRepository extends ContextAwareRepository<
       .loadRelationCountAndMap(`${this.alias}.pageCount`, `${this.alias}.pages`)
       .getMany();
   }
-
-  async saveManyCrawlWebsites(
-    data: CrawlerWebsite[],
+  public async saveManyCrawlWebsites(
+    entities: CrawlerWebsite[],
     securityContext: SecurityContext,
   ): Promise<CrawlerWebsite[]> {
-    return this.runInTransaction(async (queryRunner) => {
-      const savedEntities = await queryRunner.manager.save(data);
+    if (entities.length === 0) return [];
 
-      await queryRunner.manager
+    const contextId = securityContext.user?.context?.id;
+    if (!contextId) {
+      throw new BadRequestException('Security context missing valid context ID for partitioning.');
+    }
+
+    const CHUNK_SIZE = 50; // Lotes seguros para o partition router do Postgres
+    const savedResults: CrawlerWebsite[] = [];
+
+    for (let i = 0; i < entities.length; i += CHUNK_SIZE) {
+      const chunk = entities.slice(i, i + CHUNK_SIZE);
+
+      // 1. Salva o lote de crawlers
+      const savedChunk = await this.ormRepo.save(chunk, { chunk: CHUNK_SIZE });
+      savedResults.push(...savedChunk);
+
+      const contextValues = savedChunk.map((entity) => ({
+        context_id: contextId,
+        crawler_id: entity.id,
+      }));
+
+      await this.ormRepo.manager
         .createQueryBuilder()
         .insert()
         .into('crawler_websites_contexts')
-        .values(
-          savedEntities.map((entity) => ({
-            crawler_id: entity.id,
-            context_id: securityContext.user.context.id,
-          })),
-        )
-        .orIgnore()
+        .values(contextValues)
         .execute();
+    }
 
-      return savedEntities;
-    });
+    return savedResults;
   }
 
   async saveWebsiteCrawl(crawlerId: number, urls: string[]): Promise<CrawlerWebsite> {

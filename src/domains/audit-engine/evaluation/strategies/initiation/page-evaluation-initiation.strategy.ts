@@ -82,7 +82,7 @@ export class PageEvaluationInitiationStrategy implements EvaluationInitiator, On
         `user:${context.user.id}`,
         'website',
         chunk,
-        'can_edit',
+        ['can_manage', 'can_edit'],
       );
       authorizedWebsiteIds.push(...authorizedChunk);
     }

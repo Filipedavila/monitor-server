@@ -2,7 +2,7 @@ import { Type } from 'class-transformer';
 import { IsArray, Min, IsInt } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class CrawlerCreateDTO {
+export class CrawlerTagsCreateDTO {
   @ApiProperty({ default: 0 })
   @IsInt({ message: 'maxDepth must be an integer' })
   @Min(0, { message: 'maxDepth must be a non-negative integer' })
@@ -15,15 +15,15 @@ export class CrawlerCreateDTO {
   @Type(() => Number)
   maxPages: number = 9999;
 
-  @ApiProperty({ type: [Number], required: false })
-  @IsArray()
-  @IsInt({ each: true })
-  @Type(() => Number)
-  websitesId: number[] = [];
-
   @ApiProperty({ default: 0 })
   @IsInt({ message: 'waitJS must be an integer' })
   @Min(0, { message: 'waitJS must be a non-negative integer' })
   @Type(() => Number)
   waitJS: number = 0;
+
+  @ApiProperty({ type: [Number], required: false })
+  @IsArray({ message: 'tagsId must be an array' })
+  @IsInt({ each: true, message: 'each tagId must be an integer' })
+  @Type(() => Number)
+  tagsId: number[];
 }
