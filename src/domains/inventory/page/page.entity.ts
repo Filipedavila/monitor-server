@@ -15,7 +15,7 @@ import { User } from 'src/domains/identity/user/user.entity';
 
 @Entity('pages')
 @Index('idx_pages_url_trgm', { synchronize: false })
-@Index(['websiteId', 'urlHash'], { unique: true })
+@Index('uq_pages_site_url_hash', ['websiteId', 'urlHash'], { unique: true })
 export class Page implements IdentifiableModel, Auditable {
   @PrimaryGeneratedColumn('identity', { generatedIdentity: 'BY DEFAULT' })
   id: number;
