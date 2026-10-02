@@ -11,6 +11,7 @@ import {
   HttpCode,
   Body,
 } from '@nestjs/common';
+import { TrackMetric } from 'src/core/telemetry/decorators/trace.decorator';
 import { AuthService } from './auth.service';
 import { Response } from 'express';
 import { AutenticacaoGovGuard } from './guards/autenticacao-gov.guard';
@@ -31,8 +32,10 @@ export class AuthController {
   ) {}
 
   @AuthDocs.login()
+ 
   @Post('login')
-  @HttpCode(200)
+  @HttpCode(200) 
+  @TrackMetric('login')
   async login(@Body() userLoginDto: LocalLoginDto): Promise<any> {
     const result = await this.authService.loginLocal(userLoginDto.username, userLoginDto.password);
     if (!result || !result.token) {

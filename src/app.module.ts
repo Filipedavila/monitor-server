@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TelemetryModule } from './core/telemetry/telemetry.module';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -21,6 +22,7 @@ import { EvaluationConsumerModule } from './core/consumer/consumer.module';
 @Module({
   imports: [
     ConfigAppModule,
+    TelemetryModule,
     EventEmitterModule.forRoot(),
 
     PersistenceModule,
