@@ -1,32 +1,24 @@
-import {
-  IsOptional,
-  IsNumber,
-  IsBoolean,
-  IsString,
-  IsArray,
-} from "class-validator";
-import { BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
-import { Directory } from "../../../directory.entity";
+import { IsOptional, IsNumber, IsBoolean, IsString } from 'class-validator';
+import { BaseFilterDTO } from 'src/common/dto/request/base-filter.dto';
+import { Directory } from '../../../directory.entity';
 
 export class DirectoryFilterDTO
   extends BaseFilterDTO<Directory>
-  implements  Pick<Directory, 'id' | 'name'  | 'showInObservatory'>
+  implements Pick<Directory, 'id' | 'name' | 'isInObservatory'>
 {
   @IsNumber()
   @IsOptional()
   id: number;
-  
+
   @IsString()
   @IsOptional()
   name: string;
 
-
   @IsBoolean()
   @IsOptional()
-  showInObservatory: boolean;
+  isInObservatory: boolean;
 
   @IsString()
   @IsOptional()
   searchTerm: string;
-
 }

@@ -1,5 +1,5 @@
-import { Expose } from "class-transformer";
-import { TagMatchingStrategyType } from "../directory.entity";
+import { Expose } from 'class-transformer';
+import { TagMatchingStrategyType } from '../directory.entity';
 export class DirectoryDTO {
   @Expose()
   id: number;
@@ -7,7 +7,7 @@ export class DirectoryDTO {
   @Expose()
   name: string;
   @Expose()
-  showInObservatory: boolean;
+  isInObservatory: boolean;
 
   @Expose()
   tagMatchingStrategy: TagMatchingStrategyType;

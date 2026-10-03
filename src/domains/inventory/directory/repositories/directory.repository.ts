@@ -17,7 +17,7 @@ import { UpdateDirectory } from '../dto/update-diretory.dto';
 export interface DirectoryFilter extends BaseFilter {
   id?: number;
   name?: string;
-  showInObservatory?: boolean;
+  isInObservatory?: boolean;
   searchTerm?: string;
 }
 
@@ -27,7 +27,11 @@ export interface DirectorySort extends BaseSort {
 }
 
 @Injectable()
-export class DirectoryRepository extends BaseTransactionalRepository<Directory, DirectoryFilter, DirectorySort> {
+export class DirectoryRepository extends BaseTransactionalRepository<
+  Directory,
+  DirectoryFilter,
+  DirectorySort
+> {
   protected readonly alias = 'd';
 
   constructor(
@@ -43,14 +47,17 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
     ids: (query, value) => query.andWhere(`${this.alias}.id IN (:...ids)`, { ids: value }),
     id: (query, value) => query.andWhere(`${this.alias}.id = :id`, { id: value }),
     name: (query, value) => query.andWhere(`${this.alias}.name LIKE :name`, { name: `%${value}%` }),
-    showInObservatory: (query, value) => query.andWhere(`${this.alias}.showInObservatory = :showInObservatory`, { showInObservatory: value }),
+    isInObservatory: (query, value) =>
+      query.andWhere(`${this.alias}.isInObservatory = :isInObservatory`, {
+        isInObservatory: value,
+      }),
     searchTerm: (query, value) => {
       query.andWhere(
         new Brackets((qb) => {
           qb.where(`${this.alias}.name LIKE :searchTerm`, { searchTerm: `%${value}%` });
         }),
       );
-    }
+    },
   };
 
   protected readonly sortMap: SortingMap<DirectorySort, Directory> = {
@@ -59,7 +66,6 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
     createdAt: (query, order) => this.addSort(query, 'createdAt', order),
   };
 
-  
   async findByName(name: string): Promise<Directory | null> {
     return this.ormRepo.findOne({ where: { name } });
   }
@@ -95,13 +101,17 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
 
   // --- Website finders ---
 
-  async findWebsitesByDirectoryName(name: string): Promise<{ data: DirectoryWebsiteDTO[]; count: number }> {
+  async findWebsitesByDirectoryName(
+    name: string,
+  ): Promise<{ data: DirectoryWebsiteDTO[]; count: number }> {
     const directory = await this.ormRepo.findOne({ where: { name }, relations: ['tags'] });
     if (!directory || !directory.tags?.length) return { data: [], count: 0 };
     return this.findWebsitesByDirectoryTags(directory.id);
   }
 
-  async findWebsitesByDirectoryTags(directoryId: number): Promise<{ data: DirectoryWebsiteDTO[]; count: number }> {
+  async findWebsitesByDirectoryTags(
+    directoryId: number,
+  ): Promise<{ data: DirectoryWebsiteDTO[]; count: number }> {
     const directory = await this.ormRepo.findOne({
       where: { id: directoryId },
       relations: ['tags'],
@@ -118,7 +128,9 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
       .select(['w.id AS id', 'w.title AS title', 'w.baseUrl AS baseUrl']);
 
     if (directory.tagMatchingStrategy === TAG_MATCHING_STRATEGIES.INTERSECTION) {
-      query.groupBy('w.id').having('COUNT(DISTINCT tag.id) = :tagCount', { tagCount: tagIds.length });
+      query
+        .groupBy('w.id')
+        .having('COUNT(DISTINCT tag.id) = :tagCount', { tagCount: tagIds.length });
     } else {
       query.distinct(true);
     }
@@ -126,7 +138,6 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
     const rawData = await query.getRawMany<DirectoryWebsiteDTO>();
     return { data: rawData, count: rawData.length };
   }
-
 
   async findPagesByDirectoryName(name: string): Promise<any[]> {
     const directory = await this.ormRepo.findOne({ where: { name }, relations: ['tags'] });
@@ -137,7 +148,12 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
     const query = this.ormRepo.manager
       .createQueryBuilder(Page, 'p')
       .select(['p.id', 'p.url', 'p.websiteId', 'p.averageScore', 'p.totalEvaluations'])
-      .innerJoin('website_tags', 'wt', 'wt.website_id = p.websiteId AND wt.tag_id IN (:...tagIds)', { tagIds })
+      .innerJoin(
+        'website_tags',
+        'wt',
+        'wt.website_id = p.websiteId AND wt.tag_id IN (:...tagIds)',
+        { tagIds },
+      )
       .where('p.showInMonitor = :show', { show: true })
       .groupBy('p.websiteId, p.id');
 
@@ -148,40 +164,39 @@ export class DirectoryRepository extends BaseTransactionalRepository<Directory, 
     return query.getMany();
   }
 
-
   async createWithTags(dto: CreateDirectory): Promise<Directory> {
     return this.runInTransaction(async (qr) => {
       const directory = this.ormRepo.create({
         name: dto.name,
-        showInObservatory: dto.showInObservatory,
+        isInObservatory: dto.isInObservatory,
         tagMatchingStrategy: dto.strategy,
       });
       const saved = await qr.manager.save(Directory, directory);
-    
+
       return saved;
     });
   }
 
   async updateWithTags(updateDto: UpdateDirectory): Promise<Directory> {
-  const { directoryId, name, showInObservatory, strategy } = updateDto;
+    const { directoryId, name, isInObservatory, strategy } = updateDto;
 
-  return this.runInTransaction(async (qr) => {
-    const updatePayload: Partial<Directory> = {};
-    if (name !== undefined) updatePayload.name = name;
-    if (showInObservatory !== undefined) updatePayload.showInObservatory = showInObservatory;
-    if (strategy !== undefined) updatePayload.tagMatchingStrategy = strategy;
+    return this.runInTransaction(async (qr) => {
+      const updatePayload: Partial<Directory> = {};
+      if (name !== undefined) updatePayload.name = name;
+      if (isInObservatory !== undefined) updatePayload.isInObservatory = isInObservatory;
+      if (strategy !== undefined) updatePayload.tagMatchingStrategy = strategy;
 
-    if (Object.keys(updatePayload).length > 0) {
-      await qr.manager.update(Directory, { id: directoryId }, updatePayload);
-    }
-    
-    const directory = await qr.manager.findOne(Directory, { 
-      where: { id: directoryId }
-        });
+      if (Object.keys(updatePayload).length > 0) {
+        await qr.manager.update(Directory, { id: directoryId }, updatePayload);
+      }
 
-    if (!directory) throw new NotFoundException(`Directory ${directoryId} not found`);
+      const directory = await qr.manager.findOne(Directory, {
+        where: { id: directoryId },
+      });
 
-    return directory;
-  });
-}
+      if (!directory) throw new NotFoundException(`Directory ${directoryId} not found`);
+
+      return directory;
+    });
+  }
 }
