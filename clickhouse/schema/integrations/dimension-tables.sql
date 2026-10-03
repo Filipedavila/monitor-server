@@ -227,14 +227,16 @@ CREATE DICTIONARY IF NOT EXISTS institution_websites_dict (
     base_url String,
     stamp Nullable(String),
     declaration_status Nullable(String),
-    show_in_observatory Boolean
+    is_in_observatory Boolean,
+    website_status String,
+    migrated_website_id Nullable(UInt64)
 )
 PRIMARY KEY website_id
 SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'v_websites_metadata'))
 LIFETIME(MIN 5 MAX 20)
 LAYOUT(HASHED());
 
-
+/*
 DROP DICTIONARY IF EXISTS websites_context_dict;
 
 CREATE DICTIONARY IF NOT EXISTS websites_context_dict (
@@ -245,16 +247,17 @@ PRIMARY KEY website_id
 SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'context_websites_observatory'))
 LIFETIME(MIN 20 MAX 60)
 LAYOUT(HASHED());
-
+*/
 
 
 DROP DICTIONARY IF EXISTS pages_context_dict;
 
 CREATE DICTIONARY IF NOT EXISTS pages_context_dict (
-    page_id UInt32
+    id UInt32,
+    is_in_observatory Boolean
 )
-PRIMARY KEY page_id
-SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'page_contexts_observatory'))
+PRIMARY KEY id
+SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'pages'))
 LIFETIME(MIN 20 MAX 60)
 LAYOUT(HASHED());
 
@@ -265,7 +268,8 @@ CREATE DICTIONARY IF NOT EXISTS directories_metadata_dict (
     id UInt16,
     name String,
     website_ids Array(UInt32),
-    show_in_observatory Boolean,
+    is_in_observatory Boolean,
+    tag_matching_strategy String,
     website_count UInt32,
     total_stamps UInt32,
     total_gold_stamps UInt32,

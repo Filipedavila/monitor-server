@@ -1,13 +1,4 @@
 
-CREATE OR REPLACE VIEW context_websites_observatory AS
-SELECT 
-    context_id,
-    website_id
-FROM website_contexts
-WHERE context_id = 3;
-
-
-
 
 CREATE OR REPLACE VIEW v_directory_websites AS
 
@@ -39,18 +30,20 @@ directory_mapping AS (
     SELECT 
         d.id,
         d.name,
-        d.show_in_observatory,
+        d.tag_matching_strategy,
+        d.is_in_observatory,
         wt.website_id
     FROM directories d
     INNER JOIN directory_tags dt ON dt.directory_id = d.id
     INNER JOIN website_tags wt ON wt.tag_id = dt.tag_id
-    GROUP BY d.id, d.name, d.show_in_observatory, wt.website_id
+    GROUP BY d.id, d.name, d.tag_matching_strategy, d.is_in_observatory, wt.website_id
 )
 
 SELECT 
     dm.id,
     dm.name,
-    dm.show_in_observatory,
+    dm.tag_matching_strategy,
+    dm.is_in_observatory,
     ARRAY_AGG(dm.website_id) AS website_ids,
     CARDINALITY(ARRAY_AGG(dm.website_id)) AS website_count,
     SUM(COALESCE(wsc.stamp_count, 0)) AS total_stamps,
@@ -64,27 +57,9 @@ SELECT
 FROM directory_mapping dm
 LEFT JOIN website_stamp_counts wsc ON wsc.website_id = dm.website_id
 LEFT JOIN website_declarations_counts wdc ON wdc.website_id = dm.website_id
-GROUP BY dm.id, dm.name, dm.show_in_observatory;
+GROUP BY dm.id, dm.name, dm.tag_matching_strategy, dm.is_in_observatory;
 
 
-
-
-
-
-
-CREATE OR REPLACE VIEW v_institution_websites AS
-SELECT 
-    i.id AS institution_id,
-    i.long_name AS institution_name,
-    w.id AS website_id,
-    w.title AS website_title,
-    w.base_url,
-    ws.stamp AS stamp,                 
-    wd.status AS declaration_status     
-FROM websites w
-LEFT JOIN institutions i ON w.institution_id = i.id
-LEFT JOIN website_stamps ws ON ws.website_id = w.id
-LEFT JOIN website_declarations wd ON wd.website_id = w.id;
 
 
 
@@ -97,39 +72,38 @@ SELECT
     w.base_url,
     ws.stamp,                 
     wd.status AS declaration_status,
-    wc.context_id  AS show_in_observatory
+    w.status as website_status,
+    w.migrated_website_id AS migrated_website_id,
+    w.is_in_observatory AS is_in_observatory
 FROM websites w
 LEFT JOIN institutions i ON i.id = w.institution_id
 LEFT JOIN website_stamps ws ON ws.website_id = w.id
-LEFT JOIN website_declarations wd ON wd.website_id = w.id
-LEFT JOIN website_contexts wc ON wc.website_id = w.id AND wc.context_id = 3;
+LEFT JOIN website_declarations wd ON wd.website_id = w.id;
 
 
-
-CREATE OR REPLACE VIEW v_websites_metadata AS
-SELECT 
-    w.id AS website_id,
-    w.title AS website_title,
-    w.base_url,
-    i.id AS institution_id,
-    i.long_name AS institution_name,
-
-    COALESCE((
-        SELECT ARRAY_AGG(DISTINCT dt.directory_id)
-        FROM website_tags wt
-        JOIN directory_tags dt ON dt.tag_id = wt.tag_id
-        WHERE wt.website_id = w.id
-          AND dt.directory_id IS NOT NULL
-    ), ARRAY[]::INTEGER[]) AS directories_ids,
-        ws.stamp,                 
-    wd.status AS declaration_status,
-   wc.context_id  AS show_in_observatory
-FROM websites w
-LEFT JOIN website_stamps ws ON ws.website_id = w.id
-LEFT JOIN website_declarations wd ON wd.website_id = w.id
-LEFT JOIN institutions i ON i.id = w.institution_id
-LEFT JOIN website_contexts wc ON wc.website_id = w.id AND wc.context_id = 3;
-
+--CREATE OR REPLACE VIEW v_websites_metadata AS
+--SELECT 
+--   w.id AS website_id,
+--    w.title AS website_title,
+--    w.base_url,
+--    i.id AS institution_id,
+--    i.long_name AS institution_name,
+--    COALESCE((
+ ---       SELECT ARRAY_AGG(DISTINCT dt.directory_id)
+ ---       FROM website_tags wt
+ --       JOIN directory_tags dt ON dt.tag_id = wt.tag_id
+ --       WHERE wt.website_id = w.id
+ --        AND dt.directory_id IS NOT NULL
+--    ), ARRAY[]::INTEGER[]) AS directories_ids,
+--        ws.stamp,                 
+--    wd.status AS declaration_status,
+--    w.status as website_status,
+--    w.migrated_website_id AS migrated_website_id,
+--    w.is_in_observatory AS is_in_observatory
+--FROM websites w
+--LEFT JOIN website_stamps ws ON ws.website_id = w.id
+--LEFT JOIN website_declarations wd ON wd.website_id = w.id
+--LEFT JOIN institutions i ON i.id = w.institution_id;
 
 
 
@@ -143,7 +117,9 @@ SELECT
     COALESCE(dir.directories_ids, ARRAY[]::INTEGER[]) AS directories_ids,
     ws.stamp,                 
     wd.status AS declaration_status,
-    wc.context_id AS show_in_observatory,
+    w.is_in_observatory AS is_in_observatory,
+    w.status as website_status,
+    w.migrated_website_id AS migrated_website_id,
     COALESCE(pg.page_count, 0) AS page_count
 FROM websites w
 LEFT JOIN institutions i 
@@ -152,14 +128,11 @@ LEFT JOIN website_stamps ws
     ON ws.website_id = w.id
 LEFT JOIN website_declarations wd 
     ON wd.website_id = w.id
-LEFT JOIN website_contexts wc 
-    ON wc.website_id = w.id AND wc.context_id = 3
 LEFT JOIN (
     SELECT website_id, COUNT(*) AS page_count
     FROM pages
     GROUP BY website_id
 ) pg ON pg.website_id = w.id
-
 
 LEFT JOIN LATERAL (
     SELECT ARRAY_AGG(DISTINCT dt.directory_id) AS directories_ids
