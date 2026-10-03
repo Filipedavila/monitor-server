@@ -169,19 +169,23 @@ TO global_statistics
 AS 
 WITH 
     temp_pages AS (
-        SELECT * 
-        FROM latest_page_evaluations_temp 
-    ),
-    main_pages AS (
-        SELECT * 
-        FROM latest_page_evaluations FINAL
-        WHERE  page_id NOT IN (SELECT page_id FROM temp_pages)
-    ),
-    combined_latest AS (
-        SELECT * FROM temp_pages
-        UNION ALL
-        SELECT * FROM main_pages
-    ),
+    SELECT * 
+    FROM latest_page_evaluations_temp 
+    where dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true
+),
+main_pages AS (
+    SELECT *
+    FROM latest_page_evaluations FINAL
+    WHERE dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true AND page_id NOT IN (SELECT page_id FROM temp_pages)
+    
+),
+union_all_pages AS (
+    SELECT *
+    FROM temp_pages
+    UNION ALL
+    SELECT *
+    FROM main_pages
+),
 
 deduplicated_global AS (
     SELECT *,
@@ -189,7 +193,7 @@ deduplicated_global AS (
             PARTITION BY website_id, page_id 
             ORDER BY evaluation_date DESC, evaluation_id DESC
         ) AS rn
-    FROM combined_latest
+    FROM union_all_pages
 )
 SELECT 
     min(score) AS min_score,
@@ -283,16 +287,28 @@ DROP VIEW IF EXISTS mv_global_directories_statistics;
 CREATE MATERIALIZED VIEW mv_global_directories_statistics
 REFRESH EVERY 30 MINUTE
 TO global_directories_statistics AS
-WITH 
-    combined_latest AS (
-        SELECT * FROM latest_page_evaluations FINAL
-        WHERE directories_ids IS NOT NULL AND length(directories_ids) > 0
-        
-        UNION ALL
-        
-        SELECT * FROM latest_page_evaluations_temp
-        WHERE directories_ids IS NOT NULL AND length(directories_ids) > 0
-    )
+WITH temp_pages AS (
+    SELECT * 
+    FROM latest_page_evaluations_temp 
+    where dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true
+),
+main_pages AS (
+    SELECT *
+    FROM latest_page_evaluations FINAL
+    WHERE dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true AND page_id NOT IN (SELECT page_id FROM temp_pages)
+    
+),
+union_all_pages AS (
+    SELECT *
+    FROM temp_pages
+    UNION ALL
+    SELECT *
+    FROM main_pages
+),
+combined_latest AS (
+    SELECT * FROM union_all_pages
+    WHERE directories_ids IS NOT NULL AND length(directories_ids) > 0
+)
 SELECT
     min(score) AS min_score,
     max(score) AS max_score,
@@ -303,15 +319,7 @@ SELECT
     uniq(page_id) AS page_count,
     min(evaluation_date) AS oldest_evaluation_date,
     max(evaluation_date) AS recent_evaluation_date
-FROM (
-    SELECT * FROM latest_page_evaluations FINAL
-    WHERE directories_ids IS NOT NULL AND length(directories_ids) > 0
-    
-    UNION ALL
-    
-    SELECT * FROM latest_page_evaluations_temp
-    WHERE directories_ids IS NOT NULL AND length(directories_ids) > 0
-) AS combined_latest;
+FROM combined_latest;
 
 
 DROP TABLE IF EXISTS ranked_directories;
@@ -344,20 +352,38 @@ DROP VIEW IF EXISTS mv_ranked_directories;
 CREATE MATERIALIZED VIEW mv_ranked_directories
 REFRESH EVERY 30 MINUTE
 TO ranked_directories AS
-WITH combined_latest AS (
+WITH temp_pages AS (
+    SELECT * 
+    FROM latest_page_evaluations_temp 
+    where dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true
+),
+main_pages AS (
+    SELECT *
+    FROM latest_page_evaluations FINAL
+    WHERE dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true AND page_id NOT IN (SELECT page_id FROM temp_pages)
+    
+),
+union_all_pages AS (
+    SELECT *
+    FROM temp_pages
+    UNION ALL
+    SELECT *
+    FROM main_pages
+),
+combined_latest AS (
      SELECT *
-FROM latest_page_evaluations FINAL
+FROM union_all_pages
 WHERE length(directories_ids) > 0
   AND arrayExists(
-      x -> dictGet('directories_metadata_dict', 'show_in_observatory', x) = true,
+      x -> dictGetOrDefault('directories_metadata_dict', 'is_in_observatory', x, false) = true,
       directories_ids
   )
 ),
 directory_metrics AS (
     SELECT
         dir_id AS directory_id,
-        dictGet('directories_metadata_dict', ('name', 'website_count', 'total_stamps', 'total_declarations','total_bronze_stamps',
-		'total_silver_stamps','total_gold_stamps','total_nonconform_declarations','total_partiallyconform_declarations','total_conform_declarations'), dir_id) AS meta,
+        dictGetOrDefault('directories_metadata_dict', ('name', 'website_count', 'total_stamps', 'total_declarations','total_bronze_stamps',
+		'total_silver_stamps','total_gold_stamps','total_nonconform_declarations','total_partiallyconform_declarations','total_conform_declarations'), dir_id, ('', 0, 0, 0, 0, 0, 0, 0, 0, 0)) AS meta,
         avg(score) AS score_avg,
         uniq(institution_id) AS institutions_count,
         count(page_id) AS page_count,
@@ -368,7 +394,7 @@ directory_metrics AS (
         countIf(a_error_count = 0) AS a_conform_count
     FROM combined_latest
     ARRAY JOIN directories_ids AS dir_id
-    WHERE dictGet('directories_metadata_dict', 'show_in_observatory', dir_id) = true
+    WHERE dictGetOrDefault('directories_metadata_dict', 'is_in_observatory', dir_id, false) = true
     GROUP BY dir_id
 )
 SELECT
