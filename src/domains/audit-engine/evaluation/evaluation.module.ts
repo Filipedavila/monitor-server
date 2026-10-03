@@ -30,6 +30,7 @@ import {
 import { QUEUE_NAMES } from 'src/core/queues/queues.config';
 import { PublicPageExtractorProcessor } from './queue/processors/page-public.processor';
 import { PrivatePageExtractorProcessor } from './queue/processors/page-private.processor';
+import { EvaluationS3StorageStrategy } from './strategies/storage/evaluation-s3-aws-storage.strategy';
 
 export const EvaluationTableConfigProvider: Provider = {
   provide: EVALUATION_CONTEXT_METADATA_CONFIG,
@@ -68,7 +69,7 @@ export const EvaluationTableConfigProvider: Provider = {
   providers: [
     {
       provide: EvaluationStorage,
-      useClass: EvaluationLocalStorageStrategy,
+      useClass: EvaluationS3StorageStrategy,
     },
 
     EvaluationInitiatorRegistry,
