@@ -34,7 +34,7 @@ SELECT groupArray(map(
     'id', toUInt64(id),
     'directoryId', toUInt64(ifNull(directory_id, 0)),
     'entity', ifNull(entity, ''),
-    'name', ifNull(directory_name, ''),
+    'name', ifNull(name, ''),
     'score', toFloat64(max_score)
 )) AS topWebsites
 FROM
@@ -45,7 +45,8 @@ FROM
         ROW_NUMBER() OVER (ORDER BY t.max_score DESC, t.id ASC) AS rank,
         dir.directory_id,
         dir.directory_name,
-        dictGet('accessibility.websites_metadata_dict', 'institution_name', t.id) AS entity
+        dictGet('accessibility.institution_websites_dict', 'institution_name', t.id) AS entity,
+        dictGet('accessibility.institution_websites_dict', 'website_title', t.id) AS name
     FROM top_n_raw AS t
     LEFT JOIN flattened_dirs AS dir ON t.id = dir.website_id
 );

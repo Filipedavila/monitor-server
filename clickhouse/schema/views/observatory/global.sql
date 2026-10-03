@@ -1,16 +1,16 @@
 
-CREATE OR REPLACE VIEW v_top_5_global_websites AS
+CREATE OR REPLACE VIEW v_top_3_global_websites AS
 WITH temp_pages AS (
     SELECT * 
     FROM latest_page_evaluations_temp 
-    where dictHas('pages_context_dict', page_id)
+    where dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true
+    AND dictGetOrDefault('institution_websites_dict', 'is_in_observatory', website_id, false) = true
 ),
 main_pages AS (
     SELECT *
     FROM latest_page_evaluations FINAL
-    WHERE dictHas('pages_context_dict', page_id) AND page_id NOT IN (SELECT page_id FROM temp_pages)
-    
-    
+    WHERE dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true AND page_id NOT IN (SELECT page_id FROM temp_pages)
+    AND dictGetOrDefault('institution_websites_dict', 'is_in_observatory', website_id, false) = true
 ),
 combined_latest AS (
     SELECT * FROM temp_pages
@@ -38,80 +38,15 @@ FROM
     countIf(combined_latest.aa_error_count = 0 AND combined_latest.a_error_count = 0 AND combined_latest.aaa_error_count > 0) AS pagesWithoutErrorsAA,
     countIf(combined_latest.aaa_error_count = 0 AND combined_latest.aa_error_count = 0 AND combined_latest.a_error_count = 0) AS pagesWithoutErrorsAAA,
     sum(total_error_count) AS total_errors,
-    ROW_NUMBER() OVER (ORDER BY meta.3 DESC,pagesWithoutErrorsAAA DESC, pagesWithoutErrorsAA DESC, pagesWithoutErrorsA DESC) AS rank
+    ROW_NUMBER() OVER (ORDER BY  avg_score DESC, meta.3 DESC, pagesWithoutErrorsAAA DESC, pagesWithoutErrorsAA DESC, pagesWithoutErrorsA DESC ) AS rank
     FROM combined_latest
+    WHERE dictGetOrDefault('institution_websites_dict', 'is_in_observatory', website_id, false) = true
     GROUP BY website_id 
     ORDER BY rank ASC
-    LIMIT 5
+    LIMIT 3
 );
 
 
-CREATE OR REPLACE VIEW v_top_5_global_websites AS
-WITH temp_pages AS (
-    SELECT 
-        page_id,
-        website_id,
-        score,
-        a_error_count,
-        aa_error_count,
-        aaa_error_count,
-        total_error_count
-    FROM latest_page_evaluations_temp 
-    WHERE dictHas('pages_context_dict', page_id)
-),
-main_pages AS (
-    SELECT 
-        page_id,
-        website_id,
-        score,
-        a_error_count,
-        aa_error_count,
-        aaa_error_count,
-        total_error_count
-    FROM latest_page_evaluations FINAL
-    WHERE dictHas('pages_context_dict', page_id) 
-      AND page_id NOT IN (SELECT page_id FROM temp_pages)
-),
-combined_latest AS (
-    SELECT * FROM temp_pages
-    UNION ALL
-    SELECT * FROM main_pages
-),
-ranked_websites AS (
-    SELECT 
-        website_id,
-        avg(score) AS avg_score,
-        dictGet('institution_websites_dict', ('institution_name', 'website_title', 'page_count', 'directories_ids'), website_id) AS meta,
-        countIf(a_error_count = 0 AND aa_error_count > 0) AS pagesWithoutErrorsA,
-        countIf(a_error_count = 0 AND aa_error_count = 0 AND aaa_error_count > 0) AS pagesWithoutErrorsAA,
-        countIf(a_error_count = 0 AND aa_error_count = 0 AND aaa_error_count = 0) AS pagesWithoutErrorsAAA,
-        sum(total_error_count) AS total_errors,
-        if(ifNull(meta.3, 0) = 0, 0.0, (pagesWithoutErrorsAAA / toFloat64(meta.3)) * 100.0) AS conform_percentage,
-        (pagesWithoutErrorsAAA + pagesWithoutErrorsAA + pagesWithoutErrorsA) AS total_pages_without_errors
-    FROM combined_latest
-    GROUP BY website_id
-    ORDER BY 
-        conform_percentage DESC,
-        pagesWithoutErrorsAAA DESC,
-        pagesWithoutErrorsAA DESC,
-        pagesWithoutErrorsA DESC,
-    LIMIT 5
-)
-SELECT groupArray(map(
-    'index', toUInt64(rowNumberInAllBlocks() + 1),
-    'id', toUInt64(website_id),
-    'directoryId', toUInt64(ifNull(meta.4[1], 0)),
-    'entity', ifNull(meta.1, ''),
-    'name', ifNull(meta.2, ''),
-    'score', toFloat64(round(avg_score, 2)),
-    'conformPercentage', toFloat64(round(conform_percentage, 2)),
-    'pagesWithoutErrorsA', toUInt64(pagesWithoutErrorsA),
-    'pagesWithoutErrorsAA', toUInt64(pagesWithoutErrorsAA),
-    'pagesWithoutErrorsAAA', toUInt64(pagesWithoutErrorsAAA),
-    'totalErrors', toUInt64(total_errors)
-)) AS topWebsites
-FROM ranked_websites;
----------------------------
 
 ---VIEW  global statistics and counters
 
@@ -245,6 +180,7 @@ FROM
         dictGet('stamps_dict', 'stamp', m.website_id) AS stamp_status,
         true AS is_current_year
     FROM institution_websites_dict AS m
+    WHERE dictGetOrDefault('institution_websites_dict', 'is_in_observatory', website_id, false) = true
 );
 
 
@@ -260,7 +196,7 @@ SELECT
     recentPageDate,
     oldestPageDate,
 
-    (SELECT * FROM v_top_5_global_websites) AS topWebsites,
+    (SELECT * FROM v_top_3_global_websites) AS topWebsites,
     (SELECT * FROM v_rules_global_top_summary) AS rulesSummary,
     (SELECT * FROM v_conformance_global_summary) AS conformanceSummary
 
