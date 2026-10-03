@@ -9,7 +9,6 @@ import {
 } from '@nestjs/common';
 import { ObservatoryService } from './observatory.service';
 import { LoggingInterceptor } from 'src/core/log/log.interceptor';
-import { ApiBasicAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ObservatoryDocs } from './observatory.swagger';
 
 ObservatoryDocs.controller();

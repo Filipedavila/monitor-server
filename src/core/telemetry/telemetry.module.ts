@@ -12,6 +12,6 @@ import { TelemetryService } from './telemetry.service';
     },
     TelemetryService,
   ],
-  exports: [TracingInterceptor, TelemetryService],
+  exports: [TelemetryService],
 })
 export class TelemetryModule {}
