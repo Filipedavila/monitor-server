@@ -173,6 +173,56 @@ export class AnalyticsService {
     };
   }
 
+  async getGlobalAMSByDirectory(directoryId: number): Promise<any> {
+    
+   const [summary, scoreDistribution, rulesMetrics, latestQuartiles] = await Promise.all([
+      this.analyticRepository.getResourceSummary(directoryId, 'directory', 'ams'),
+      this.analyticRepository.getResourceScoreDistribution(directoryId, 'directory', 'ams'),
+      this.analyticRepository.getResourceRuleMetrics(directoryId, 'directory', 'ams'),
+      this.analyticRepository.getResourceRulesLatestQuartiles(directoryId, 'directory', 'ams'),
+    ]);
+    
+    return {
+      ...summary,
+      ...scoreDistribution,
+      ...rulesMetrics,
+      ...latestQuartiles,
+  };
+}
+
+
+  async getGlobalAMSByTag(tagId: number): Promise<any> {
+    
+    const [summary, scoreDistribution, rulesMetrics, latestQuartiles] = await Promise.all([
+      this.analyticRepository.getResourceSummary(tagId, 'tag', 'ams'),
+      this.analyticRepository.getResourceScoreDistribution(tagId, 'tag', 'ams'),
+      this.analyticRepository.getResourceRuleMetrics(tagId, 'tag', 'ams'),
+      this.analyticRepository.getResourceRulesLatestQuartiles(tagId, 'tag', 'ams'),
+    ]);
+    return {
+      ...summary,
+      ...scoreDistribution,
+      ...rulesMetrics,
+      ...latestQuartiles,
+    };  
+
+  }
+
+  async getGlobalAMSByWebsite(websiteId: number): Promise<any> {
+    const [summary, scoreDistribution, rulesMetrics, latestQuartiles] = await Promise.all([
+      this.analyticRepository.getResourceSummary(websiteId, 'website', 'ams'),
+      this.analyticRepository.getResourceScoreDistribution(websiteId, 'website', 'ams'),
+      this.analyticRepository.getResourceRuleMetrics(websiteId, 'website', 'ams'),
+      this.analyticRepository.getResourceRulesLatestQuartiles(websiteId, 'website', 'ams'),
+    ]);
+    return {
+      ...summary,
+      ...scoreDistribution,
+      ...rulesMetrics,
+      ...latestQuartiles,
+    };
+  }
+
   async exportAnalytics(context: ExportContext, format: ExportFormat) {
     return await this.analyticRepository.exportAnalyticsStream(format);
   }
@@ -187,10 +237,10 @@ export class AnalyticsService {
 
   async getWebsiteDetails(websiteId: number): Promise<WebsiteAuditReport> {
     const [summary, scoreDistribution, rulesMetrics, latestQuartiles] = await Promise.all([
-      this.analyticRepository.getWebsiteSummary(websiteId),
-      this.analyticRepository.getWebsiteScoreDistribution(websiteId),
-      this.analyticRepository.getWebsiteRuleMetrics(websiteId),
-      this.analyticRepository.getWebsiteRulesLatestQuartiles(websiteId),
+      this.analyticRepository.getResourceSummary(websiteId, 'website', 'observatory'),
+      this.analyticRepository.getResourceScoreDistribution(websiteId, 'website', 'observatory'),
+      this.analyticRepository.getResourceRuleMetrics(websiteId, 'website', 'observatory'),
+      this.analyticRepository.getResourceRulesLatestQuartiles(websiteId, 'website', 'observatory'),
     ]);
     return {
       ...summary,
@@ -209,7 +259,7 @@ export class AnalyticsService {
   }
 
   public async getWebsiteScoreDistribution(websiteId: number) {
-    return await this.analyticRepository.getWebsiteScoreDistribution(websiteId);
+    return await this.analyticRepository.getResourceScoreDistribution(websiteId, 'website', 'observatory');
   }
 
   public async searchWebsites(query: string): Promise<any[]> {

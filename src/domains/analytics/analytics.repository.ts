@@ -4,24 +4,12 @@ import { CLICKHOUSE_CLIENT } from 'src/core/clickhouse/clickhouse.constants';
 import {
   DIRECTORY_WEBSITE_RANKING_QUERY,
   DIRECTORY_WEBSITE_STATISTICS_QUERY,
-} from './queries/directory.queries';
-import {
-  WEBSITE_METRICS_QUERY,
-  WEBSITE_PLOT_SCORE_QUERY,
-  WEBSITE_RULES_LATEST_QUARTILES,
-  WEBSITE_SCORE_DISTRIBUTION_QUERY,
-  WEBSITE_SCORE_METRICS_QUERY,
-  WEBSITE_SUMMARY_QUERY,
-} from './queries/website.queries';
-import { SEARCH_WEBSITES_QUERY } from './queries/search.queries';
+} from './queries/observatory/directory.queries';
+import { SEARCH_WEBSITES_QUERY } from './queries/observatory/search.queries';
 import { Readable } from 'stream';
 import { ExportFormat } from './dto/export-analytics.dto';
-
-export interface FileStreamResult {
-  stream: Readable;
-  contentType: string;
-  filename: string;
-}
+import { getGenericQuery } from './queries/query.registry';
+import { ContextTarget, FileStreamResult, ResourceTarget } from './queries/type';
 
 @Injectable()
 export class AnalyticRepository {
@@ -81,15 +69,13 @@ export class AnalyticRepository {
     return rows;
   }
 
-  async getWebsiteSummary(websiteId: number): Promise<any> {
-    const query = `
-      ${WEBSITE_SUMMARY_QUERY}
-    `;
+  async getResourceSummary(resourceId: number, resourceType: ResourceTarget, context: ContextTarget): Promise<any> {
+    const query = getGenericQuery(context, resourceType, 'summary');
 
     const result = await this.clickHouseClient.query({
       query,
       query_params: {
-        websiteId: websiteId,
+        resourceId: resourceId,
       },
       format: 'JSONEachRow',
     });
@@ -97,13 +83,12 @@ export class AnalyticRepository {
     return rows[0];
   }
 
-  async getWebsitePlotData(websiteId: number): Promise<any> {
-    const query = WEBSITE_PLOT_SCORE_QUERY;
-
+  async getResourcePlotData(resourceId: number, resourceType: ResourceTarget, context: ContextTarget): Promise<any> {
+    const query = getGenericQuery(context, resourceType, 'plotScore');
     const result = await this.clickHouseClient.query({
       query,
       query_params: {
-        websiteId: websiteId,
+        resourceId: resourceId,
       },
       format: 'JSONEachRow',
     });
@@ -111,15 +96,12 @@ export class AnalyticRepository {
     return rows[0];
   }
 
-  async getWebsiteScoreDistribution(websiteId: number): Promise<any> {
-    const query = `
-      ${WEBSITE_SCORE_METRICS_QUERY}
-    `;
-
+  async getResourceScoreDistribution(resourceId: number, resourceType:ResourceTarget,context: ContextTarget): Promise<any> {
+    const query = getGenericQuery(context, resourceType, 'scoreDistribution');
     const result = await this.clickHouseClient.query({
       query,
       query_params: {
-        websiteId: websiteId,
+        resourceId: resourceId,
       },
       format: 'JSONEachRow',
     });
@@ -127,30 +109,27 @@ export class AnalyticRepository {
     return rows[0];
   }
 
-  async getWebsiteRuleMetrics(websiteId: number): Promise<any> {
-    const query = `
-      ${WEBSITE_METRICS_QUERY}
-    `;
+  async getResourceRuleMetrics(resourceId: number,resourceType:ResourceTarget, context: ContextTarget): Promise<any> {
+    const query = getGenericQuery(context, resourceType, 'metrics');
 
     const result = await this.clickHouseClient.query({
       query,
       query_params: {
-        websiteId: websiteId,
+        resourceId: resourceId,
       },
       format: 'JSONEachRow',
     });
     const rows = await result.json<any>();
     return rows[0];
   }
-  async getWebsiteRulesLatestQuartiles(websiteId: number): Promise<any> {
-    const query = `
-      ${WEBSITE_RULES_LATEST_QUARTILES}
-    `;
+  async getResourceRulesLatestQuartiles(resourceId: number,resourceType:ResourceTarget, context: ContextTarget): Promise<any> {
+    const query = getGenericQuery(context, resourceType, 'rulesLatestQuartiles');
+    
 
     const result = await this.clickHouseClient.query({
       query,
       query_params: {
-        websiteId: websiteId,
+        resourceId: resourceId,
       },
       format: 'JSONEachRow',
     });

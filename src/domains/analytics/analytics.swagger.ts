@@ -87,4 +87,72 @@ export const AnalyticsDocs = {
         description: 'Invalid export context or unsupported file format',
       }),
     ),
+  getTagMetrics: () =>
+    applyDecorators(
+      ApiOperation({
+        summary: 'Get metrics for a specific tag',
+        description: 'Retrieves detailed analytics metrics associated with the specified tag.',
+      }),
+      ApiParam({
+        name: 'tagId',
+        required: true,
+        description: 'Identifier of the tag to retrieve metrics for',
+        example: '12345',
+      }),
+      ApiResponse({
+        status: 200,
+        description: 'Tag metrics retrieved successfully',
+      }),
+    ),
+  getWebsiteMetrics: () =>
+    applyDecorators(
+      ApiOperation({
+        summary: 'Get metrics for a specific website',
+        description: 'Retrieves detailed analytics metrics associated with the specified website.',
+      }),
+      ApiParam({
+        name: 'websiteId',
+        required: true,
+        description: 'Identifier of the website to retrieve metrics for',
+        example: '12345',
+      }),
+      ApiResponse({
+        status: 200,
+        description: 'Website metrics retrieved successfully',
+      }),
+    ),
+  getInstitutionMetrics: () =>
+    applyDecorators(
+      ApiOperation({
+        summary: 'Get metrics for a specific institution',
+        description: 'Retrieves detailed analytics metrics associated with the specified institution.',
+      }),
+      ApiParam({
+        name: 'institutionId',
+        required: true,
+        description: 'Identifier of the institution to retrieve metrics for',
+        example: '12345',
+      }),
+      ApiResponse({
+        status: 200,
+        description: 'Institution metrics retrieved successfully',
+      }),
+    ),
+  getDirectoryMetrics: () =>
+    applyDecorators(
+      ApiOperation({
+        summary: 'Get metrics for a specific directory',
+        description: 'Retrieves detailed analytics metrics associated with the specified directory.',
+      }),
+      ApiParam({
+        name: 'directoryId',
+        required: true,
+        description: 'Identifier of the directory to retrieve metrics for',
+        example: '12345',
+      }),
+      ApiResponse({
+        status: 200,
+        description: 'Directory metrics retrieved successfully',
+      }),
+    ),
 };

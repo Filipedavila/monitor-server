@@ -7,6 +7,7 @@ import {
   Param,
   StreamableFile,
   Response,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { AnalyticsDocs } from './analytics.swagger';
 import type { Response as ExpressResponse } from 'express';
@@ -33,6 +34,42 @@ export class AnalyticsController {
   @Get('overview')
   async getOverview() {
     return this.analyticsService.getAdminOverview();
+  }
+  
+  @Get('tag/:tagId')
+  @AnalyticsDocs.getTagMetrics()
+  @HttpCode(HttpStatus.OK)
+  async getTagMetrics(
+    @Param('tagId', ParseIntPipe) tagId: number,
+  ) {
+    return this.analyticsService.getGlobalAMSByTag(tagId);
+  }
+
+  @Get('website/:websiteId')
+  @AnalyticsDocs.getWebsiteMetrics()
+  @HttpCode(HttpStatus.OK)
+  async getWebsiteMetrics(
+    @Param('websiteId', ParseIntPipe) websiteId: number,
+  ) {
+    return this.analyticsService.getGlobalAMSByWebsite(websiteId);
+  }
+
+  @Get('institution/:institutionId')
+  @AnalyticsDocs.getInstitutionMetrics()
+  @HttpCode(HttpStatus.OK)
+  async getInstitutionMetrics(
+    @Param('institutionId', ParseIntPipe) institutionId: number
+  ) {
+    //return this.analyticsService.getGlobalAMSByInstitution(institutionId);
+  }
+
+  @Get('directory/:directoryId')
+  @AnalyticsDocs.getDirectoryMetrics()
+  @HttpCode(HttpStatus.OK)
+  async getDirectoryMetrics(
+    @Param('directoryId', ParseIntPipe) directoryId: number,
+  ) {
+    return this.analyticsService.getGlobalAMSByDirectory(directoryId);
   }
 
   @AnalyticsDocs.getGlobalMetrics()
