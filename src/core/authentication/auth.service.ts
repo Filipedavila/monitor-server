@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,6 +17,9 @@ import { AppLoggerService } from '../app-logger/app-logger.service';
 import { ConfigService } from '@nestjs/config/dist/config.service';
 import { FgaService } from '../authorization/fga.service';
 import { UserPermission } from './interfaces/types';
+import * as crypto from 'crypto';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from 'src/redis/types';
 export interface JWTTokenPayload {
   username: string;
   sub: number;
@@ -23,8 +31,7 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(InvalidToken)
-    private readonly invalidTokenRepository: Repository<InvalidToken>,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly openFgaService: FgaService,
@@ -35,22 +42,11 @@ export class AuthService {
     return this.openFgaService.getAuthorizationLevel(userId, roleSlug);
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  async cleanInvalidSessionTokens(): Promise<void> {
-    await this.invalidTokenRepository
-      .createQueryBuilder()
-      .delete()
-      .where('expiresAt < :now', { now: new Date() })
-      .execute();
-
-    this.logger.log('Expired tokens cleaned successfully');
-  }
-
   async isTokenBlackListed(token: string): Promise<boolean> {
-    const invalidToken = await this.invalidTokenRepository.findOne({
-      where: { token: token },
-    });
-    return !!invalidToken;
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const redisKey = `auth:blacklist:${tokenHash}`;
+    const exists = await this.redis.exists(redisKey);
+    return exists === 1;
   }
 
   async loginLocal(
@@ -58,7 +54,6 @@ export class AuthService {
     password: string,
   ): Promise<{ id: number; token: string; amsEnv: string; authorizationLevel: string } | null> {
     const AMS_ENV = this.configService.get<string>('AMS_ENV') ?? 'DEV';
-    // TODO: Devolver level authorization from openfga.
     const user = await this.verifyUserCredentials(username, password);
     if (!user || !user.id || !user.username || !user.role || !user.uniqueHash) {
       throw new UnauthorizedException();
@@ -124,6 +119,7 @@ export class AuthService {
   verifyJWT(jwt: string): any {
     return this.jwtService.verify(jwt);
   }
+
   async logout(token: string): Promise<void> {
     const alreadyInvalid = await this.isTokenBlackListed(token);
     if (alreadyInvalid) {
@@ -133,7 +129,6 @@ export class AuthService {
     let expiresAt: Date;
     try {
       const payload = this.jwtService.decode(token);
-
       expiresAt = payload?.exp ? new Date(payload.exp * 1000) : new Date();
 
       if (expiresAt < new Date()) return;
@@ -143,10 +138,13 @@ export class AuthService {
       expiresAt.setDate(expiresAt.getDate() + 1);
     }
 
-    await this.invalidTokenRepository.insert({
-      token,
-      expiresAt,
-    });
+    const ttlSeconds = Math.ceil((expiresAt.getTime() - Date.now()) / 1000);
+    if (ttlSeconds <= 0) return;
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const redisKey = `auth:blacklist:${tokenHash}`;
+
+    await this.redis.set(redisKey, '1', 'EX', ttlSeconds, 'NX');
 
     return;
   }

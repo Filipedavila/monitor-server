@@ -1,6 +1,5 @@
 import {
   Controller,
-  InternalServerErrorException,
   UnauthorizedException,
   Request,
   Post,
@@ -32,9 +31,8 @@ export class AuthController {
   ) {}
 
   @AuthDocs.login()
- 
   @Post('login')
-  @HttpCode(200) 
+  @HttpCode(200)
   @TrackMetric('login')
   async login(@Body() userLoginDto: LocalLoginDto): Promise<any> {
     const result = await this.authService.loginLocal(userLoginDto.username, userLoginDto.password);
