@@ -7,7 +7,6 @@ import { Tag } from './domains/inventory/tag/tag.entity';
 import { Log } from './core/log/entities/log.entity';
 import { Directory } from './domains/inventory/directory/directory.entity';
 import { AccessibilityStatement } from './domains/compliance/accessibility-statement/entities/accessibility-statement.entity';
-import { InvalidToken } from './core/authentication/entitities/invalid-token.entity';
 import { CrawlerWebsite } from './domains/audit-engine/discovery/crawler-website/entities/crawler-website.entity';
 import { CrawlerPage } from './domains/audit-engine/discovery/crawler-page/crawler-page.entity';
 import { Role } from './domains/identity/role/roles.entity';
@@ -26,6 +25,7 @@ import { TagWebsite } from './domains/allocations/relations/tag-websites/tag-web
 import { CrawlerContext } from './domains/audit-engine/discovery/crawler-website/entities/contexts-crawler.entity';
 import { PageContext } from './domains/inventory/page/page-contexts.entity';
 import { EvaluationContext } from './domains/audit-engine/evaluation/entities/contexts-evaluation.entity';
+import { EvaluationArtifact } from './domains/audit-engine/evaluation/entities/evaluation-artifacts.entity';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -58,11 +58,11 @@ export const AppDataSource = new DataSource({
     CrawlerWebsite,
     CrawlerPage,
     AccessibilityStatement,
-    InvalidToken,
     Outbox,
     CrawlerContext,
     PageContext,
     EvaluationContext,
+    EvaluationArtifact,
   ],
   migrations: [isProduction ? __dirname + '/migrations/*.js' : 'src/migrations/*.ts'],
   synchronize: false,

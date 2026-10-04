@@ -29,9 +29,6 @@ import { EvaluationConsumerModule } from './core/consumer/consumer.module';
     EvaluationConsumerModule,
 
     ScheduleModule.forRoot(),
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'public'),
-    }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigAppModule],
       inject: [ConfigService],
