@@ -1,0 +1,40 @@
+graph LR
+    subgraph IngestionLayer [Triggers & Ingestion]
+        APIRequest((HTTP API / Client Request))
+    end
+
+    subgraph Infrastructure [Data & Storage Tier]
+        StorageDrive[(Storage Drive / S3 Bucket)]
+        Postgres[(PostgreSQL Database)]
+        Redis[(Redis / BullMQ)]
+    end
+
+    subgraph EvaluationWorker [Single Queue Worker Pipeline]
+        EvalQueue((BullMQ Queue))
+        EvalWorker((Worker Node))
+        ComputeAction((1 Compute Evaluation))
+        HydrateAction((2 Process & Compress Data))
+        StorageAction((3 Save to Storage))
+        DBAction((4 Upsert DB Transaction))
+        EvalRetry((Backoff & Retry))
+        EvalDLQ((BullMQ DLQ))
+        EvalSuccess((Success State))
+    end
+
+    %% Flow: Single Queue Architecture with Idempotency
+    APIRequest -->|1 Enqueue with Deterministic jobId: eval_id| EvalQueue
+    EvalQueue -->|Consume| EvalWorker
+    
+    EvalWorker -->|Check State / Guard Clause| Postgres
+    EvalWorker -->|Execute| ComputeAction
+    ComputeAction --> HydrateAction
+    HydrateAction -->|Deterministic Path| StorageAction
+    StorageAction -->|PutObject| StorageDrive
+    HydrateAction -->|Upsert on eval_id| DBAction
+    DBAction --> Postgres
+
+    EvalWorker -->|Job Error / Max Retries Reached| EvalRetry
+    EvalWorker -->|Execution Complete / Short-Circuit| EvalSuccess
+    
+    EvalRetry -->|Re-queue Under Max Attempts| EvalQueue
+    EvalRetry -->|Exhausted Attempts| EvalDLQ

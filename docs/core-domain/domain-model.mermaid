@@ -1,0 +1,71 @@
+graph TB
+    subgraph GlobalDomain [MONITOR SERVER DOMAIN]
+        
+        %% 1. AUDIT ENGINE CONTEXT (CORE)
+        subgraph AuditEngineContext [AUDIT ENGINE CONTEXT - Core]
+            direction TB
+            CrawlerMod[Discovery / Crawler Module]
+            EvalMod[Evaluation Module]
+            PublicEval[Public Evaluation Processor]
+            PrivateEval[Private Evaluation Processor]
+            ManualEval[Manual Evaluation Module]
+
+            EvalMod --> PublicEval
+            EvalMod --> PrivateEval
+        end
+
+        %% 2. INVENTORY CONTEXT (SUPPORTING)
+        subgraph InventoryContext [INVENTORY CONTEXT - Supporting]
+            direction TB
+            OrgMod[Organization Module]
+            WebMod[Website Module]
+            PageMod[Page Module]
+            TagMod[Tag Module]
+            DirMod[Directory Module]
+            CtxMod[Context Module]
+        end
+
+        %% 3. COMPLIANCE CONTEXT (CORE / POLICY)
+        subgraph ComplianceContext [COMPLIANCE CONTEXT - Core Policy]
+            direction TB
+            StampMod[Stamp / Seal Module]
+            DeclMod[Declaration Module]
+            StateMod[Accessibility Statement / Page Parser]
+        end
+
+        %% 4. IDENTITY CONTEXT (GENERIC)
+        subgraph IdentityContext [IDENTITY CONTEXT - Generic]
+            direction TB
+            UserMod[User Module]
+            TeamMod[Team Module]
+            RoleMod[Role Module]
+        end
+
+        %% 5. ALLOCATIONS & AUTHORIZATION CONTEXT (CROSS-CUTTING)
+        subgraph AllocationsContext [ALLOCATIONS CONTEXT - ReBAC Mapping]
+            direction TB
+            UserWeb[User-Websites Assignment]
+            TeamWeb[Team-Websites Assignment]
+            TeamMem[Team-Members Assignment]
+            TagWeb[Tag-Websites Assignment]
+        end
+
+    end
+
+    %% Relações de Domínio e Fluxos de Dados
+    WebMod -->|Seed URLs & Scopes| CrawlerMod
+    CrawlerMod -->|Discovered URLs| PageMod
+    PageMod -->|Pages to Evaluate| EvalMod
+    
+    AuditEngineContext -->|Evaluation Results & Metrics| ComplianceContext
+    
+    IdentityContext -->|Who / Subjects| AllocationsContext
+    InventoryContext -->|What / Resources| AllocationsContext
+    AllocationsContext -.->|Access Control Checks| AuditEngineContext
+    AllocationsContext -.->|Access Control Checks| ComplianceContext
+
+ 
+    class AuditEngineContext,ComplianceContext core;
+    class InventoryContext supporting;
+    class IdentityContext generic;
+    class AllocationsContext cross;

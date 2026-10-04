@@ -1,0 +1,40 @@
+graph TD
+    subgraph Execution ["Execution Pipeline"]
+        Pending((PENDING))
+        Processing((PROCESSING))
+    end
+
+    subgraph Governance ["Observatory & Compliance Lifecycle"]
+        Staged((STAGED))
+        Published((PUBLISHED))
+    end
+
+    subgraph FaultHandling ["Error Recovery & Deadlock"]
+        Failed((FAILED))
+        Cancelled((CANCELLED))
+    end
+
+    Deleted([DELETED])
+
+    %% Pipeline Flow
+    Pending --> |Worker picks up job| Processing
+    Processing --> |Metrics consolidated| Staged
+
+    %% Retry & Failure Flow
+    Processing --> |Transient error| Failed
+    Failed --> |Retry attempt <= 3| Processing
+    Failed --> |Max retries reached| Deleted
+
+    %% Cancellation Flow
+    Processing --> |User abort| Cancelled
+    Cancelled --> |Immediate purge| Deleted
+
+    %% Active Governance Flow
+    Staged --> |Publish| Published
+    Published --> |"Unpublish<br/>(if unfrozen)"| Staged
+    Published --> |"Delete (if unfrozen)"| Deleted
+    Staged --> |Discard / Delete| Deleted
+
+    %% Quarterly Governance (Cron / Batch)
+    Published --> |"Freeze snapshot<br/>(quarter-end)"| Published
+    Staged -.-> |Quarter-end cleanup| Deleted

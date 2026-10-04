@@ -1,0 +1,238 @@
+name: "Monitor Server ReBAC Model Validation"
+model_file: ./model.fga
+
+tuples:
+  # --- Configuração das Roles (Granularidade) ---
+  - user: "user:admin_manager"
+    relation: "manager"
+    object: "role:manager"
+
+  - user: "user:admin_editor"
+    relation: "editor"
+    object: "role:manager"
+
+  - user: "user:admin_viewer"
+    relation: "viewer"
+    object: "role:manager"
+
+  - user: "user:standard_manager_1"
+    relation: "manager"
+    object: "role:standard"
+
+  - user: "user:standard_manager_2"
+    relation: "manager"
+    object: "role:standard"
+
+  - user: "user:standard_editor_user"
+    relation: "editor"
+    object: "role:standard"
+
+  - user: "user:standard_viewer_1"
+    relation: "viewer"
+    object: "role:standard"
+ 
+  - user: "user:standard_viewer_2"
+    relation: "viewer"
+    object: "role:standard"
+
+  # --- Setup das Relações nas Teams ---
+  - user: "role:manager"
+    relation: "admin_role"
+    object: "team:1"
+  - user: "role:manager"
+    relation: "admin_role"
+    object: "team:2"
+
+  - user: "role:standard"
+    relation: "team_role"
+    object: "team:1"
+  - user: "role:standard"
+    relation: "team_role"
+    object: "team:2"
+
+    # --- Assign Users to Teams ---
+
+   #Team admins
+  - user: "user:standard_manager_1"
+    relation: "admin"
+    object: "team:1"
+  - user: "user:standard_manager_2"
+    relation: "admin"
+    object: "team:2"
+
+  - user: "user:standard_viewer_1"
+    relation: "member"
+    object: "team:2"
+  - user: "user:standard_viewer_2"
+    relation: "member"
+    object: "team:2"
+  - user: "user:standard_editor_user"
+    relation: "member"
+    object: "team:1"
+
+  # --- Hierarquia de Recursos ---
+  - user: "team:1"
+    relation: "parent"
+    object: "website:site_manager"
+  - user: "team:2"
+    relation: "parent"
+    object: "website:site_standard"
+
+  ## Direct allocations to websites by users
+  - user: "user:isolated_viewer"
+    relation: "viewer"
+    object: "website:site_standard"
+  
+  - user: "user:isolated_editor"
+    relation: "editor"
+    object: "website:site_standard"
+  - user: "user:isolated_manager"
+    relation: "manager"
+    object: "website:site_standard"
+tests:
+  - name: "1. Transversal Role Access (Role Manager)"
+    check:
+      # O admin_manager tem role:manager e gere a team:1 e team:2
+      - user: "user:admin_manager"
+        object: "website:site_manager"
+        assertions:
+          can_manage: true
+      - user: "user:admin_manager"
+        object: "website:site_standard"
+        assertions:
+          can_manage: true
+          can_edit: true
+          can_view: true
+      # admin_viewer apenas visualiza
+      - user: "user:admin_viewer"
+        object: "website:site_standard"
+        assertions:
+          can_manage: false
+          can_edit: false
+          can_view: true
+      # admin_edit should not manage but can edit and can view
+      - user: "user:admin_editor"
+        object: "website:site_standard"
+        assertions:
+          can_manage: false
+          can_edit: true
+          can_view: true
+
+  - name: "2. Contextual Team Admin Access (Role Standard)"
+    check:
+      # standard_manager_1 é admin da team:1
+      - user: "user:standard_manager_1"
+        object: "website:site_manager"
+        assertions:
+          can_manage: true
+      # standard_manager_2 é admin da team:2
+      - user: "user:standard_manager_2"
+        object: "website:site_standard"
+        assertions:
+          can_manage: true
+      # standard_manager_1 NÃO deve gerir a team 2 (isolamento)
+      - user: "user:standard_manager_1"
+        object: "website:site_standard"
+        assertions:
+          can_manage: false
+
+  - name: "3. Team Member Access (Granularidade Standard)"
+    check:
+      # standard_viewer_1 é membro da team:2, pode ver
+      - user: "user:standard_viewer_1"
+        object: "website:site_standard"
+        assertions:
+          can_view: true
+          can_edit: false
+          can_manage: false
+      # standard_viewer_1 não deve ver a team:1
+      - user: "user:standard_viewer_1"
+        object: "website:site_manager"
+        assertions:
+          can_view: false
+      # user:standard_editor_user should not manage but can edit and can view team:1
+      - user: "user:standard_editor_user"
+        object: "website:site_manager"
+        assertions:
+          can_manage: false
+          can_edit: true
+          can_view: true
+  - name: "4 - Isolated User Website Access"
+    check:
+      # user:isolated_viewer can only view the website:site_standard
+      - user: "user:isolated_viewer"
+        object: "website:site_standard"
+        assertions:
+          can_manage: false
+          can_edit: false
+          can_view: true
+      # user:isolated_editor can edit and view the website:site_standard
+      - user: "user:isolated_editor"
+        object: "website:site_standard"
+        assertions:
+          can_manage: false
+          can_edit: true
+          can_view: true
+      # user:isolated_manager can manage, edit and view the website:site_standard
+      - user: "user:isolated_manager"
+        object: "website:site_standard"
+        assertions:
+          can_manage: true
+          can_edit: true
+          can_view: true
+  - name: "5. Negative/Edge Cases"
+    check:
+      # Utilizador que não existe no grafo
+      - user: "user:unknown"
+        object: "website:site_manager"
+        assertions:
+          can_view: false
+          can_manage: false
+      # Role standard não consegue gerir nada fora da sua team (caso a role não tivesse manager injetado)
+      - user: "user:standard_manager_1"
+        object: "website:site_standard"
+        assertions:
+          can_manage: false 
+      - user: "user:standard_viewer_1"
+        object: "website:site_manager"
+        assertions:
+          can_view: false
+          can_edit: false
+          can_manage: false
+
+      # Usuário órfão :
+      #  (princípio de Least Privilege).
+      - user: "user:none"
+        object: "website:site_standard"
+        assertions:
+          can_view: false
+          can_edit: false
+          can_manage: false
+
+      # O user:isolated_viewer tem acesso 'viewer' no site_standard.
+      # Ele não deve conseguir gerir nem editar, mesmo que tente.
+      - user: "user:isolated_viewer"
+        object: "website:site_standard"
+        assertions:
+          can_manage: false
+          can_edit: false
+          can_view: true
+
+      # Garantir que um editor de uma equipa não ganha "super poderes" via herança.
+      - user: "user:standard_editor_user"
+        object: "website:site_standard"
+        assertions:
+          can_manage: false
+          can_edit: false
+          can_view: false
+
+      - user: "user:standard_manager_1"
+        object: "website:site_orphan"
+        assertions:
+          can_view: false
+          can_manage: false
+
+      - user: "user:standard_viewer_1"
+        object: "website:site_standard"
+        assertions:
+          can_view: true # Deve passar porque ele É membro no setup atual

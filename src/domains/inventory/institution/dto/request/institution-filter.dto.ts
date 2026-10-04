@@ -1,0 +1,23 @@
+import { BaseFilterDTO } from "src/common/dto/request/base-filter.dto";
+
+import { IsNumber, IsOptional, IsString } from "class-validator";
+import { Institution } from "../../institution.entity";
+
+export class InstitutionFilterDTO extends BaseFilterDTO<Institution> 
+implements Partial<Pick<Institution, 'id' | 'shortName' | 'longName'>> {
+    @IsOptional()
+    @IsNumber({}, {message: "id must be a number"})
+    id?: number;
+
+    @IsOptional()
+    @IsString({message: "shortName must be a string"})
+    shortName?: string;
+
+    @IsOptional()
+    @IsString({message: "longName must be a string"})
+    longName?: string;
+
+    @IsString()
+    @IsOptional()
+    searchTerm: string;
+}

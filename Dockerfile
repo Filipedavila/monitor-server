@@ -1,77 +1,60 @@
-FROM node:20-alpine AS base
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
 
+FROM node:22-alpine AS base
+WORKDIR /app
+
+COPY package*.json ./
 
 FROM base AS development
 
-RUN mkdir -p /dist
-RUN npm install cross-env && npm install -g @nestjs/cli
+RUN npm ci
+
 RUN apk add --no-cache \
-      chromium \
-      nss \
-      freetype \
-      harfbuzz \
-      ca-certificates \
-      ttf-freefont
-      
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
+COPY . .
 EXPOSE 3000
-
 CMD ["npm", "run", "start:dev"]
 
 
 FROM base AS builder
 COPY . .
-ARG  NODE_ENV
-ARG APP_AUTH_METHOD
-ARG SECRET_KEY
-ARG REFERER
-ARG NAMESPACE
-ARG AMPID
-ARG PORT
-ARG VALIDATOR
-ARG CLIENT_ID
-ARG REDIRECT_URI
-
-ENV  NODE_ENV=$NODE_ENV
-ENV APP_AUTH_METHOD=$APP_AUTH_METHOD
-ENV SECRET_KEY=$SECRET_KEY
-ENV REFERER=$REFERER
-ENV NAMESPACE=$NAMESPACE
-ENV AMPID=$AMPID
-ENV PORT=$PORT
-ENV VALIDATOR=$VALIDATOR
-ENV CLIENT_ID=$CLIENT_ID
-ENV REDIRECT_URI=$REDIRECT_URI
-RUN npm run build
+RUN npm ci && \
+    npm run build 
 
 
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
+WORKDIR /app
 
-RUN apk add --no-cache \
-      chromium \
-      nss \
-      freetype \
-      harfbuzz \
-      ca-certificates \
-      ttf-freefont
-      
+
+ENV NODE_ENV=production
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-RUN npm install -g @puppeteer/browsers && npx @puppeteer/browsers install chrome
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+RUN mkdir -p error-log && chown -R node:node /app
+RUN mkdir -p storage && chown -R node:node /app/storage
+RUN mkdir -p storage/evaluations && chown -R node:node /app/storage/evaluations
 
+COPY --from=builder --chown=node:node /app/package*.json ./
+COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 
-WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY ./monitor_db.json ./
-COPY ./black-list.txt ./
+USER node
 
 
 EXPOSE 3000
-
 CMD ["node", "dist/main.js"]

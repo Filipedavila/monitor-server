@@ -1,0 +1,54 @@
+model
+  schema 1.1
+
+type user
+
+type role
+  relations
+    define manager: [user]
+    define editor: [user]
+    define viewer: [user]
+
+    define can_manage_users: manager 
+    define can_edit_users: editor or manager
+    define can_view_users: viewer or editor or manager
+
+
+type team
+  relations
+    define admin: [user]
+    define member: [user]
+    define team_role: [role]
+    define admin_role: [role]    
+
+    define is_manager_as_member: member and manager from team_role
+    define is_manager_as_admin_role: manager from admin_role
+    define is_manager_as_team_admin: admin
+    define is_manager: is_manager_as_member or is_manager_as_admin_role or is_manager_as_team_admin
+
+    define is_editor_as_member: member and editor from team_role
+    define is_editor_as_admin_role: editor from admin_role
+    define is_editor_as_team_admin: admin
+    define is_editor: is_editor_as_member or is_editor_as_admin_role or is_editor_as_team_admin
+
+    define can_view_as_member: member and viewer from team_role
+    define can_view_as_admin_role: viewer from admin_role
+    define can_view_as_team_admin: admin
+    
+    define can_manage: is_manager
+    define can_edit: is_editor or is_manager
+    define can_view: can_view_as_member or can_view_as_team_admin or can_view_as_admin_role
+
+type website
+  relations
+    define parent: [team]
+    define admin_role: [role]    
+
+    define viewer: [user]
+    define editor: [user]
+    define manager: [user]
+
+    define can_manage: manager from admin_role or can_manage from parent or manager
+    define can_edit: can_manage or editor from admin_role or can_edit from parent or editor
+    define can_view: viewer from admin_role or can_view from parent or can_edit or viewer
+

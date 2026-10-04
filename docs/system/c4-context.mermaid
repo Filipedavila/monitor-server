@@ -1,0 +1,21 @@
+graph LR
+    %% Actors
+    User((Administrator))
+    MyMonitorUser((MyMonitor User))
+    StudyMonitorUser((StudyMonitor User))
+    Observatory((Observatory Analytics Dashboard))
+    %% External Systems
+    TargetWeb[Websites/Applications]
+    
+    %% Monitor Server System
+    MonitorSystem[("Monitor Server System")]
+
+    %% Business Flows
+    User -->|Define and Configure Users and Associated Websites| MonitorSystem
+    User -->|Query and Generate Accessibility Evaluations for Websites/Apps| MonitorSystem
+    User -->|Generate/Analyse Reports and Assign Quality Badges and Declarations| MonitorSystem
+    MyMonitorUser -->|Manage their Websites and Accessibility Evaluations| MonitorSystem
+    MyMonitorUser -->|Run and Consult Accessibility Evaluations on their Websites| MonitorSystem
+    StudyMonitorUser -->|Analyze and Audit Permited Websites in Isolation for Studies Purposes| MonitorSystem   
+    MonitorSystem -->|Evaluate and aggregate information and Audit| TargetWeb
+    Observatory -->|Query and Analyze Aggregated Accessibility Data for Research and Insights| MonitorSystem
