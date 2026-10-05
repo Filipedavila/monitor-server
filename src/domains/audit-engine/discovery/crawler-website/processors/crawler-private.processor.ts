@@ -2,7 +2,7 @@ import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullm
 import { Job, Queue } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IWebsiteScraper } from '../types/scraper.interface';
-import { Inject } from '@nestjs/common';
+import { SsePublisherService } from '../../../../../core/sse/sse-publisher.service';
 import { Repository } from 'typeorm';
 import { CrawlerStatus, CrawlerWebsite } from '../entities/crawler-website.entity';
 import { CrawlWebsiteHandler } from '../handlers/crawl-websites.handler';
@@ -18,11 +18,14 @@ export class CrawlPrivateWorker extends WorkerHost {
     @InjectRepository(CrawlerWebsite)
     private readonly crawlerWebsiteRepository: Repository<CrawlerWebsite>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly SsePublisherService: SsePublisherService
+
   ) {
     super();
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
+
     await this.CrawlWebsiteHandler.execute({
       id: job.data.crawlerId,
       baseUrl: job.data.baseUrl,
@@ -40,7 +43,7 @@ export class CrawlPrivateWorker extends WorkerHost {
   }
 
   @OnWorkerEvent('failed')
-  onFailed(job: Job, error: Error) {
+  async onFailed(job: Job, error: Error) {
     if (job.attemptsMade < 3) {
       job.retry();
     } else {
@@ -49,6 +52,10 @@ export class CrawlPrivateWorker extends WorkerHost {
         { id: job.data.crawlerId },
         { status: CrawlerStatus.FAILED },
       );
+
+      await this.SsePublisherService.notifyUser(job.data.userId,'crawl-job-failed', { jobId: job.id}, 'PRIVATE');
+      await this.SsePublisherService.notifyUser(job.data.userId,'ams-crawl-job-failed', { jobId: job.id}, 'AMS');
+
       this.eventEmitter.emit('crawler.failed', { jobData: job.data, error: error.message });
       console.error(` Job ${job.id} falhou: ${error.message}`);
     }
@@ -60,7 +67,11 @@ export class CrawlPrivateWorker extends WorkerHost {
   }
 
   @OnWorkerEvent('completed')
-  onCompleted(job: Job, result: any) {
+  async   onCompleted(job: Job, result: any) {
+    await this.SsePublisherService.notifyUser(job.data.userId,'crawl-job-completed', { jobId: job.id}, 'PRIVATE');
+    await this.SsePublisherService.notifyUser(job.data.userId,'ams-crawl-job-completed', { jobId: job.id}, 'AMS');
+    await this.SsePublisherService.notifyUser(job.data.userId,'global-crawl-job-completed', { jobId: job.id}, 'GLOBAL');
+    
     console.log(`Job ${job.id} terminou com sucesso! Resultado:`, result);
   }
 

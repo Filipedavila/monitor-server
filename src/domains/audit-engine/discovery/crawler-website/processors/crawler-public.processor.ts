@@ -2,17 +2,22 @@ import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { IWebsiteScraper } from '../types/scraper.interface';
 import { Inject } from '@nestjs/common';
+import { SsePublisherService } from '../../../../../core/sse/sse-publisher.service';
+import { In } from 'typeorm';
 
 @Processor('crawl-queue-public')
 export class CrawlPublicWorker extends WorkerHost {
   constructor(
     @Inject(IWebsiteScraper)
     private readonly websiteScraper: IWebsiteScraper,
+
+    private readonly SsePublisherService: SsePublisherService
   ) {
     super();
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
+
     switch (job.name) {
       case 'crawl-job':
         console.log('Processing crawl job for websiteId:', job.data.websiteId);
@@ -29,6 +34,7 @@ export class CrawlPublicWorker extends WorkerHost {
   @OnWorkerEvent('progress')
   onProgress(job: Job, progress: number | object) {
     console.log(`Job ${job.id} está em ${progress}%`);
+
   }
 
   @OnWorkerEvent('failed')
@@ -42,8 +48,13 @@ export class CrawlPublicWorker extends WorkerHost {
   }
 
   @OnWorkerEvent('completed')
-  onCompleted(job: Job, result: any) {
-    console.log(`Job ${job.id} terminou com sucesso! Resultado:`, result);
+  async onCompleted(job: Job, result: any) {
+    await this.SsePublisherService.notifyUser(job.data.userId,'crawl-job-completed', { jobId: job.id}, 'PRIVATE');
+    await this.SsePublisherService.notifyUser(job.data.userId,'ams-crawl-job-completed', { jobId: job.id}, 'AMS');
+        await this.SsePublisherService.notifyUser(job.data.userId,'global-crawl-job-completed', { jobId: job.id}, 'GLOBAL');
+
+
+
   }
 
   @OnWorkerEvent('drained')

@@ -23,7 +23,7 @@ const modules = [QueuesModule, AuthModule, EventsModule, HealthModule, OutboxMod
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseTransformInterceptor,
-    },
+    }
   ],
 })
 export class CoreModule {}
