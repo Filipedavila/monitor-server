@@ -1,37 +1,35 @@
-import { ExecutionContext, Injectable, Inject, CallHandler, NestInterceptor } from '@nestjs/common';
+import { ExecutionContext, Injectable, CallHandler, NestInterceptor } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { CACHE_OPTIONS_KEY, CacheRuleOptions } from '../decorator/cache-resource.decorator';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { AppCacheService } from '../cache.service'; // <-- Injetar o teu serviço direto
 import { Observable, of, lastValueFrom } from 'rxjs';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class EntityCacheInterceptor implements NestInterceptor {
-  // Shared table of in-flight Promises by cacheKey
   private static readonly inFlightRequests = new Map<string, Promise<any>>();
+  private static readonly PROCESSED_FLAG = Symbol('ENTITY_CACHE_PROCESSED');
 
   constructor(
     private readonly reflector: Reflector,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly cacheService: AppCacheService, // <-- Direto ao ponto
   ) {}
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
-    const options = this.reflector.get<CacheRuleOptions>(CACHE_OPTIONS_KEY, context.getHandler());
-
-    if (!options) {
-      return next.handle();
-    }
-
     const request = context.switchToHttp().getRequest();
 
-    // Only GET requests can be cached
-    if (request.method !== 'GET') {
+    if (request[EntityCacheInterceptor.PROCESSED_FLAG]) {
       return next.handle();
     }
 
-    let identifier = '';
+    const options = this.reflector.get<CacheRuleOptions>(CACHE_OPTIONS_KEY, context.getHandler());
+    if (!options || request.method !== 'GET') {
+      return next.handle();
+    }
 
+    request[EntityCacheInterceptor.PROCESSED_FLAG] = true;
+
+    let identifier = '';
     if (options.source && options.param) {
       let rawValue: any;
 
@@ -54,32 +52,31 @@ export class EntityCacheInterceptor implements NestInterceptor {
     }
 
     const cacheKey = identifier ? `cache:${options.key}:${identifier}` : `cache:${options.key}`;
-    const ttlMs = options.ttl ?? 30000;
+    const ttlSeconds = options.ttl ?? 60; // TTL em segundos
 
-    //Check cache first
-    const cachedData = await this.cacheManager.get(cacheKey);
-    if (cachedData !== undefined && cachedData !== null) {
+    // 1. Cache HIT
+    const cachedData = await this.cacheService.get(cacheKey);
+    if (cachedData !== null && cachedData !== undefined) {
       return of(cachedData);
     }
 
-    // check if there is an in-flight request for get and write in cache
-    // if there is an in-flight request, wait for it instead of executing the handler again
+    // 2. Singleflight coalescing
     const inFlight = EntityCacheInterceptor.inFlightRequests.get(cacheKey);
     if (inFlight) {
       const coalescedData = await inFlight;
       return of(coalescedData);
     }
 
-    // First request executes the handler and notifies the rest
+    // 3. Execução do Leader
     const leaderPromise = (async () => {
       try {
         const response = await lastValueFrom(next.handle());
         if (response !== undefined && response !== null) {
-          await this.cacheManager.set(cacheKey, response, ttlMs);
+          // Gravação direta no Redis via ioredis
+          await this.cacheService.set(cacheKey, response, ttlSeconds);
         }
         return response;
       } finally {
-        // Remove the in-flight request from the map
         EntityCacheInterceptor.inFlightRequests.delete(cacheKey);
       }
     })();
@@ -90,7 +87,6 @@ export class EntityCacheInterceptor implements NestInterceptor {
     return of(freshResult);
   }
 
-  // Canonical JSON stringify for consistent hashing of complex objects
   private canonicalStringify(obj: any): string {
     if (obj === null || typeof obj !== 'object') {
       return JSON.stringify(obj);
@@ -99,7 +95,6 @@ export class EntityCacheInterceptor implements NestInterceptor {
       return `[${obj.map((item) => this.canonicalStringify(item)).join(',')}]`;
     }
     const sortedKeys = Object.keys(obj).sort();
-    const result = sortedKeys.map((k) => `${JSON.stringify(k)}:${this.canonicalStringify(obj[k])}`);
-    return `{${result.join(',')}}`;
+    return `{${sortedKeys.map((k) => `${JSON.stringify(k)}:${this.canonicalStringify(obj[k])}`).join(',')}}`;
   }
 }

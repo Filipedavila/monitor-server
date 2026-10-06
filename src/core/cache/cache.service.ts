@@ -1,79 +1,55 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { Injectable, Inject, OnApplicationBootstrap, Logger } from '@nestjs/common';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from 'src/redis/types';
 
 @Injectable()
-export class AppCacheService {
+export class AppCacheService implements OnApplicationBootstrap {
   private readonly logger = new Logger(AppCacheService.name);
-  // In-flight map to prevent service-level Cache Stampede
-  private readonly inFlight = new Map<string, Promise<any>>();
 
-  constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: Cache) {}
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
-  /**
-   * Executes Cache-Aside with anti-stampede protection and fail-open degradation.
-   */
-  async wrap<T>(key: string, ttlMs: number, factory: () => Promise<T>): Promise<T> {
-    // 1. Defensive cache read (Fail-Open if Redis fails)
+  async onApplicationBootstrap() {
     try {
-      const cached = await this.cacheManager.get<T>(key);
-      if (cached !== undefined && cached !== null) {
-        return cached;
-      }
-    } catch (err) {
-      this.logger.warn(
-        `Falha na leitura do cache para a chave "${key}": ${(err as Error).message}. Prosseguindo para a factory.`,
+      await this.set('cache:ping_test', { status: 'ok' }, 60);
+      const val = await this.get('cache:ping_test');
+      this.logger.log(
+        `[Redis Cache Test]: Conexão e escrita com sucesso! Valor: ${JSON.stringify(val)}`,
       );
+    } catch (err: any) {
+      this.logger.error(`[Redis Cache Test]: Falha de escrita no Redis: ${err.message}`, err.stack);
     }
-
-    // 2. Anti-Stampede: If a calculation is already in progress for this key, join the Promise
-    const activeFlight = this.inFlight.get(key);
-    if (activeFlight) {
-      return activeFlight as Promise<T>;
-    }
-
-    // 3. Leader execution with Request Coalescing
-    const executionPromise = (async () => {
-      try {
-        const freshData = await factory();
-
-        if (freshData !== undefined && freshData !== null) {
-          try {
-            await this.cacheManager.set(key, freshData, ttlMs);
-          } catch (writeErr) {
-            this.logger.error(
-              `Failed to write cache for key "${key}": ${(writeErr as Error).message}`,
-            );
-          }
-        }
-
-        return freshData;
-      } finally {
-        this.inFlight.delete(key);
-      }
-    })();
-
-    this.inFlight.set(key, executionPromise);
-    return executionPromise;
   }
 
   /**
-   * Remove a specific cache key.
+   * Obtém um valor da cache (desserializa se for JSON)
    */
-  async evict(key: string): Promise<void> {
+  async get<T = any>(key: string): Promise<T | null> {
+    const raw = await this.redis.get(key);
+    if (!raw) {
+      return null;
+    }
+
     try {
-      await this.cacheManager.del(key);
-    } catch (err) {
-      this.logger.error(`Failed to evict cache for key "${key}": ${(err as Error).message}`);
-      throw err;
+      return JSON.parse(raw) as T;
+    } catch {
+      return raw as unknown as T;
     }
   }
 
   /**
-   * Invalidate multiple cache keys at once.
+   * Grava na cache.
+   * @param ttlSeconds TTL em segundos (padrão de mercado para Redis)
    */
-  async evictMany(keys: string[]): Promise<void> {
-    if (!keys.length) return;
-    await Promise.all(keys.map((k) => this.evict(k)));
+  async set(key: string, value: any, ttlSeconds = 60): Promise<'OK' | null> {
+    const payload = typeof value === 'string' ? value : JSON.stringify(value);
+
+    if (ttlSeconds > 0) {
+      return this.redis.set(key, payload, 'EX', ttlSeconds);
+    }
+    return this.redis.set(key, payload);
+  }
+
+  async del(key: string): Promise<number> {
+    return this.redis.del(key);
   }
 }
