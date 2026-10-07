@@ -21,7 +21,13 @@ BEGIN
     IF (TG_OP = 'INSERT') THEN
         IF NEW.is_in_observatory = true THEN
             UPDATE entity_counters SET total_count = total_count + 1, last_updated_at = NOW() WHERE entity_type = v_metric;
-            PERFORM pg_notify('entity_counts_channel', v_metric);
+            PERFORM pg_notify(
+            'entity_counts_channel', 
+            json_build_object(
+                'entity', v_metric,
+                'count', total_count
+            )::text
+            );
         END IF;
         RETURN NEW;
 
@@ -31,17 +37,35 @@ BEGIN
 
         IF NOT v_was_in AND v_is_in THEN
             UPDATE entity_counters SET total_count = total_count + 1, last_updated_at = NOW() WHERE entity_type = v_metric;
-            PERFORM pg_notify('entity_counts_channel', v_metric);
+            PERFORM pg_notify(
+            'entity_counts_channel', 
+            json_build_object(
+                'entity', v_metric,
+                'count', total_count
+            )::text
+            );
         ELSIF v_was_in AND NOT v_is_in THEN
             UPDATE entity_counters SET total_count = total_count - 1, last_updated_at = NOW() WHERE entity_type = v_metric;
-            PERFORM pg_notify('entity_counts_channel', v_metric);
+            PERFORM pg_notify(
+            'entity_counts_channel', 
+            json_build_object(
+                'entity', v_metric,
+                'count', total_count
+            )::text
+            );
         END IF;
         RETURN NEW;
 
     ELSIF (TG_OP = 'DELETE') THEN
         IF OLD.is_in_observatory = true THEN
             UPDATE entity_counters SET total_count = total_count - 1, last_updated_at = NOW() WHERE entity_type = v_metric;
-            PERFORM pg_notify('entity_counts_channel', v_metric);
+            PERFORM pg_notify(
+            'entity_counts_channel', 
+            json_build_object(
+                'entity', v_metric,
+                'count', total_count
+            )::text
+            );
         END IF;
         RETURN OLD;
     END IF;
