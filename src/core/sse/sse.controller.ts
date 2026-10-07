@@ -1,4 +1,4 @@
-import { Controller, Sse, UseGuards } from '@nestjs/common';
+import { Controller, Sse, UseGuards, Header, Res } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { SseVisibility } from './sse-publisher.service';
 import { SSEService } from './sse.service';
@@ -11,8 +11,12 @@ export class SSEController {
   constructor(private readonly sseService: SSEService) {}
 
   @Sse('stream')
-  @UseGuards(JwtAuthGuard) 
-  streamEvents(@CurrentUser() currentUser:AuthenticatedUser): Observable<MessageEvent> {
+  @UseGuards(JwtAuthGuard)
+  @Header('Content-Type', 'text/event-stream')
+  @Header('Cache-Control', 'no-cache, no-transform')
+  @Header('Connection', 'keep-alive')
+  @Header('X-Accel-Buffering', 'no')
+  streamEvents(@CurrentUser() currentUser: AuthenticatedUser): Observable<MessageEvent> {
     const userId = currentUser?.id;
     if (!userId) {
       throw new Error('UserId is required to establish SSE connection');
@@ -21,19 +25,22 @@ export class SSEController {
     if (!roleName) {
       throw new Error('Role is required to establish SSE connection');
     }
-    const visibilities = this.getVisibilitiesForRole(roleName); 
-    console.log(`User ${userId} with role ${roleName} has visibilities:`, JSON.stringify(visibilities));
+    const visibilities = this.getVisibilitiesForRole(roleName);
+    console.log(
+      `User ${userId} with role ${roleName} has visibilities:`,
+      JSON.stringify(visibilities),
+    );
     return this.sseService.getUserStream(userId, visibilities);
   }
 
   private getVisibilitiesForRole(role: string): SseVisibility[] {
     switch (role.toUpperCase()) {
-      case 'ADMIN':
+      case 'NIMDA':
         return ['GLOBAL', 'PRIVATE', 'AMS'];
-      
+
       case 'MONITOR':
         return ['GLOBAL', 'PRIVATE', 'MONITOR'];
-      
+
       case 'USER':
       default:
         return ['GLOBAL', 'PRIVATE'];

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ListenerModule } from './core/listener/listener.module';
 import { TelemetryModule } from './core/telemetry/telemetry.module';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
@@ -54,6 +55,7 @@ import { EvaluationConsumerModule } from './core/consumer/consumer.module';
     AuthorizationModule,
     ClickhouseModule,
     SseModule,
+    ListenerModule,
   ],
   controllers: [],
   providers: [

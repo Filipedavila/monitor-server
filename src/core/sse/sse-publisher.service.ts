@@ -31,7 +31,7 @@ export class SsePublisherService implements OnModuleDestroy {
     if (!channelFn) return;
 
     const finalChannel = visibility === 'PRIVATE' ? channelFn(userId) : channelFn();
-    
+
     if (visibility === 'PRIVATE' && !userId) return;
 
     const message = JSON.stringify({
@@ -39,7 +39,7 @@ export class SsePublisherService implements OnModuleDestroy {
       timestamp: new Date().toISOString(),
       data: payload,
     });
-
+    console.log(`Publicando mensagem no canal [${finalChannel}]: ${JSON.stringify(message)}`);
     await this.redisPublisher.publish(finalChannel, message);
   }
 
@@ -51,6 +51,16 @@ export class SsePublisherService implements OnModuleDestroy {
   ): Promise<void> {
     for (const visibility of visibilities) {
       await this.notifyUser(userId, eventType, payload, visibility);
+    }
+  }
+
+  async broadcast(
+    eventType: string,
+    payload: any,
+    visibilities: SseVisibility[] = ['GLOBAL'],
+  ): Promise<void> {
+    for (const visibility of visibilities) {
+      await this.notifyUser(0, eventType, payload, visibility);
     }
   }
 
