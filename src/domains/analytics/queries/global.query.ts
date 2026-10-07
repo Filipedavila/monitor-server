@@ -1,5 +1,3 @@
-import { Int32 } from 'typeorm';
-
 export interface EvaluationFilterOptions {
   websiteId?: number;
   pageId?: number;
@@ -83,7 +81,7 @@ export const buildEvaluationsCombinedLatestCTE = (
             warning_rules,
             passed_rules,
             evaluation_date
-        FROM accessibility.latest_page_evaluations_temp_v2
+        FROM accessibility.latest_page_evaluations_temp
         WHERE ${whereClause}
 
         UNION ALL
@@ -101,7 +99,7 @@ export const buildEvaluationsCombinedLatestCTE = (
             warning_rules,
             passed_rules,
             evaluation_date
-        FROM accessibility.latest_page_evaluations_v2
+        FROM accessibility.latest_page_evaluations
         WHERE ${whereClause}
     ),
 
