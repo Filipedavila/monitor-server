@@ -18,14 +18,12 @@ export class CrawlPrivateWorker extends WorkerHost {
     @InjectRepository(CrawlerWebsite)
     private readonly crawlerWebsiteRepository: Repository<CrawlerWebsite>,
     private readonly eventEmitter: EventEmitter2,
-    private readonly SsePublisherService: SsePublisherService
-
+    private readonly SsePublisherService: SsePublisherService,
   ) {
     super();
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-
     await this.CrawlWebsiteHandler.execute({
       id: job.data.crawlerId,
       baseUrl: job.data.baseUrl,
@@ -35,11 +33,36 @@ export class CrawlPrivateWorker extends WorkerHost {
   }
 
   @OnWorkerEvent('active')
-  onActive(job: Job) {}
+  async onActive(job: Job) {
+    await this.SsePublisherService.notifyUser(
+      job.data.userId,
+      'crawl-job-active',
+      { jobId: job.id },
+      'PRIVATE',
+    );
+    await this.SsePublisherService.notifyUser(
+      job.data.userId,
+      'ams-crawl-job-active',
+      { jobId: job.id },
+      'AMS',
+    );
+  }
 
   @OnWorkerEvent('progress')
-  onProgress(job: Job, progress: number | object) {
+  async onProgress(job: Job, progress: number | object) {
     console.log(`Job ${job.id} está em ${progress}%`);
+    await this.SsePublisherService.notifyUser(
+      job.data.userId,
+      'crawl-job-progress',
+      { jobId: job.id },
+      'PRIVATE',
+    );
+    await this.SsePublisherService.notifyUser(
+      job.data.userId,
+      'ams-crawl-job-progress',
+      { jobId: job.id },
+      'AMS',
+    );
   }
 
   @OnWorkerEvent('failed')
@@ -53,8 +76,18 @@ export class CrawlPrivateWorker extends WorkerHost {
         { status: CrawlerStatus.FAILED },
       );
 
-      await this.SsePublisherService.notifyUser(job.data.userId,'crawl-job-failed', { jobId: job.id}, 'PRIVATE');
-      await this.SsePublisherService.notifyUser(job.data.userId,'ams-crawl-job-failed', { jobId: job.id}, 'AMS');
+      await this.SsePublisherService.notifyUser(
+        job.data.userId,
+        'crawl-job-failed',
+        { jobId: job.id },
+        'PRIVATE',
+      );
+      await this.SsePublisherService.notifyUser(
+        job.data.userId,
+        'ams-crawl-job-failed',
+        { jobId: job.id },
+        'AMS',
+      );
 
       this.eventEmitter.emit('crawler.failed', { jobData: job.data, error: error.message });
       console.error(` Job ${job.id} falhou: ${error.message}`);
@@ -62,21 +95,50 @@ export class CrawlPrivateWorker extends WorkerHost {
   }
 
   @OnWorkerEvent('stalled')
-  onStalled(jobId: string) {
-    console.warn(`Job ${jobId} ficou 'stalled' (possível crash do processo)`);
+  async onStalled(job: Job) {
+    console.warn(`Job ${job.id} ficou 'stalled' (possível crash do processo)`);
+    await this.SsePublisherService.notifyUser(
+      job.data.userId,
+      'crawl-job-stalled',
+      { jobId: job.id },
+      'PRIVATE',
+    );
+    await this.SsePublisherService.notifyUser(
+      job.data.userId,
+      'ams-crawl-job-stalled',
+      { jobId: job.id },
+      'AMS',
+    );
   }
 
   @OnWorkerEvent('completed')
-  async   onCompleted(job: Job, result: any) {
-    await this.SsePublisherService.notifyUser(job.data.userId,'crawl-job-completed', { jobId: job.id}, 'PRIVATE');
-    await this.SsePublisherService.notifyUser(job.data.userId,'ams-crawl-job-completed', { jobId: job.id}, 'AMS');
-    await this.SsePublisherService.notifyUser(job.data.userId,'global-crawl-job-completed', { jobId: job.id}, 'GLOBAL');
-    
+  async onCompleted(job: Job, result: any) {
+    await this.SsePublisherService.notifyUser(
+      job.data.userId,
+      'crawl-job-completed',
+      { jobId: job.id },
+      'PRIVATE',
+    );
+    await this.SsePublisherService.notifyUser(
+      job.data.userId,
+      'ams-crawl-job-completed',
+      { jobId: job.id },
+      'AMS',
+    );
+    await this.SsePublisherService.notifyUser(
+      job.data.userId,
+      'global-crawl-job-completed',
+      { jobId: job.id },
+      'GLOBAL',
+    );
+
     console.log(`Job ${job.id} terminou com sucesso! Resultado:`, result);
   }
 
   @OnWorkerEvent('drained')
-  onDrained() {
+  async onDrained() {
+    await this.SsePublisherService.notifyUser(0, 'ams-crawl-job-drained', {}, 'AMS');
+
     console.log('All jobs have been processed and the queue is now empty.');
   }
 
