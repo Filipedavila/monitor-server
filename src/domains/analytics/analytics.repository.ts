@@ -6,12 +6,12 @@ import {
   DIRECTORY_WEBSITE_STATISTICS_QUERY,
 } from './queries/observatory/directory.queries';
 import { SEARCH_WEBSITES_QUERY } from './queries/observatory/search.queries';
-import { Readable } from 'stream';
+import { Readable, Transform } from 'stream';
 import { ExportFormat } from './dto/export-analytics.dto';
 import { ContextTarget, FileStreamResult, ResourceTarget } from './queries/type';
 import { buildGlobalAnalyticsQuery, EvaluationFilterOptions } from './queries/global.query';
 import { getGenericQuery } from './queries/query.registry';
-
+import type { Row } from '@clickhouse/client';
 @Injectable()
 export class AnalyticRepository {
   constructor(@Inject(CLICKHOUSE_CLIENT) private readonly clickHouseClient: ClickHouseClient) {}
@@ -228,11 +228,31 @@ export class AnalyticRepository {
         max_execution_time: 60,
       },
     });
+    const chStream = resultSet.stream();
 
-    const nodeStream = resultSet.stream();
+    const byteTransformer = new Transform({
+      objectMode: true,
+      transform(chunk: Row[] | Row, _encoding, callback) {
+        try {
+          if (Array.isArray(chunk)) {
+            let buffer = '';
+            for (let i = 0; i < chunk.length; i++) {
+              buffer += chunk[i].text + '\n';
+            }
+            callback(null, buffer);
+          } else {
+            callback(null, chunk.text + '\n');
+          }
+        } catch (err) {
+          callback(err as Error);
+        }
+      },
+    });
+
+    const outStream = chStream.pipe(byteTransformer);
 
     return {
-      stream: nodeStream as unknown as Readable,
+      stream: outStream,
       contentType,
       filename: `analytics-export-${timestamp}.${extension}`,
     };

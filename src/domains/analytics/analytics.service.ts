@@ -11,7 +11,6 @@ import {
   PlatformOverviewMetricsResponse,
 } from './types/admin-dashboard.types';
 import { ExportFormat, ExportContext } from './dto/export-analytics.dto';
-import { EvaluationFilterOptions } from './queries/global.query';
 
 @Injectable()
 export class AnalyticsService {
@@ -126,15 +125,7 @@ export class AnalyticsService {
   async getDirectoryWebsites(directoryId: number): Promise<WebsiteRankingDetailed[]> {
     return await this.analyticRepository.getRankingDirectory(directoryId);
   }
-  /*
-  public async getWebsiteScoreDistribution(websiteId: number) {
-    return await this.analyticRepository.getResourceScoreDistribution(
-      websiteId,
-      'website',
-      'observatory',
-    );
-  }
-*/
+
   public async searchWebsites(query: string): Promise<any[]> {
     return await this.analyticRepository.searchForWebsites(query);
   }
