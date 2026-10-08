@@ -3,13 +3,13 @@ import Redis from 'ioredis';
 import { SSE_REDIS_PUBLISHER } from 'src/redis/sse-redis.tokens';
 
 export type SseVisibility = 'AMS' | 'MONITOR' | 'GLOBAL' | 'PRIVATE';
-
+export const INVALID_CHANNEL = 'invalid-channel';
 export const CHANNELS: Record<SseVisibility, (userId?: number) => string> = {
   AMS: () => 'ams:events',
   MONITOR: () => 'monitor:events',
   GLOBAL: () => 'global:events',
   PRIVATE: (userId?: number) => {
-    if (!userId) throw new Error('UserId is required for PRIVATE visibility channels');
+    if (userId == undefined || userId < 0) return INVALID_CHANNEL;
     return `user:events:${userId}`;
   },
 };
@@ -31,9 +31,7 @@ export class SsePublisherService implements OnModuleDestroy {
     if (!channelFn) return;
 
     const finalChannel = visibility === 'PRIVATE' ? channelFn(userId) : channelFn();
-
-    if (visibility === 'PRIVATE' && !userId) return;
-
+    if (finalChannel === INVALID_CHANNEL) return;
     const message = JSON.stringify({
       event: eventType,
       timestamp: new Date().toISOString(),
