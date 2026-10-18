@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { FgaService } from '../fga.service';
-import { AssignationRelationType, FgaTupleAssign, FgaTupleEnquire } from '../types/fga.types';
+import { FgaTupleEnquire } from '../types/fga.types';
 import {
   MapPermissionsRoles,
-  PermissionKey,
-  RegistryHandlers,
+  AuthRegistryHandlers,
   TeamsPayload,
   UserPayload,
   WebsiteCreatePayload,
   WebsitePayload,
   WebsiteUserPayload,
+  DeleteUserPayload,
 } from '../queue/payload.types';
 import { AUTHORIZATION_ACTION } from './registry.keys';
 import { RoleSlug } from 'src/core/authentication/interfaces/types';
@@ -19,7 +19,7 @@ export class AuthorizationRegistry {
   constructor(private readonly fgaService: FgaService) {}
 
   private readonly registry: {
-    [K in keyof RegistryHandlers]: (payload: RegistryHandlers[K]) => Promise<void>;
+    [K in keyof AuthRegistryHandlers]: (payload: AuthRegistryHandlers[K]) => Promise<void>;
   } = {
     [AUTHORIZATION_ACTION.USER_CREATE]: async (payload: UserPayload) => {
       const permission = MapPermissionsRoles[payload.permission];
@@ -27,11 +27,11 @@ export class AuthorizationRegistry {
 
       if (!permission) throw new Error(`Invalid permission: ${payload.permission}`);
       await this.fgaService.createRelationship(
-        this.fgaService.makeFgaTuple('role', role, permission, `user:${payload.userId}`),
+        this.fgaService.makeFgaTuple('role', role, permission, `user:${payload.resourceId}`),
       );
     },
-    [AUTHORIZATION_ACTION.USER_DELETE]: async (payload: UserPayload) => {
-      await this.fgaService.purgeAllTuplesForUser(payload.userId);
+    [AUTHORIZATION_ACTION.USER_DELETE]: async (payload: DeleteUserPayload) => {
+      await this.fgaService.purgeAllTuplesForUser(payload.resourceId);
     },
     [AUTHORIZATION_ACTION.USER_UPDATE]: async (payload: UserPayload) => {
       // Determina o papel antigo e o novo papel (fallback para o atual se newRole não vier preenchido)
@@ -43,16 +43,17 @@ export class AuthorizationRegistry {
         : currentRoleKey;
 
       // 1. Remove as relações antigas estritamente do papel/role anterior
-      await this.fgaService.removeUserRelations('role', payload.userId.toString(), currentRoleKey, [
-        'manager',
-        'editor',
-        'viewer',
-      ]);
+      await this.fgaService.removeUserRelations(
+        'role',
+        payload.resourceId.toString(),
+        currentRoleKey,
+        ['manager', 'editor', 'viewer'],
+      );
 
       if (currentRoleKey !== targetRoleKey) {
         await this.fgaService.removeUserRelations(
           'role',
-          payload.userId.toString(),
+          payload.resourceId.toString(),
           targetRoleKey,
           ['manager', 'editor', 'viewer'],
         );
@@ -64,34 +65,49 @@ export class AuthorizationRegistry {
       if (!permission) throw new Error(`Invalid permission: ${permissionToUse}`);
 
       await this.fgaService.createRelationship(
-        this.fgaService.makeFgaTuple('role', targetRoleKey, permission, `user:${payload.userId}`),
+        this.fgaService.makeFgaTuple(
+          'role',
+          targetRoleKey,
+          permission,
+          `user:${payload.resourceId}`,
+        ),
       );
     },
     [AUTHORIZATION_ACTION.TEAM_CREATE]: async (payload: TeamsPayload) => {
       await this.fgaService.createRelationship(
         this.fgaService.makeFgaTuple(
           'team',
-          payload.teamId.toString(),
+          payload.resourceId.toString(),
           'team_role',
           `role:monitor`,
         ),
       );
       await this.fgaService.createRelationship(
-        this.fgaService.makeFgaTuple('team', payload.teamId.toString(), 'admin_role', `role:ams`),
+        this.fgaService.makeFgaTuple(
+          'team',
+          payload.resourceId.toString(),
+          'admin_role',
+          `role:ams`,
+        ),
       );
     },
     [AUTHORIZATION_ACTION.TEAM_DELETE]: async (payload: TeamsPayload) => {
       const tuples: FgaTupleEnquire<any>[] = [
         this.fgaService.makeFgaTuple(
           'team',
-          payload.teamId.toString(),
+          payload.resourceId.toString(),
           'team_role',
           `role:monitor`,
         ),
       ];
       await this.fgaService.deleteBatchesRelationships(tuples);
       await this.fgaService.createRelationship(
-        this.fgaService.makeFgaTuple('team', payload.teamId.toString(), 'admin_role', `role:ams`),
+        this.fgaService.makeFgaTuple(
+          'team',
+          payload.resourceId.toString(),
+          'admin_role',
+          `role:ams`,
+        ),
       );
     },
     [AUTHORIZATION_ACTION.TEAM_ADD_MEMBER]: async (payload: TeamsPayload) => {
@@ -99,7 +115,7 @@ export class AuthorizationRegistry {
         payload.userIds?.map((userId) =>
           this.fgaService.makeFgaTuple(
             'team',
-            payload.teamId.toString(),
+            payload.resourceId.toString(),
             'member',
             `user:${userId}`,
           ),
@@ -111,7 +127,7 @@ export class AuthorizationRegistry {
         payload.userIds?.map((userId) =>
           this.fgaService.makeFgaTuple(
             'team',
-            payload.teamId.toString(),
+            payload.resourceId.toString(),
             'member',
             `user:${userId}`,
           ),
@@ -125,7 +141,7 @@ export class AuthorizationRegistry {
             'website',
             websiteId.toString(),
             'parent',
-            `team:${payload.teamId}`,
+            `team:${payload.resourceId.toString()}`,
           ),
         ) || [];
       await this.fgaService.createBatchesRelationships(tuples);
@@ -137,7 +153,7 @@ export class AuthorizationRegistry {
             'website',
             websiteId.toString(),
             'parent',
-            `team:${payload.teamId}`,
+            `team:${payload.resourceId}`,
           ),
         ) || [];
       await this.fgaService.deleteBatchesRelationships(tuples);
@@ -195,9 +211,9 @@ export class AuthorizationRegistry {
     },
   };
 
-  async execute<K extends keyof RegistryHandlers>(
+  async execute<K extends keyof AuthRegistryHandlers>(
     type: K,
-    payload: RegistryHandlers[K],
+    payload: AuthRegistryHandlers[K],
   ): Promise<void> {
     const handler = this.registry[type];
     if (!handler) throw new Error(`No handler for resource: ${type}`);

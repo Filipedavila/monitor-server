@@ -8,17 +8,16 @@ export const AuthorizationEvent = {
 
 export type AuthorizationEventType = (typeof AuthorizationEvent)[keyof typeof AuthorizationEvent];
 
-export interface PublishEventAuthOptions<T extends keyof RegistryHandlers> {
+export interface PublishEventAuthOptions<T extends keyof AuthRegistryHandlers> {
   aggregateType: string;
   aggregateId: number;
-  action: RegistryKey;
   eventType: AuthorizationEventType;
-  payload: RegistryHandlers[T];
+  payload: AuthRegistryHandlers[T];
 }
 
-export type RegistryHandlers = {
+export type AuthRegistryHandlers = {
   [AUTHORIZATION_ACTION.USER_CREATE]: UserPayload;
-  [AUTHORIZATION_ACTION.USER_DELETE]: UserPayload;
+  [AUTHORIZATION_ACTION.USER_DELETE]: DeleteUserPayload;
   [AUTHORIZATION_ACTION.USER_UPDATE]: UserPayload;
   [AUTHORIZATION_ACTION.TEAM_CREATE]: TeamsPayload;
   [AUTHORIZATION_ACTION.TEAM_DELETE]: TeamsPayload;
@@ -32,7 +31,14 @@ export type RegistryHandlers = {
   [AUTHORIZATION_ACTION.WEBSITE_DELETE]: WebsitePayload;
 };
 
-export type AuthPayload = TeamsPayload | WebsitePayload | UserPayload | WebsiteUserPayload;
+export type AuthPayload =
+  | TeamsPayload
+  | WebsitePayload
+  | UserPayload
+  | WebsiteUserPayload
+  | DeleteUserPayload
+  | RoleUpdatePayload
+  | WebsiteCreatePayload;
 
 export interface BaseAuthPayload<T extends ResourceType> {
   resourceType: T;
@@ -52,13 +58,16 @@ export const MapPermissionsRoles: Record<
 
 export interface UserPayload extends BaseAuthPayload<typeof FGA_RESOURCE.USER> {
   resourceType: typeof FGA_RESOURCE.USER;
-  userId: number;
   role: RoleSlug;
   newRole?: RoleSlug;
   permission: PermissionKey;
   newPermission?: PermissionKey;
 }
 
+export interface DeleteUserPayload extends BaseAuthPayload<typeof FGA_RESOURCE.USER> {
+  resourceType: typeof FGA_RESOURCE.USER;
+  resourceId: number;
+}
 export interface RoleUpdatePayload extends BaseAuthPayload<typeof FGA_RESOURCE.ROLE> {
   resourceType: typeof FGA_RESOURCE.ROLE;
   userId: number;
@@ -68,7 +77,6 @@ export interface RoleUpdatePayload extends BaseAuthPayload<typeof FGA_RESOURCE.R
 }
 export interface TeamsPayload extends BaseAuthPayload<typeof FGA_RESOURCE.TEAM> {
   resourceType: typeof FGA_RESOURCE.TEAM;
-  teamId: number;
   websiteIds?: number[];
   userIds?: number[];
 }

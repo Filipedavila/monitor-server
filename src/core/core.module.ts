@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from './authentication/auth.module';
-import { EventsModule } from './events/events.module';
 import { HealthModule } from './health/heath.module';
 import { QueuesModule } from './queues/queues.module';
 import { GlobalExceptionFilter } from './filters/http-exception.filter';
@@ -9,14 +8,7 @@ import { ResponseTransformInterceptor } from './interceptors/response.intercepto
 import { OutboxModule } from './outbox/outbox.module';
 import { AppCacheModule } from './cache/cache.module';
 
-const modules = [
-  QueuesModule,
-  AuthModule,
-  EventsModule,
-  HealthModule,
-  OutboxModule,
-  AppCacheModule,
-];
+const modules = [QueuesModule, AuthModule, HealthModule, OutboxModule, AppCacheModule];
 
 @Module({
   imports: modules,

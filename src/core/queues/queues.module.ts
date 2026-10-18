@@ -58,6 +58,8 @@ import { BullMQOtel } from 'bullmq-otel'; // <-- 1. Importar o pacote
       { name: QUEUE_NAMES.PRIVATE_PAGE_DISPATCH },
       { name: QUEUE_NAMES.PUBLIC_PAGE_DISPATCH },
       { name: QUEUE_NAMES.AUTHORIZATION, defaultJobOptions: DEFAULT_JOB_OPTIONS },
+      { name: QUEUE_NAMES.EVALUATION_RESOURCE, defaultJobOptions: DEFAULT_JOB_OPTIONS },
+      { name: QUEUE_NAMES.EVALUATION_RESOURCE_DLQ },
     ),
     BullBoardModule.forFeature(
       { name: QUEUE_NAMES.CRAWL_PRIVATE, adapter: BullMQAdapter },
@@ -71,6 +73,8 @@ import { BullMQOtel } from 'bullmq-otel'; // <-- 1. Importar o pacote
       { name: QUEUE_NAMES.CRAWL_PUBLIC_DLQ, adapter: BullMQAdapter },
       { name: QUEUE_NAMES.PRIVATE_PAGE_DISPATCH, adapter: BullMQAdapter },
       { name: QUEUE_NAMES.PUBLIC_PAGE_DISPATCH, adapter: BullMQAdapter },
+      { name: QUEUE_NAMES.EVALUATION_RESOURCE, adapter: BullMQAdapter },
+      { name: QUEUE_NAMES.EVALUATION_RESOURCE_DLQ, adapter: BullMQAdapter },
     ),
     BullBoardModule.forRootAsync({
       inject: [ConfigService],
