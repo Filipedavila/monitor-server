@@ -188,13 +188,6 @@ export class EvaluationController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     const securityContext = { user: user };
-    /*   //TODO: Implement the delete evaluation functionality
-    await this.evaluationService.deleteEvaluation(
-      websiteId,
-      pageId,
-      evaluationId,
-      securityContext,
-    );
-    */
+    await this.evaluationService.deleteEvaluation(websiteId, pageId, evaluationId, securityContext);
   }
 }
