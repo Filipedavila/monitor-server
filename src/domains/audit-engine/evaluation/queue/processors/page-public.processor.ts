@@ -58,9 +58,9 @@ export class PublicPageExtractorProcessor extends WorkerHost {
         WHERE pc.context_id = $1
           AND p.website_id = $2
           AND pc.page_id > $3
-          AND pc.page_status NOT IN ('RUNNING'::page_status_enum)
+          AND pc.page_status NOT IN ($4::page_status_enum, $5::page_status_enum)
         ORDER BY pc.page_id ASC
-        LIMIT $5;
+        LIMIT $6;
         
         `,
         [
@@ -68,6 +68,7 @@ export class PublicPageExtractorProcessor extends WorkerHost {
           websiteId,
           lastPageId,
           PageStatus.RUNNING,
+          PageStatus.QUEUED,
           PublicPageExtractorProcessor.CHUNK_SIZE,
         ],
       );
@@ -114,7 +115,7 @@ export class PublicPageExtractorProcessor extends WorkerHost {
             SET page_status = $1
             WHERE page_id = ANY($2::int[]);
             `,
-          [PageStatus.RUNNING, successfullyEnqueuedPageIds],
+          [PageStatus.QUEUED, successfullyEnqueuedPageIds],
         );
 
         totalDispatched += pageIds.length;

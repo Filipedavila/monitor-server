@@ -99,17 +99,16 @@ export class PageEvaluationInitiationStrategy implements EvaluationInitiator, On
       );
     }
 
-    // 4. Selecionar a fila apropriada com base na Role
+    // 4. Selecionar a fila aprop
+    // riada com base na Role
     const targetQueue =
       context.user.role_slug === RoleSlug.ADMIN ? this.privateQueue : this.publicQueue;
 
     let totalEnqueued = 0;
 
-    // 5. Chunking do lote autorizado: busca metadata, enfileira e atualiza status
     for (let i = 0; i < allowedPageIds.length; i += DB_CHUNK_SIZE) {
       const chunkIds = allowedPageIds.slice(i, i + DB_CHUNK_SIZE);
 
-      // Busca metadados apenas de páginas elegíveis (não em RUNNING no contexto)
       const pagesToProcess: PageDispatchMetadata[] = await this.dataSource.query(
         `
         SELECT 
@@ -124,9 +123,10 @@ export class PageEvaluationInitiationStrategy implements EvaluationInitiator, On
         WHERE pc.context_id = $1
           AND pc.page_id = ANY($2::int[])
           AND pc.page_status != $3::page_status_enum
+          AND pc.page_status != $4::page_status_enum
         ORDER BY pc.page_id ASC;
         `,
-        [contextId, chunkIds, PageStatus.RUNNING],
+        [contextId, chunkIds, PageStatus.RUNNING, PageStatus.QUEUED],
       );
 
       if (!pagesToProcess.length) {
@@ -162,16 +162,15 @@ export class PageEvaluationInitiationStrategy implements EvaluationInitiator, On
         .filter((j) => j && j.data?.pageId)
         .map((j) => j.data.pageId);
 
-      // Marca como RUNNING apenas os jobs inseridos com sucesso no Redis
       if (successfullyEnqueuedIds.length > 0) {
         await this.dataSource.query(
           `
-          UPDATE page_contexts_monitor
+          UPDATE page_contexts pc
           SET page_status = $1::page_status_enum
           WHERE context_id = $2
             AND page_id = ANY($3::int[]);
           `,
-          [PageStatus.RUNNING, contextId, successfullyEnqueuedIds],
+          [PageStatus.QUEUED, contextId, successfullyEnqueuedIds],
         );
 
         totalEnqueued += successfullyEnqueuedIds.length;
