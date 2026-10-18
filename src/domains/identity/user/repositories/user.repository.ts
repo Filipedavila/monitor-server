@@ -161,7 +161,7 @@ export class UserRepository extends BaseTransactionalRepository<User, UserFilter
         eventType: AuthorizationEvent.AUTHORIZATION,
         payload: {
           resourceType: FGA_RESOURCE.USER,
-          resourceId: savedUser.id.toString(),
+          resourceId: savedUser.id,
           action: AUTHORIZATION_ACTION.USER_CREATE,
           userId: savedUser.id,
           role: role,
@@ -192,22 +192,20 @@ export class UserRepository extends BaseTransactionalRepository<User, UserFilter
       const updatedUser = await queryRunner.manager.save(User, user);
       const manager = queryRunner.manager;
 
-      const payload: Record<string, unknown> = {
-        resourceType: FGA_RESOURCE.USER,
-        resourceId: updatedUser.id.toString(),
-        userId: updatedUser.id,
-        role: options.role,
-        permission: options.permission,
-        action: AUTHORIZATION_ACTION.USER_UPDATE,
-        newRoleSlug: options.newRoleSlug,
-        newPermission: options.newPermission,
-      };
-
       await this.outboxService.putInOutbox(manager, {
         aggregateType: FGA_RESOURCE.USER,
         aggregateId: updatedUser.id,
         eventType: AuthorizationEvent.AUTHORIZATION,
-        payload,
+        payload: {
+          action: AUTHORIZATION_ACTION.USER_UPDATE,
+          resourceType: FGA_RESOURCE.USER,
+          resourceId: updatedUser.id,
+          userId: updatedUser.id,
+          role: options.role,
+          permission: options.permission,
+          newRole: options.newRoleSlug,
+          newPermission: options.newPermission,
+        },
       });
 
       return updatedUser;
@@ -223,11 +221,11 @@ export class UserRepository extends BaseTransactionalRepository<User, UserFilter
         aggregateType: FGA_RESOURCE.USER,
         aggregateId: userId,
         eventType: AuthorizationEvent.AUTHORIZATION,
+        action: AUTHORIZATION_ACTION.USER_DELETE,
         payload: {
           resourceType: FGA_RESOURCE.USER,
-          resourceId: userId.toString(),
+          resourceId: userId,
           action: AUTHORIZATION_ACTION.USER_DELETE,
-          userId: userId,
         },
       });
     });

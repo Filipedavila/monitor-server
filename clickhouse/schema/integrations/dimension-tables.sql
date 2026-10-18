@@ -229,10 +229,7 @@ CREATE DICTIONARY IF NOT EXISTS institution_websites_dict (
     base_url String,
     stamp Nullable(String),
     declaration_status Nullable(String),
-    is_in_observatory Boolean,
-    website_status String,
-    migrated_website_id Nullable(UInt64)
-)
+    is_in_observatory Boolean)
 PRIMARY KEY website_id
 SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'v_websites_metadata'))
 LIFETIME(MIN 5 MAX 20)
