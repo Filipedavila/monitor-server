@@ -117,7 +117,7 @@ describe('Auth integration: AuthService + JwtStrategy + WsJwtAdminGuard (Postgre
         password: `hashed:${opts.password ?? 'pw'}`,
         roleId: role.id,
         uniqueHash: opts.uniqueHash ?? `hash-${opts.username}`,
-        permissionLevel: PermissionLevel.VIEWER,
+        permission: PermissionLevel.VIEWER,
         ccNumber: opts.ccNumber,
       }),
     );
@@ -664,10 +664,15 @@ describe('Auth integration: AuthService + JwtStrategy + WsJwtAdminGuard (Postgre
     it('denies a connection without a token', async () => {
       const { ctx } = wsContext();
 
-      const err = await wsGuard.canActivate(ctx).catch((e) => e);
+      let err: unknown;
+      try {
+        await wsGuard.canActivate(ctx);
+      } catch (e: unknown) {
+        err = e;
+      }
 
       expect(err).toBeInstanceOf(WsException);
-      expect(err.getError()).toBe('Acesso Administrativo Negado');
+      expect((err as WsException).getError()).toBe('Acesso Administrativo Negado');
     });
 
     it('denies invalid, expired and foreign tokens with a WsException', async () => {

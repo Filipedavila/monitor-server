@@ -78,7 +78,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.USER,
         resourceId: 301,
         action: AUTHORIZATION_ACTION.USER_CREATE,
-        userId: 301,
         permission: 'viewer',
         role: RoleSlug.MONITOR,
       });
@@ -90,7 +89,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.USER,
         resourceId: 301,
         action: AUTHORIZATION_ACTION.USER_UPDATE,
-        userId: 301,
         role: RoleSlug.MONITOR,
         permission: 'viewer',
         newPermission: 'editor',
@@ -107,7 +105,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.USER,
         resourceId: 302,
         action: AUTHORIZATION_ACTION.USER_CREATE,
-        userId: 302,
         permission: 'manager',
         role: RoleSlug.MONITOR,
       });
@@ -119,7 +116,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.USER,
         resourceId: 302,
         action: AUTHORIZATION_ACTION.USER_UPDATE,
-        userId: 302,
         role: RoleSlug.MONITOR,
         newRole: RoleSlug.ADMIN,
         permission: 'manager',
@@ -136,7 +132,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.USER,
         resourceId: 303,
         action: AUTHORIZATION_ACTION.USER_CREATE,
-        userId: 303,
         permission: 'viewer',
         role: RoleSlug.MONITOR,
       });
@@ -146,7 +141,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.USER,
         resourceId: 303,
         action: AUTHORIZATION_ACTION.USER_UPDATE,
-        userId: 303,
         role: RoleSlug.MONITOR,
         newRole: RoleSlug.ADMIN,
         permission: 'viewer',
@@ -163,7 +157,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.USER,
         resourceId: 101,
         action: AUTHORIZATION_ACTION.USER_CREATE,
-        userId: 101,
         permission: 'viewer',
         role: RoleSlug.MONITOR,
       });
@@ -179,7 +172,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
           resourceType: FGA_RESOURCE.USER,
           resourceId: 102,
           action: AUTHORIZATION_ACTION.USER_CREATE,
-          userId: 102,
           permission: 'INVALID_PERMISSION' as any,
           role: RoleSlug.MONITOR,
         }),
@@ -191,7 +183,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.USER,
         resourceId: 103,
         action: AUTHORIZATION_ACTION.USER_CREATE,
-        userId: 103,
         permission: 'editor',
         role: RoleSlug.MONITOR,
       });
@@ -200,9 +191,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.USER,
         resourceId: 103,
         action: AUTHORIZATION_ACTION.USER_DELETE,
-        userId: 103,
-        role: RoleSlug.MONITOR,
-        permission: 'editor',
       });
 
       const allowed = await fgaService.check('user:103', 'editor', 'role:monitor');
@@ -217,7 +205,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.TEAM,
         resourceId: 50,
         action: AUTHORIZATION_ACTION.TEAM_CREATE,
-        teamId: 50,
       });
 
       const hasTeamRole = await fgaService.check('role:monitor', 'team_role', 'team:50');
@@ -233,7 +220,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.TEAM,
         resourceId: 60,
         action: AUTHORIZATION_ACTION.TEAM_CREATE,
-        teamId: 60,
       });
 
       // Adicionar membros
@@ -241,7 +227,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.TEAM,
         resourceId: 60,
         action: AUTHORIZATION_ACTION.TEAM_ADD_MEMBER,
-        teamId: 60,
         userIds: [1, 2],
       });
 
@@ -253,7 +238,6 @@ describe('AuthorizationRegistry (Integration Tests - OpenFga)', () => {
         resourceType: FGA_RESOURCE.TEAM,
         resourceId: 60,
         action: AUTHORIZATION_ACTION.TEAM_REMOVE_MEMBER,
-        teamId: 60,
         userIds: [1],
       });
 
