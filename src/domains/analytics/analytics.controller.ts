@@ -111,6 +111,7 @@ export class AnalyticsController {
     param: 'websiteId',
     ttl: 60,
   })
+  @AnalyticsDocs.getGlobalWebsiteMetrics()
   @HttpCode(HttpStatus.OK)
   async getGlobalWebsiteMetrics(@Param('websiteId', ParseIntPipe) websiteId: number) {
     return this.analyticsService.getGlobalWebsite(websiteId);
@@ -123,6 +124,7 @@ export class AnalyticsController {
     param: 'directoryId',
     ttl: 60,
   })
+  @AnalyticsDocs.getGlobalDirectoryMetrics()
   @HttpCode(HttpStatus.OK)
   async getGlobalDirectoryMetrics(@Param('directoryId', ParseIntPipe) directoryId: number) {
     return this.analyticsService.getGlobalDirectory(directoryId);

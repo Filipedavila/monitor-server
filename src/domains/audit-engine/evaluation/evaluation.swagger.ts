@@ -9,8 +9,8 @@ import {
 } from '@nestjs/swagger';
 
 import { Evaluation } from './entities/evaluation.entity';
-import { CreateWebsiteDto } from 'src/domains/inventory/website/dto/create-website.dto';
 import { EvaluationQueryDTO } from './dto/request/evaluation-request.dto';
+import { EvaluationTriggerDTO } from './dto/evaluation-trigger.dto';
 
 export const EvaluationDocs = {
   controller: () =>
@@ -29,37 +29,26 @@ export const EvaluationDocs = {
   findOne: () =>
     applyDecorators(
       ApiOperation({
-        summary: 'Get evaluation results',
+        summary: 'Get a specific evaluation result',
       }),
       ApiResponse({
         status: 200,
-        description: 'Success',
+        description: 'Evaluation retrieved successfully',
         type: Evaluation,
       }),
+      ApiResponse({ status: 404, description: 'Evaluation not found' }),
     ),
+
   findPageEvaluationDetails: () =>
     applyDecorators(
       ApiOperation({
-        summary: 'Get evaluations details for a specific page',
+        summary: 'Get evaluation details (JSON or HTML) for a specific page',
       }),
       ApiResponse({
         status: 200,
-        description: 'Success',
-        type: [Evaluation],
+        description: 'Evaluation details streamed successfully',
       }),
-    ),
-
-  create: () =>
-    applyDecorators(
-      ApiOperation({ summary: 'Create a new website' }),
-      ApiBody({ type: CreateWebsiteDto }),
-      ApiResponse({
-        status: 201,
-        description: 'Website created successfully',
-        type: CreateWebsiteDto,
-      }),
-      ApiResponse({ status: 400, description: 'Bad Request - Invalid input data' }),
-      ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' }),
+      ApiResponse({ status: 404, description: 'Evaluation not found' }),
     ),
 
   uploadExternalEvaluation: () =>
@@ -69,33 +58,35 @@ export const EvaluationDocs = {
           'Upload external evaluation results from the AccessMonitor Extension on My Monitor',
       }),
       ApiResponse({
-        status: 200,
-        description: 'Success',
+        status: 201,
+        description: 'External evaluation uploaded successfully',
         type: Evaluation,
       }),
+      ApiResponse({ status: 400, description: 'Bad Request - Invalid input data' }),
     ),
+
+  evaluate: () =>
+    applyDecorators(
+      ApiOperation({
+        summary: 'Trigger an evaluation for the given targets',
+      }),
+      ApiBody({ type: EvaluationTriggerDTO }),
+      ApiResponse({
+        status: 201,
+        description: 'Evaluation triggered successfully',
+      }),
+      ApiResponse({ status: 400, description: 'Bad Request - Invalid input data' }),
+    ),
+
   delete: () =>
     applyDecorators(
       ApiOperation({
-        summary: 'Delete one or more websites',
-        description: 'Permanently delete websites that the user has permission to edit',
-      }),
-      ApiBody({
-        schema: {
-          type: 'object',
-          properties: {
-            ids: {
-              type: 'array',
-              items: { type: 'number' },
-              example: [1, 2, 3],
-            },
-          },
-        },
+        summary: 'Delete a specific evaluation',
       }),
       ApiResponse({
         status: 200,
-        description: 'Websites deleted successfully',
+        description: 'Evaluation deleted successfully',
       }),
-      ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' }),
+      ApiResponse({ status: 404, description: 'Evaluation not found' }),
     ),
 };

@@ -173,7 +173,7 @@ export const AnalyticsDocs = {
           'Returns platform-wide aggregated accessibility metrics for every application ' +
           '(AMS, Observatory, ...). Includes indicators, conformance, score distribution, ' +
           'and detailed success/error tables per WCAG check. ' +
-          'Cached for 60 seconds under key `analytics_global`.',
+          'Cached for 600 seconds under key `analytics_global`.',
       }),
       ApiOkResponse({
         description: 'Global aggregated metrics retrieved successfully.',
@@ -184,6 +184,48 @@ export const AnalyticsDocs = {
   /* ============================================================
    * GET /analytics/export/:context/format/:format
    * ============================================================ */
+  getGlobalWebsiteMetrics: () =>
+    applyDecorators(
+      ApiOperation({
+        summary: 'Get global aggregated metrics for a website',
+        description:
+          'Returns platform-wide aggregated accessibility metrics scoped to the given website. ' +
+          'Cached for 60 seconds per `websiteId` under key `analytics_global_website`.',
+      }),
+      ApiParam({
+        name: 'websiteId',
+        type: Number,
+        required: true,
+        example: 305,
+        description: 'Numeric ID of the website.',
+      }),
+      ApiOkResponse({
+        description: 'Global website metrics retrieved successfully.',
+        type: GlobalMetricsDto,
+      }),
+    ),
+
+  getGlobalDirectoryMetrics: () =>
+    applyDecorators(
+      ApiOperation({
+        summary: 'Get global aggregated metrics for a directory',
+        description:
+          'Returns platform-wide aggregated accessibility metrics scoped to the given directory. ' +
+          'Cached for 60 seconds per `directoryId` under key `analytics_global_directory`.',
+      }),
+      ApiParam({
+        name: 'directoryId',
+        type: Number,
+        required: true,
+        example: 410,
+        description: 'Numeric ID of the directory.',
+      }),
+      ApiOkResponse({
+        description: 'Global directory metrics retrieved successfully.',
+        type: GlobalMetricsDto,
+      }),
+    ),
+
   exportAnalytics: () =>
     applyDecorators(
       ApiOperation({

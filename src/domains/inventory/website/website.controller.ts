@@ -78,6 +78,7 @@ export class WebsiteController {
     return this.websiteService.update(websiteId, dto, { user });
   }
 
+  @WebsiteDocs.changeWebsiteUrl()
   @FgaAuthorized(AMS_ROLE_MANAGER)
   @Roles(RoleSlug.ADMIN)
   @Patch(':websiteId/url')
@@ -100,6 +101,7 @@ export class WebsiteController {
     return this.websiteService.delete(deleteBulkDto.websiteIds, { user });
   }
 
+  @WebsiteDocs.changeWebsiteContexts()
   @FgaAuthorized(AMS_ROLE_MANAGER)
   @Roles(RoleSlug.ADMIN)
   @Post(':websiteId/contexts')

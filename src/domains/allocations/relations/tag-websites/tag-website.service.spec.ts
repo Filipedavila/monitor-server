@@ -506,7 +506,7 @@ describe("TagWebsitesService", () => {
           fail("Should have thrown an exception");
         } catch (error) {
           expect(error).toBeInstanceOf(InternalServerErrorException);
-          expect(error.message).toContain(
+          expect((error as Error).message).toContain(
             "Erro ao processar atualização de tags"
           );
         }

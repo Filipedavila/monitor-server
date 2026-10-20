@@ -123,6 +123,7 @@ export class PageController implements LoggableController {
     action: 'can_manage_users',
     resourceIdResolver: () => 'ams',
   })
+  @PageDocs.toggleObservatoryStatus()
   @Post('website/:websiteId/page/:pageId/toggle-observatory')
   async toggleObservatoryStatus(
     @Param('websiteId', ParseIntPipe) websiteId: number,

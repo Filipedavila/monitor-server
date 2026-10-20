@@ -28,6 +28,7 @@ import { Roles } from 'src/core/authorization/decorators/roles.decorator';
 import { FgaGuard } from 'src/core/authorization/guards/fga.guard';
 import { CrawlerImportDTO } from './dto/crawler-import.dto';
 import { CrawlerTagsCreateDTO } from './dto/crawler-create-tags.dto';
+import { CrawlWebsitesResponseDTO } from './dto/crawler-website-response.dto';
 
 @DiscoveryDocs.controller()
 @Controller('discovery')
@@ -41,7 +42,7 @@ export class CrawlerWebsiteController {
   async getCrawlWebsites(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: CrawlerRequestDTO,
-  ): Promise<any> {
+  ): Promise<CrawlWebsitesResponseDTO> {
     const securityContext: SecurityContext = { user };
     return await this.crawlerWebsiteService.getMany(query, securityContext);
   }
@@ -77,6 +78,7 @@ export class CrawlerWebsiteController {
       },
     );
   }
+  @DiscoveryDocs.crawlWebsiteTags()
   @Roles(RoleSlug.ADMIN)
   @Post('tags')
   async crawlWebsiteTags(

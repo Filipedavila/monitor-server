@@ -27,6 +27,7 @@ import { FgaAuthorized } from 'src/core/authorization/decorators/fga-authorizati
 import { ContextFilterGuard } from 'src/core/authorization/guards/context.guard';
 import { EvaluationTriggerDTO } from './dto/evaluation-trigger.dto';
 import { EvaluationDTO } from './dto/evaluation.dto';
+import { Evaluation } from './entities/evaluation.entity';
 
 @EvaluationDocs.controller()
 @Controller('evaluations/')
@@ -49,7 +50,7 @@ export class EvaluationController {
     @Param('websiteId', ParseIntPipe) websiteId: number,
     @Param('pageId', ParseIntPipe) pageId: number,
     @Query() query: EvaluationQueryDTO,
-  ): Promise<any> {
+  ): Promise<{ data: Evaluation[]; count: number }> {
     return await this.evaluationService.getEvaluations(websiteId, pageId, { user }, query);
   }
 
@@ -149,10 +150,10 @@ export class EvaluationController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('websiteId', ParseIntPipe) websiteId: number,
     @Param('pageId', ParseIntPipe) pageId: number,
-    @Body() data: any,
-  ): Promise<any> {
+    @Body() data: string,
+  ): Promise<void> {
     const securityContext = { user: user };
-    return await this.evaluationService.saveExternalEvaluation(
+    await this.evaluationService.saveExternalEvaluation(
       websiteId,
       pageId,
       data,
@@ -160,6 +161,7 @@ export class EvaluationController {
     );
   }
 
+  @EvaluationDocs.evaluate()
   @Roles(RoleSlug.ADMIN, RoleSlug.MONITOR)
   @Post('')
   async evaluate(
@@ -174,6 +176,7 @@ export class EvaluationController {
     );
   }
 
+  @EvaluationDocs.delete()
   @Roles(RoleSlug.ADMIN, RoleSlug.MONITOR)
   @FgaAuthorized({
     objectType: 'website',

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { TagService } from './tag.service';
 import { Tag } from './tag.entity';
+import { TagResponseDTO } from './dto/tag-response.dto';
 import { LoggingInterceptor } from 'src/core/log/log.interceptor';
 
 import { TagDocs } from './tag.swagger';
@@ -29,6 +30,7 @@ import { JwtAuthGuard } from 'src/core/authentication/guards/jwt-auth.guard';
 import { ContextFilterGuard } from 'src/core/authorization/guards/context.guard';
 import { FgaGuard } from 'src/core/authorization/guards/fga.guard';
 import { FgaAuthorized } from 'src/core/authorization/decorators/fga-authorization.decorator';
+import { PaginationResponse } from 'src/common/repositories/base.repository';
 import {
   AMS_ROLE_EDITOR,
   AMS_ROLE_MANAGER,
@@ -50,14 +52,15 @@ export class TagController implements LoggableController {
   async findAllAdmin(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: TagRequestDTO,
-  ): Promise<any> {
+  ): Promise<PaginationResponse<TagResponseDTO>> {
     return await this.tagService.findAll(query);
   }
 
+  @TagDocs.findOne()
   @Get(':id')
   @Roles(RoleSlug.ADMIN)
   @FgaAuthorized(AMS_ROLE_VIEWER)
-  async getTag(@CurrentUser() user: AuthenticatedUser, @Param('id') tagId: number): Promise<Tag> {
+  async getTag(@CurrentUser() user: AuthenticatedUser, @Param('id') tagId: number): Promise<TagResponseDTO> {
     this.logger.log(`Fetching tag with ID: ${tagId} for user: ${user.id}`);
     return await this.tagService.findById(tagId);
   }
@@ -69,7 +72,7 @@ export class TagController implements LoggableController {
   async create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() createTagDto: CreateTagDTO,
-  ): Promise<any> {
+  ): Promise<TagResponseDTO> {
     return await this.tagService.createOne(createTagDto, user);
   }
 
@@ -80,11 +83,11 @@ export class TagController implements LoggableController {
   async update(
     @CurrentUser() user: AuthenticatedUser,
     @Body() updateTagDto: UpdateTagDTO,
-  ): Promise<Tag> {
+  ): Promise<TagResponseDTO> {
     return await this.tagService.update(updateTagDto, user);
   }
 
-  @TagDocs.deleteBulk()
+  @TagDocs.delete()
   @Roles(RoleSlug.ADMIN)
   @FgaAuthorized(AMS_ROLE_MANAGER)
   @Delete(':id')
