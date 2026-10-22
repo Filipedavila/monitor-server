@@ -1,48 +1,35 @@
 export const EVALUATIONS_COMBINED_LATEST_CTE = `
-    temp_pages AS (
-        SELECT * 
-        FROM latest_page_evaluations_temp 
-        WHERE website_id = {resourceId: UInt32} 
-          AND dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true
-          AND dictGetOrDefault('institution_websites_dict', 'is_in_observatory', website_id, false) = true
-    ),
-    main_pages AS (
-        SELECT * 
-        FROM latest_page_evaluations FINAL
-        WHERE website_id = {resourceId: UInt32} 
-          AND page_id NOT IN (SELECT page_id FROM temp_pages) 
-          AND dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true
-          AND dictGetOrDefault('institution_websites_dict', 'is_in_observatory', website_id, false) = true
-    ),
     combined_latest AS (
-        SELECT * FROM temp_pages
-        UNION ALL
-        SELECT * FROM main_pages
+        SELECT * 
+        FROM v_latest_pages_evaluations 
+        WHERE website_id = {resourceId: UInt32} 
     )
 `;
 
 export const websiteQueries = {
   summary: `
 WITH
-   ${EVALUATIONS_COMBINED_LATEST_CTE},
-    website_meta AS (
+    ${EVALUATIONS_COMBINED_LATEST_CTE},
+    website_data AS (
         SELECT
-            {resourceId: UInt32} AS id,
-            dictGet(
-                'institution_websites_dict', 
-                ('website_title', 'base_url', 'institution_name'), 
-                {resourceId: UInt32}
-            ) AS meta
+            website_id AS id, 
+            website_id,
+            institution_id,
+            base_url AS baseUrl,
+            page_count AS pageCounts
+        FROM institution_websites_dict AS w
+        WHERE website_id = {resourceId: UInt32}
+        AND is_in_observatory = 1
     )
 SELECT
     m.id,
-    m.meta.1 AS name,
-    m.meta.2 AS url,
-    m.meta.3 AS institutionName,
+    m.website_id AS websiteId,
+    m.baseUrl AS url,
+    dictGet('institution_websites_dict', 'institution_name', toUInt32(m.institution_id)) AS name,
     min(f.evaluation_date) AS oldestPageDate,
     max(f.evaluation_date) AS recentPageDate,
     round(avg(f.score), 1) AS score,
-    uniqExact(f.page_id) AS pageCount,
+    m.pageCounts AS pageCount,
 
     countIf(f.a_error_count > 0 OR f.aa_error_count > 0 OR f.aaa_error_count > 0) AS pagesWithErrorsCount,
     countIf(f.a_error_count = 0 AND f.aa_error_count = 0 AND f.aaa_error_count = 0) AS pagesWithoutErrorsCount,
@@ -51,11 +38,15 @@ SELECT
     countIf(f.a_error_count = 0 AND f.aa_error_count = 0 AND f.aaa_error_count > 0) AS pagesWithoutErrorsAA,
     countIf(f.a_error_count = 0 AND f.aa_error_count = 0 AND f.aaa_error_count = 0) AS pagesWithoutErrorsAAA
 FROM combined_latest AS f
-LEFT JOIN website_meta AS m ON f.website_id = m.id
+CROSS JOIN website_data AS m
 GROUP BY
     m.id,
-    m.meta;
+    m.website_id,
+    m.institution_id,
+    m.baseUrl,
+    m.pageCounts;
 `,
+
   plotScore: `
 WITH ${EVALUATIONS_COMBINED_LATEST_CTE}
 SELECT
