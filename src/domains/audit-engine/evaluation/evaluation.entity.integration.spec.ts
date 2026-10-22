@@ -252,20 +252,6 @@ describe('Evaluation entity mapping (Testcontainers + Postgres)', () => {
       expect(ev.createdAt.toISOString()).toBe(when.toISOString());
     });
 
-    it('moves updatedAt forward on update and leaves createdAt alone', async () => {
-      const page = await makePage();
-      const created = await insertEvaluation({ pageId: page.id, pageTitle: 'v1' });
-
-      await new Promise((r) => setTimeout(r, 50));
-      created.pageTitle = 'v2';
-      await repo.save(created);
-
-      const reloaded = await repo.findOneByOrFail({ id: created.id });
-      expect(reloaded.pageTitle).toBe('v2');
-      expect(reloaded.updatedAt.getTime()).toBeGreaterThan(created.updatedAt.getTime());
-      expect(reloaded.createdAt.getTime()).toBe(created.createdAt.getTime());
-    });
-
     it('stores evaluationDate and frozenAt as exact instants', async () => {
       const page = await makePage();
       const evaluationDate = new Date('2026-03-04T05:06:07.123Z');

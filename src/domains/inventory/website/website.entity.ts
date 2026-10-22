@@ -15,7 +15,7 @@ import {
 
 import { Auditable } from 'src/common/interfaces/auditable.interface';
 import { IdentifiableModel } from 'src/common/interfaces/Identifiable.interface';
-import { Context } from '../context/context.identity';
+import { Context } from '../context/context.entity';
 import { User } from 'src/domains/identity/user/user.entity';
 import { Institution } from '../institution/institution.entity';
 

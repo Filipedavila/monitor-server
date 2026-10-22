@@ -28,7 +28,6 @@ export class EvaluationsQuarterClosure {
     name: 'status',
     type: 'enum',
     enum: EvaluationsQuarterStatus,
-    length: 50,
     nullable: false,
   })
   status: EvaluationsQuarterStatus = EvaluationsQuarterStatus.PENDING;

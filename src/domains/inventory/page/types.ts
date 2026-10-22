@@ -1,5 +1,5 @@
 import { BaseFilter, BasePagination, BaseSort, SortCriteria } from 'src/common/interfaces/types';
-import { Context } from '../context/context.identity';
+import { Context } from '../context/context.entity';
 import { ContextEnum } from '../context/context.enum';
 import { SecurityContext } from 'src/core/authentication/interfaces/types';
 
