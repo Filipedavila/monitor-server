@@ -3,6 +3,7 @@ WITH
     counters AS (
         SELECT
             sumIf(total_count, entity_type = 'directories')           AS d_directories,
+            sumIf(total_count, entity_type = 'directories_obs')      AS d_directories_obs,
             sumIf(total_count, entity_type = 'tags')                  AS d_tags,
             sumIf(total_count, entity_type = 'institutions')          AS d_institutions,
             sumIf(total_count, entity_type = 'websites')              AS d_websites,
@@ -52,12 +53,13 @@ SELECT
     -- OBSERVATORY
     CAST(
         tuple(
-            d_directories,
+            d_directories_obs as d_directories_obs,
             d_tags,
             d_institutions,
             d_websites_obs,
             d_pages_obs,
             d_total_evaluations_published
+            
         ),
         'Tuple(directories UInt64, tags UInt64, entities UInt64, websites UInt64, pages UInt64, evaluations UInt64)'
     ) AS observatory,
