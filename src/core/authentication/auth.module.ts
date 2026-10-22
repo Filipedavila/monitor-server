@@ -6,8 +6,6 @@ import { AuthController } from './auth.controller';
 import { User } from '../../domains/identity/user/user.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { jwtConstants } from './constants/constants';
-import { WsJwtAdminGuard } from './strategies/ws-jwt-admin.strategy';
-import { WebSocketsAuth } from './gateways/auth.gateway';
 import { AppLoggerModule } from '../app-logger/app-logger.module';
 import { PassportModule } from '@nestjs/passport';
 import { RedisModule } from 'src/redis/redis.module';
@@ -24,7 +22,7 @@ import { RedisModule } from 'src/redis/redis.module';
     }),
   ],
   exports: [AuthService],
-  providers: [AuthService, JwtStrategy, WsJwtAdminGuard, WebSocketsAuth],
+  providers: [AuthService, JwtStrategy],
   controllers: [AuthController],
 })
 export class AuthModule {}

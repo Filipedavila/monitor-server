@@ -17,7 +17,7 @@ import { Outbox } from './core/outbox/outbox.entity';
 import { Team } from './domains/identity/team/team.entity';
 import { WebsiteStamp } from './domains/compliance/stamp/stamp.entity';
 import { WebsiteDeclaration } from './domains/compliance/declaration/declaration.entity';
-import { Context } from './domains/inventory/context/context.identity';
+import { Context } from './domains/inventory/context/context.entity';
 import { Institution } from './domains/inventory/institution/institution.entity';
 import { TeamWebsites } from './domains/allocations/relations/team-websites/team-websites.entity';
 import { UserWebsite } from './domains/allocations/relations/user-websites/user-websites.entity';

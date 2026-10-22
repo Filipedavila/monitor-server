@@ -6,7 +6,6 @@ import Redis from 'ioredis';
 import { DataSource, Repository } from 'typeorm';
 import {
   Controller,
-  ExecutionContext,
   Get,
   INestApplication,
   InternalServerErrorException,
@@ -19,11 +18,9 @@ import { JwtModule, JwtService } from '@nestjs/jwt';
 import { AuthGuard, PassportModule } from '@nestjs/passport';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
-import { WsException } from '@nestjs/websockets';
 
 import { AuthService } from 'src/core/authentication/auth.service';
 import { JwtStrategy } from 'src/core/authentication/strategies/jwt.strategy';
-import { WsJwtAdminGuard } from './strategies/ws-jwt-admin.strategy';
 import { jwtConstants, NAME_CONVERTER } from 'src/core/authentication/constants/constants';
 import { RoleSlug, RoleSlugMap } from 'src/core/authentication/interfaces/types';
 import { FgaService } from 'src/core/authorization/fga.service';
@@ -55,7 +52,7 @@ class ProbeController {
 const ATTR_NIC = 'http://interop.gov.pt/MDC/Cidadao/NIC';
 const ATTR_NAME = 'http://interop.gov.pt/MDC/Cidadao/NomeCompleto';
 
-describe('Auth integration: AuthService + JwtStrategy + WsJwtAdminGuard (Postgres + Redis)', () => {
+describe('Auth integration: AuthService + JwtStrategy (Postgres + Redis)', () => {
   let pgContainer: StartedTestContainer;
   let redisContainer: StartedTestContainer;
   let dataSource: DataSource;
@@ -67,7 +64,6 @@ describe('Auth integration: AuthService + JwtStrategy + WsJwtAdminGuard (Postgre
   let baseUrl: string;
 
   let authService: AuthService;
-  let wsGuard: WsJwtAdminGuard;
   let userRepo: Repository<User>;
   let adminRole: Role;
   let monitorRole: Role;
@@ -98,9 +94,11 @@ describe('Auth integration: AuthService + JwtStrategy + WsJwtAdminGuard (Postgre
   const MONITOR_ROLE = roleStringFor(RoleSlug.MONITOR);
 
   // ---- helpers -------------------------------------------------------------
-  async function createRole(slug: string): Promise<Role> {
+  async function createRole(slug: string, display_name: string): Promise<Role> {
     const repo = dataSource.getRepository(Role);
-    return repo.save(repo.create({ slug } as any) as any) as unknown as Promise<Role>;
+    return repo.save(
+      repo.create({ slug, displayName: display_name } as any) as any,
+    ) as unknown as Promise<Role>;
   }
 
   async function createUser(opts: {
@@ -140,18 +138,6 @@ describe('Auth integration: AuthService + JwtStrategy + WsJwtAdminGuard (Postgre
 
   const callProbe = (token?: string) =>
     fetch(`${baseUrl}/probe`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-
-  const wsContext = (authorization?: string) => {
-    const handshake: any = { headers: authorization ? { authorization } : {} };
-    const ctx = {
-      switchToWs: () => ({ getClient: () => ({ handshake }) }),
-      switchToHttp: () => ({ getRequest: () => handshake, getResponse: () => ({}) }),
-      getType: () => 'ws',
-      getClass: () => WsJwtAdminGuard,
-      getHandler: () => () => undefined,
-    } as unknown as ExecutionContext;
-    return { ctx, handshake };
-  };
 
   // ---- setup ---------------------------------------------------------------
   beforeAll(async () => {
@@ -218,7 +204,6 @@ describe('Auth integration: AuthService + JwtStrategy + WsJwtAdminGuard (Postgre
       providers: [
         AuthService,
         JwtStrategy,
-        WsJwtAdminGuard,
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: REDIS_CLIENT, useValue: redis },
         { provide: ConfigService, useValue: configService },
@@ -232,10 +217,9 @@ describe('Auth integration: AuthService + JwtStrategy + WsJwtAdminGuard (Postgre
     baseUrl = await app.getUrl();
 
     authService = moduleRef.get(AuthService);
-    wsGuard = moduleRef.get(WsJwtAdminGuard);
 
-    adminRole = await createRole(ADMIN_ROLE);
-    monitorRole = await createRole(MONITOR_ROLE);
+    adminRole = await createRole(ADMIN_ROLE, 'Admin role');
+    monitorRole = await createRole(MONITOR_ROLE, 'Monitor role');
   }, 180000);
 
   afterAll(async () => {
@@ -643,76 +627,6 @@ describe('Auth integration: AuthService + JwtStrategy + WsJwtAdminGuard (Postgre
       });
 
       expect((await callProbe(token)).status).toBe(401);
-    });
-  });
-
-  // =========================================================================
-  describe('WsJwtAdminGuard (websocket handshake, real strategy)', () => {
-    async function tokenFor(username: string, role: Role) {
-      await createUser({ username, password: 'pw', role });
-      return (await authService.loginLocal(username, 'pw'))!.token;
-    }
-
-    it('lets an administrator in and attaches the user to the handshake', async () => {
-      const token = await tokenFor('admin1', adminRole);
-      const { ctx, handshake } = wsContext(`Bearer ${token}`);
-
-      await expect(wsGuard.canActivate(ctx)).resolves.toBe(true);
-      expect(handshake.user).toMatchObject({ username: 'admin1', role_slug: RoleSlug.ADMIN });
-    });
-
-    it('denies a connection without a token', async () => {
-      const { ctx } = wsContext();
-
-      let err: unknown;
-      try {
-        await wsGuard.canActivate(ctx);
-      } catch (e: unknown) {
-        err = e;
-      }
-
-      expect(err).toBeInstanceOf(WsException);
-      expect((err as WsException).getError()).toBe('Acesso Administrativo Negado');
-    });
-
-    it('denies invalid, expired and foreign tokens with a WsException', async () => {
-      const u = await createUser({ username: 'alice', password: 'pw' });
-      const claims = { sub: u.id, username: 'alice', role: adminRole.slug, hash: 'hash-alice' };
-      const tokens = [
-        'garbage',
-        plainJwt.sign({ ...claims, exp: Math.floor(Date.now() / 1000) - 60 }),
-        new JwtService({ secret: 'someone-else' }).sign(claims),
-      ];
-
-      for (const t of tokens) {
-        const { ctx } = wsContext(`Bearer ${t}`);
-        await expect(wsGuard.canActivate(ctx)).rejects.toBeInstanceOf(WsException);
-      }
-    });
-
-    it('denies a token that was logged out', async () => {
-      const token = await tokenFor('admin1', adminRole);
-      await authService.logout(token);
-      const { ctx } = wsContext(`Bearer ${token}`);
-
-      await expect(wsGuard.canActivate(ctx)).rejects.toBeDefined();
-    });
-
-    it('denies a token whose user hash was rotated', async () => {
-      const token = await tokenFor('admin1', adminRole);
-      await userRepo.update({ username: 'admin1' }, { uniqueHash: 'rotated' });
-      const { ctx } = wsContext(`Bearer ${token}`);
-
-      await expect(wsGuard.canActivate(ctx)).rejects.toBeDefined();
-    });
-
-    // The guard is the "admin" guard ("Acesso Administrativo Negado"): an authenticated
-    // user who is not an administrator must not get in.
-    it('denies an authenticated user who is not an administrator', async () => {
-      const token = await tokenFor('mona', monitorRole);
-      const { ctx } = wsContext(`Bearer ${token}`);
-
-      await expect(wsGuard.canActivate(ctx)).rejects.toBeDefined();
     });
   });
 });

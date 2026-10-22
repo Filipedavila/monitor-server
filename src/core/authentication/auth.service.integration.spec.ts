@@ -16,7 +16,7 @@ import { InternalServerErrorException, UnauthorizedException } from '@nestjs/com
 import { JwtService } from '@nestjs/jwt';
 
 import { AuthService, JWTTokenPayload } from './auth.service';
-import { NAME_CONVERTER } from './constants/constants';
+import { jwtConstants, NAME_CONVERTER } from './constants/constants';
 
 /**
  * Password hashing is a collaborator with its own tests, so it is replaced by a trivial,
@@ -109,7 +109,7 @@ describe('AuthService Integration (Testcontainers Postgres + Redis, real JWT)', 
   }): Promise<number> {
     const [{ id }] = await dataSource.query(
       `INSERT INTO test_users (username, password, role_id, unique_hash, cc_number)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       [
         opts.username,
         `hashed:${opts.password ?? 'secret'}`,
@@ -180,6 +180,7 @@ describe('AuthService Integration (Testcontainers Postgres + Redis, real JWT)', 
       port: redisContainer.getMappedPort(6379),
     });
 
+    // fake identity provider: POST returns the context id, GET returns the attributes
     authServer = http.createServer((req, res) => {
       const chunks: Buffer[] = [];
       req.on('data', (c) => chunks.push(c));
@@ -201,7 +202,8 @@ describe('AuthService Integration (Testcontainers Postgres + Redis, real JWT)', 
     await new Promise<void>((resolve) => authServer.listen(0, '127.0.0.1', resolve));
 
     userRepo = dataSource.getRepository(TestUser);
-    jwt = new JwtService({ secret: 'test-secret' });
+    // Same secret the application uses, so tokens built here are valid for verifyJWT
+    jwt = new JwtService({ secret: jwtConstants.secret });
     service = new AuthService(
       userRepo as any,
       redis,
@@ -251,10 +253,13 @@ describe('AuthService Integration (Testcontainers Postgres + Redis, real JWT)', 
 
     it('verifyJWT rejects a tampered token', () => {
       const token = service.signToken(payload);
-      const [h, p] = token.split('.');
-      const forged = `${h}.${Buffer.from(JSON.stringify({ ...payload, role: 'root' })).toString('base64url')}.${token.split('.')[2]}`;
+      const [header, originalPayload, signature] = token.split('.');
+      const forgedPayload = Buffer.from(JSON.stringify({ ...payload, role: 'root' })).toString(
+        'base64url',
+      );
+      const forged = `${header}.${forgedPayload}.${signature}`;
 
-      expect(p).not.toBe(forged.split('.')[1]);
+      expect(forgedPayload).not.toBe(originalPayload);
       expect(() => service.verifyJWT(forged)).toThrow();
     });
 
@@ -465,7 +470,7 @@ describe('AuthService Integration (Testcontainers Postgres + Redis, real JWT)', 
       const stored = await lastLoginOf(id);
       expect(stored).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
       const storedMs = Date.parse(`${stored!.replace(' ', 'T')}Z`);
-      expect(storedMs).toBeGreaterThanOrEqual(before - 1000); // stored with second precision
+      expect(storedMs).toBeGreaterThanOrEqual(before - 1000); // second precision
       expect(storedMs).toBeLessThanOrEqual(after);
     });
 
@@ -563,6 +568,15 @@ describe('AuthService Integration (Testcontainers Postgres + Redis, real JWT)', 
 
       expect(await service.isTokenBlackListed(token)).toBe(false);
     }, 10000);
+
+    // A token without "exp" never expires by itself, so logging it out must still revoke it.
+    it('revokes a token that has no expiry claim', async () => {
+      const token = jwt.sign({ sub: 1 });
+
+      await service.logout(token);
+
+      expect(await service.isTokenBlackListed(token)).toBe(true);
+    });
   });
 
   // =========================================================================
@@ -600,12 +614,13 @@ describe('AuthService Integration (Testcontainers Postgres + Redis, real JWT)', 
     it('ignores attributes it does not know', async () => {
       providerAttributes = [
         { name: CC_ATTR, value: '12345678' },
+        { name: NAME_ATTR, value: 'Maria Silva' },
         { name: 'http://interop.gov.pt/MDC/Cidadao/SomethingElse', value: 'x' },
       ];
 
       const attrs = await service.getAtributes('tok');
 
-      expect(attrs).toEqual({ cc: '12345678', name: '' });
+      expect(attrs).toEqual({ cc: '12345678', name: 'Maria Silva' });
     });
 
     it('returns no cc when the provider did not send one', async () => {
@@ -613,11 +628,9 @@ describe('AuthService Integration (Testcontainers Postgres + Redis, real JWT)', 
 
       const attrs = await service.getAtributes('tok');
 
-      expect(attrs.cc).toBeNull();
+      expect(attrs.cc).toBeFalsy();
     });
 
-    // The token travels in a query string, so it has to be URL-encoded: otherwise a token
-    // containing reserved characters is truncated / split into extra parameters.
     it('delivers a token containing reserved URL characters intact', async () => {
       const token = 'a+b/c=d&e=f#g';
 

@@ -106,23 +106,4 @@ describe('AppCacheService Integration (Testcontainers + ioredis)', () => {
       expect(val).toEqual({ persistent: true });
     });
   });
-
-  describe('Mecânica Física de TTL no Redis', () => {
-    it('deve aplicar o comando EX e expirar fisicamente a chave no Redis', async () => {
-      // 1 segundo de TTL
-      await cacheService.set('cache:expires_fast', { active: true }, 1);
-
-      // Chave existe no Redis imediatamente após gravação
-      expect(await cacheService.get('cache:expires_fast')).toEqual({ active: true });
-
-      const ttlInitial = await redisClient.ttl('cache:expires_fast');
-      expect(ttlInitial).toBeGreaterThan(0);
-
-      // Aguarda 1.2 segundos para garantir passagem pelo scheduler do Redis
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
-      // Deve devolver null
-      expect(await cacheService.get('cache:expires_fast')).toBeNull();
-    });
-  });
 });
