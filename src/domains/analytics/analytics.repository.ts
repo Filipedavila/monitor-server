@@ -31,7 +31,7 @@ export class AnalyticRepository {
 
   async getAppCounters(): Promise<any> {
     const query = `
-      SELECT * FROM accessibility.c
+      SELECT * FROM accessibility.v_app_counters
     `;
 
     const result = await this.clickHouseClient.query({

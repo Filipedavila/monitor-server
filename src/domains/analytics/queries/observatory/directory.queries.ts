@@ -1,7 +1,7 @@
 export const EVALUATIONS_COMBINED_LATEST_CTE = `
     combined_latest AS (
         SELECT * FROM v_latest_pages_evaluations
-        WHERE has(dictGet('institution_websites_dict', 'directories_ids', website_id), {resourceId: UInt32})
+        WHERE has(dictGet('directories_metadata_dict', 'website_ids', {resourceId: UInt64}), website_id)
     )
 `;
 export const DIRECTORY_WEBSITE_STATISTICS_QUERY = `
@@ -59,7 +59,7 @@ website_metrics AS (
         countIf(a_error_count = 0 AND aa_error_count = 0 AND aaa_error_count = 0) AS aaa_conform_count
     FROM combined_latest
     WHERE dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true
-      AND has(dictGet('institution_websites_dict', 'directories_ids', website_id), {resourceId: UInt32})
+      AND has(dictGet('directories_metadata_dict', 'website_ids', {resourceId: UInt32}), website_id)
     GROUP BY website_id
     )
 SELECT

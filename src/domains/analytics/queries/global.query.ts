@@ -2,6 +2,10 @@ export interface EvaluationFilterOptions {
   websiteId?: number;
   pageId?: number;
   directoryId?: number;
+  /**
+   * true  -> usa accessibility.v_latest_pages_evaluations (só observatório)
+   * false -> usa accessibility.v_latest_pages_evaluations_all (todas as páginas)
+   */
   onlyObservatory?: boolean;
   institutionId?: number;
   tagId?: number;
@@ -15,10 +19,24 @@ export interface BuiltQuery {
   query: string;
   queryParams: ClickHouseQueryParams;
 }
+
+const VIEW_OBSERVATORY = 'accessibility.v_latest_pages_evaluations';
+const VIEW_ALL = 'accessibility.v_latest_pages_evaluations_all';
+
+const QUARTILE_TYPE =
+  'Tuple(total String, percentage String, interval Tuple(lower String, upper String))';
+const ROW_ITEM_TYPE = `Tuple(key String, occurrenceCount String, pageCount String, level String, quartiles Array(${QUARTILE_TYPE}))`;
+const TABLE_TYPE = `Tuple(keys Array(String), data Array(${ROW_ITEM_TYPE}))`;
+const TOP_RULE_TYPE =
+  'Tuple(key String, occurrenceCount UInt64, pagesCount UInt64, websitesCount UInt64)';
+
 /**
- * Constrói a CTE de deduplicação com Predicate Pushdown direto na origem.
- * Os filtros são injetados dentro de cada SELECT do UNION ALL para tirar partido
- * do índice esparso ORDER BY (website_id, page_id).
+ * Constrói a CTE `combined_latest` a partir de uma das duas views:
+ *  - v_latest_pages_evaluations      (apenas observatório)
+ *  - v_latest_pages_evaluations_all  (sem restrições de observatório)
+ *
+ * A deduplicação (temp vs principal, version, is_deleted) vive nas views;
+ * aqui só se aplicam filtros por website, página, diretório, instituição e tag.
  */
 export const buildEvaluationsCombinedLatestCTE = (
   options: EvaluationFilterOptions = {},
@@ -36,75 +54,47 @@ export const buildEvaluationsCombinedLatestCTE = (
     queryParams.pageId = options.pageId;
   }
 
-  if (options.onlyObservatory) {
-    conditions.push(
-      `dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true`,
-    );
-    conditions.push(
-      `dictGetOrDefault('institution_websites_dict', 'is_in_observatory', website_id, false) = true`,
-    );
-  }
-
   if (options.directoryId !== undefined) {
     conditions.push(
-      `has(dictGet('institution_websites_dict', 'directories_ids', website_id), {directoryId: UInt32})`,
+      `website_id IN (
+            SELECT arrayJoin(
+                dictGetOrDefault(
+                    'directories_metadata_dict',
+                    'website_ids',
+                    toUInt64({directoryId: UInt32}),
+                    CAST([], 'Array(UInt32)')
+                )
+            )
+        )`,
     );
+    if (options.onlyObservatory) {
+      conditions.push(
+        `dictGetOrDefault('directories_metadata_dict', 'is_in_observatory', toUInt64({directoryId: UInt32}), false) = true`,
+      );
+    }
     queryParams.directoryId = options.directoryId;
   }
 
   if (options.institutionId !== undefined) {
-    conditions.push(`institution_id = {institutionId: UInt32}`);
+    conditions.push(
+      `dictGetOrDefault('institution_websites_dict', 'institution_id', website_id, 0) = {institutionId: UInt32}`,
+    );
     queryParams.institutionId = options.institutionId;
   }
 
   if (options.tagId !== undefined) {
     conditions.push(
-      `has(dictGet('institution_websites_dict', 'tags_ids', website_id), {tagId: Int32})`,
+      `has(dictGetOrDefault('institution_websites_dict', 'tags_ids', website_id, CAST([], 'Array(Int32)')), {tagId: Int32})`,
     );
     queryParams.tagId = options.tagId;
   }
 
+  const source = options.onlyObservatory ? VIEW_OBSERVATORY : VIEW_ALL;
   const whereClause = conditions.join('\n          AND ');
 
   const cteSql = `
-    combined_raw AS (
-        SELECT 
-            1 AS src_priority,
-            website_id,
-            page_id,
-            score,
-            aaa_error_count,
-            aa_error_count,
-            a_error_count,
-            total_error_count,
-            failed_rules,
-            warning_rules,
-            passed_rules,
-            evaluation_date
-        FROM accessibility.latest_page_evaluations_temp
-        WHERE ${whereClause}
-
-        UNION ALL
-
-        SELECT 
-            2 AS src_priority,
-            website_id,
-            page_id,
-            score,
-            aaa_error_count,
-            aa_error_count,
-            a_error_count,
-            total_error_count,
-            failed_rules,
-            warning_rules,
-            passed_rules,
-            evaluation_date
-        FROM accessibility.latest_page_evaluations
-        WHERE ${whereClause}
-    ),
-
     combined_latest AS (
-        SELECT 
+        SELECT
             website_id,
             page_id,
             score,
@@ -116,11 +106,11 @@ export const buildEvaluationsCombinedLatestCTE = (
             warning_rules,
             passed_rules,
             evaluation_date
-        FROM combined_raw
-        ORDER BY src_priority ASC, evaluation_date DESC
-        LIMIT 1 BY page_id
+        FROM ${source}
+        WHERE ${whereClause}
     )
   `;
+
   return { cteSql, queryParams };
 };
 
@@ -134,7 +124,7 @@ export const buildGlobalAnalyticsQuery = (options: EvaluationFilterOptions = {})
 WITH
     ${cteSql},
 
-    -- 1. Resumo e Estatísticas Globais das Páginas
+    -- 1. Resumo e estatísticas globais das páginas
     conformance AS (
         SELECT
             count() AS total_pages_evaluated,
@@ -149,7 +139,7 @@ WITH
         FROM combined_latest
     ),
 
-    -- 2. Histograma de Scores (0 a 9) calculado sem scans extras
+    -- 2. Histograma de scores (0 a 9)
     score_distribution AS (
         SELECT [
             countIf(floor(score) = 0),
@@ -166,7 +156,7 @@ WITH
         FROM combined_latest
     ),
 
-    -- 3. Explode em memória dos Maps (failed e passed)
+    -- 3. Explode os Maps (failed e passed)
     flattened_rules AS (
         SELECT
             'failed' AS expected_result,
@@ -189,7 +179,7 @@ WITH
         ARRAY JOIN arrayZip(mapKeys(passed_rules), mapValues(passed_rules)) AS rule_entry
     ),
 
-    -- 4. Top 10 Regras por Categoria com Métricas de Cobertura
+    -- 4. Top 10 regras por categoria
     top_rules AS (
         SELECT
             expected_result,
@@ -204,39 +194,49 @@ WITH
         LIMIT 10 BY expected_result
     ),
 
-    -- 5. Top Cards (topErrors e topBestPractices)
+    -- 5. Top cards (ordem garantida por arrayReverseSort sobre as ocorrências)
     top_cards_summary AS (
         SELECT
-            cast(
-                groupArrayIf(
-                    tuple(rule_id, total_occurrences, pages_count, websites_count),
-                    expected_result = 'failed'
+            CAST(
+                arrayMap(
+                    t -> (t.2, t.1, t.3, t.4),
+                    arrayReverseSort(
+                        groupArrayIf(
+                            tuple(total_occurrences, rule_id, pages_count, websites_count),
+                            expected_result = 'failed'
+                        )
+                    )
                 ),
-                'Array(Tuple(key String, occurrenceCount UInt64, pagesCount UInt64, websitesCount UInt64))'
+                'Array(${TOP_RULE_TYPE})'
             ) AS topErrors,
-            cast(
-                groupArrayIf(
-                    tuple(rule_id, total_occurrences, pages_count, websites_count),
-                    expected_result = 'passed'
+            CAST(
+                arrayMap(
+                    t -> (t.2, t.1, t.3, t.4),
+                    arrayReverseSort(
+                        groupArrayIf(
+                            tuple(total_occurrences, rule_id, pages_count, websites_count),
+                            expected_result = 'passed'
+                        )
+                    )
                 ),
-                'Array(Tuple(key String, occurrenceCount UInt64, pagesCount UInt64, websitesCount UInt64))'
+                'Array(${TOP_RULE_TYPE})'
             ) AS topBestPractices
         FROM top_rules
     ),
 
-    -- 6. Dispersão e Quartis confinados ao Top 10
+    -- 6. Dispersão e quartis confinados ao top 10
     base_metrics AS (
         SELECT
-            r.expected_result,
-            r.rule_id,
-            tr.wcag_level,
-            tr.total_occurrences,
+            r.expected_result AS expected_result,
+            r.rule_id AS rule_id,
+            tr.wcag_level AS wcag_level,
+            tr.total_occurrences AS total_occurrences,
             count() AS total_pages,
             arraySort(groupArray(r.latest_count)) AS vals,
             quantilesExact(0.25, 0.50, 0.75, 1.0)(r.latest_count) AS q
         FROM flattened_rules AS r
-        INNER JOIN top_rules AS tr 
-            ON r.expected_result = tr.expected_result 
+        INNER JOIN top_rules AS tr
+            ON r.expected_result = tr.expected_result
            AND r.rule_id = tr.rule_id
         GROUP BY r.expected_result, r.rule_id, tr.wcag_level, tr.total_occurrences
     ),
@@ -265,50 +265,59 @@ WITH
                 )
             ) AS quartiles
         FROM base_metrics
-        ORDER BY total_occurrences DESC
     ),
 
     table_rows AS (
         SELECT
             expected_result,
-            cast((
-                toString(rule_id),
-                toString(total_occurrences),
-                toString(total_pages),
-                toString(wcag_level),
-                arrayMap(
-                    q_tuple -> cast((
-                        q_tuple.1,
-                        q_tuple.2,
-                        cast((q_tuple.3.1, q_tuple.3.2), 'Tuple(lower String, upper String)')
-                    ), 'Tuple(total String, percentage String, interval Tuple(lower String, upper String))'),
+            total_occurrences,
+            CAST(
+                (
+                    toString(rule_id),
+                    toString(total_occurrences),
+                    toString(total_pages),
+                    toString(wcag_level),
                     quartiles
-                )
-            ), 'Tuple(key String, occurrenceCount String, pageCount String, level String, quartiles Array(Tuple(total String, percentage String, interval Tuple(lower String, upper String))))') AS row_item
+                ),
+                '${ROW_ITEM_TYPE}'
+            ) AS row_item
         FROM quartiles_built
     ),
 
+    -- Linhas ordenadas por ocorrências (desc) dentro de cada categoria
     tables_summary AS (
         SELECT
-            cast((
-                arrayMap(i -> toString(i), range(length(groupArrayIf(row_item, expected_result = 'passed')))),
-                groupArrayIf(row_item, expected_result = 'passed')
-            ), 'Tuple(keys Array(String), data Array(Tuple(key String, occurrenceCount String, pageCount String, level String, quartiles Array(Tuple(total String, percentage String, interval Tuple(lower String, upper String))))))') AS successDetailsTable,
-
-            cast((
-                arrayMap(i -> toString(i), range(length(groupArrayIf(row_item, expected_result = 'failed')))),
-                groupArrayIf(row_item, expected_result = 'failed')
-            ), 'Tuple(keys Array(String), data Array(Tuple(key String, occurrenceCount String, pageCount String, level String, quartiles Array(Tuple(total String, percentage String, interval Tuple(lower String, upper String))))))') AS errorsDetailsTable
+            arrayMap(
+                t -> t.2,
+                arrayReverseSort(
+                    groupArrayIf(tuple(total_occurrences, row_item), expected_result = 'passed')
+                )
+            ) AS passed_rows,
+            arrayMap(
+                t -> t.2,
+                arrayReverseSort(
+                    groupArrayIf(tuple(total_occurrences, row_item), expected_result = 'failed')
+                )
+            ) AS failed_rows,
+            CAST(
+                (arrayMap(i -> toString(i), range(length(passed_rows))), passed_rows),
+                '${TABLE_TYPE}'
+            ) AS successDetailsTable,
+            CAST(
+                (arrayMap(i -> toString(i), range(length(failed_rows))), failed_rows),
+                '${TABLE_TYPE}'
+            ) AS errorsDetailsTable
         FROM table_rows
     ),
 
+    -- Contadores globais da aplicação (não dependem dos filtros)
     app_counters AS (
         SELECT
-            dictGet('dict_app_counters', 'total_count', 'directories') AS directoriesCount,
-            dictGet('dict_app_counters', 'total_count', 'institutions') AS entitiesCount
+            dictGet('dict_app_counters', 'total_count', tuple('directories_obs')) AS directoriesCount,
+            dictGet('dict_app_counters', 'total_count', tuple('institutions')) AS entitiesCount
     )
 
--- Projeção Consolidada
+-- Projeção consolidada
 SELECT
     c.global_avg_score AS score,
     c.recentPageDate AS recentPageDate,
