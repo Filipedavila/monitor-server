@@ -1,5 +1,4 @@
 CREATE OR REPLACE VIEW v_directory_websites AS
-
 WITH website_stamp_counts AS (
     SELECT
         website_id,

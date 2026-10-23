@@ -186,7 +186,7 @@ GROUP BY
     evaluation_date,
     score;
 
-
+---- LATEST PAGES EVALUATIONS VIEW (OBSERVATORY ONLY)
 CREATE OR REPLACE VIEW v_latest_pages_evaluations AS
 
 WITH
@@ -235,6 +235,39 @@ WITH
         HAVING argMax(is_deleted, version) = 0
         )
 
+SELECT * FROM temp_pages
+UNION ALL
+SELECT * FROM main_pages;
+
+
+---- LATEST PAGES EVALUATIONS VIEW ALL
+CREATE OR REPLACE VIEW v_latest_pages_evaluations_all AS
+WITH
+    temp_pages AS (
+        SELECT
+            website_id, page_id, evaluation_id, evaluation_date, score,
+            aaa_error_count, aa_error_count, a_error_count, total_error_count,
+            failed_rules, warning_rules, passed_rules
+        FROM accessibility.latest_page_evaluations_temp
+    ),
+    main_pages AS (
+        SELECT
+            website_id, page_id,
+            argMax(evaluation_id,     version) AS evaluation_id,
+            argMax(evaluation_date,   version) AS evaluation_date,
+            argMax(score,             version) AS score,
+            argMax(aaa_error_count,   version) AS aaa_error_count,
+            argMax(aa_error_count,    version) AS aa_error_count,
+            argMax(a_error_count,     version) AS a_error_count,
+            argMax(total_error_count, version) AS total_error_count,
+            argMax(failed_rules,      version) AS failed_rules,
+            argMax(warning_rules,     version) AS warning_rules,
+            argMax(passed_rules,      version) AS passed_rules
+        FROM accessibility.latest_page_evaluations
+        WHERE (website_id, page_id) NOT IN (SELECT website_id, page_id FROM temp_pages)
+        GROUP BY website_id, page_id
+        HAVING argMax(is_deleted, version) = 0
+    )
 SELECT * FROM temp_pages
 UNION ALL
 SELECT * FROM main_pages;
@@ -302,7 +335,7 @@ ENGINE = MergeTree
 ORDER BY (rule_result, rule_id);
 
 CREATE MATERIALIZED VIEW global_rules_top_summary_mv
-REFRESH EVERY 20 MINUTE
+REFRESH EVERY 10 MINUTE
 TO global_rules_top_summary
 AS
 WITH latest_pages AS (
