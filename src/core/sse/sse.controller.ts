@@ -25,25 +25,8 @@ export class SSEController {
     if (!roleName) {
       throw new Error('Role is required to establish SSE connection');
     }
-    const visibilities = this.getVisibilitiesForRole(roleName);
-    console.log(
-      `User ${userId} with role ${roleName} has visibilities:`,
-      JSON.stringify(visibilities),
-    );
+    const visibilities = this.sseService.getVisibilitiesForRole(roleName);
+
     return this.sseService.getUserStream(userId, visibilities);
-  }
-
-  private getVisibilitiesForRole(role: string): SseVisibility[] {
-    switch (role.toUpperCase()) {
-      case 'NIMDA':
-        return ['GLOBAL', 'PRIVATE', 'AMS'];
-
-      case 'MONITOR':
-        return ['GLOBAL', 'PRIVATE', 'MONITOR'];
-
-      case 'USER':
-      default:
-        return ['GLOBAL', 'PRIVATE'];
-    }
   }
 }

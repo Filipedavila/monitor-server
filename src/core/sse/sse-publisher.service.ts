@@ -37,7 +37,6 @@ export class SsePublisherService implements OnModuleDestroy {
       timestamp: new Date().toISOString(),
       data: payload,
     });
-    console.log(`Publicando mensagem no canal [${finalChannel}]: ${JSON.stringify(message)}`);
     await this.redisPublisher.publish(finalChannel, message);
   }
 

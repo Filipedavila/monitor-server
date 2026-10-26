@@ -29,11 +29,10 @@ export class SSEService implements OnModuleInit, OnModuleDestroy {
     this.redisSubscriber.on('message', (incomingChannel: string, rawMessage: string) => {
       try {
         const parsed = JSON.parse(rawMessage);
-        console.log(`Mensagem recebida no canal [${incomingChannel}]: ${rawMessage}`);
 
         this.eventBus$.next({
           channel: incomingChannel,
-          type: parsed.event, // <--- OBRIGATÓRIO: 'entity_count_updated'
+          type: parsed.event,
           data: parsed.data ?? parsed,
         });
       } catch (e) {
@@ -111,6 +110,20 @@ export class SSEService implements OnModuleInit, OnModuleDestroy {
       });
     } else {
       this.privateChannelRefCount.set(channel, current - 1);
+    }
+  }
+
+  public getVisibilitiesForRole(role: string): SseVisibility[] {
+    switch (role.toUpperCase()) {
+      case 'NIMDA':
+        return ['GLOBAL', 'PRIVATE', 'AMS'];
+
+      case 'MONITOR':
+        return ['GLOBAL', 'PRIVATE', 'MONITOR'];
+
+      case 'USER':
+      default:
+        return ['GLOBAL', 'PRIVATE'];
     }
   }
 
