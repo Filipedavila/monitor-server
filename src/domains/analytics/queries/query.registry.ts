@@ -1,5 +1,3 @@
-import { ResourceQuerySet } from './type';
-
 import { websiteQueries as obsWebsite } from './observatory/website.queries';
 import { globalQueries as obsGlobal } from './observatory/global.queries';
 
