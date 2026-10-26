@@ -11,6 +11,7 @@ import {
   StreamableFile,
   ParseIntPipe,
   Delete,
+  Inject,
 } from '@nestjs/common';
 import { EvaluationService } from './evaluation.service';
 import { LoggingInterceptor } from 'src/core/log/log.interceptor';
@@ -28,6 +29,9 @@ import { ContextFilterGuard } from 'src/core/authorization/guards/context.guard'
 import { EvaluationTriggerDTO } from './dto/evaluation-trigger.dto';
 import { EvaluationDTO } from './dto/evaluation.dto';
 import { Evaluation } from './entities/evaluation.entity';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from 'src/redis/types';
+import { DestructionChallengeGuard } from 'src/core/authorization/guards/destruction-challenge.guard';
 
 @EvaluationDocs.controller()
 @Controller('evaluations/')
@@ -153,12 +157,7 @@ export class EvaluationController {
     @Body() data: string,
   ): Promise<void> {
     const securityContext = { user: user };
-    await this.evaluationService.saveExternalEvaluation(
-      websiteId,
-      pageId,
-      data,
-      securityContext,
-    );
+    await this.evaluationService.saveExternalEvaluation(websiteId, pageId, data, securityContext);
   }
 
   @EvaluationDocs.evaluate()
@@ -191,6 +190,27 @@ export class EvaluationController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     const securityContext = { user: user };
+    await this.evaluationService.deleteEvaluation(websiteId, pageId, evaluationId, securityContext);
+  }
+
+  @EvaluationDocs.deleteFrozen()
+  @Roles(RoleSlug.ADMIN)
+  @FgaAuthorized({
+    objectType: 'website',
+    action: 'can_manage',
+    resourceIdResolver: (ctx) => ctx.switchToHttp().getRequest().params.websiteId,
+  })
+  @UseGuards(DestructionChallengeGuard)
+  @Delete('website/:websiteId/page/:pageId/evaluation/:evaluationId/frozen/:challengeKey')
+  async deleteFrozenEvaluation(
+    @Param('websiteId', ParseIntPipe) websiteId: number,
+    @Param('pageId', ParseIntPipe) pageId: number,
+    @Param('evaluationId', ParseIntPipe) evaluationId: number,
+    @Param('challengeKey') challengeKey: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    const securityContext = { user: user };
+
     await this.evaluationService.deleteEvaluation(websiteId, pageId, evaluationId, securityContext);
   }
 }

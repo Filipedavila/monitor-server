@@ -175,4 +175,27 @@ export class EvaluationService {
 
     await this.evaluationRepository.deleteEvaluation(evaluation, websiteId);
   }
+
+  public async deleteFrozenEvaluation(
+    websiteId: number,
+    pageId: number,
+    evaluationId: number,
+    securityContext: SecurityContext,
+  ): Promise<void> {
+    const evaluation = await this.evaluationRepository.getEvaluationByContext(
+      evaluationId,
+      websiteId,
+      pageId,
+      securityContext.user.context.id,
+    );
+    if (!evaluation) {
+      throw new NotFoundException('Evaluation not found.');
+    }
+    const isFrozen = evaluation.frozenAt !== null;
+    if (!isFrozen) {
+      throw new BadRequestException('Evaluation is not frozen.');
+    }
+
+    await this.evaluationRepository.deleteEvaluation(evaluation, websiteId);
+  }
 }
