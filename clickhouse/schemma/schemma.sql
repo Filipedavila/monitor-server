@@ -458,9 +458,9 @@ CREATE TABLE ranked_directories (
     declarations_count UInt32,
     oldest_evaluation_date DateTime,
     recent_evaluation_date DateTime,
-    a_conform_count UInt32,
-    aa_conform_count UInt32,
-    aaa_conform_count UInt32,
+    a_conform_count UInt32,      -- nº de WEBSITES (escalão A)
+    aa_conform_count UInt32,     -- nº de WEBSITES (escalão AA)
+    aaa_conform_count UInt32,    -- nº de WEBSITES (escalão AAA)
     total_bronze_stamps UInt32,
     total_silver_stamps UInt32,
     total_gold_stamps UInt32,
@@ -475,29 +475,51 @@ CREATE MATERIALIZED VIEW mv_ranked_directories
 REFRESH EVERY 5 MINUTE
 TO ranked_directories
 AS
-WITH directory_metrics AS (
-    SELECT
-        dir_id AS directory_id,
-        dictGetOrDefault('directories_metadata_dict',
-            ('name', 'website_count', 'total_stamps', 'total_declarations',
-             'total_bronze_stamps', 'total_silver_stamps', 'total_gold_stamps',
-             'total_nonconform_declarations', 'total_partiallyconform_declarations',
-             'total_conform_declarations'),
-            dir_id, ('', 0, 0, 0, 0, 0, 0, 0, 0, 0)) AS meta,
-        avg(score)                       AS score_avg,
-        uniq(dictGetOrNull('institution_websites_dict', 'institution_id', toUInt64(website_id)))
-                                         AS institutions_count,
-        count(page_id)                   AS page_count,
-        min(evaluation_date)             AS oldest_evaluation_date,
-        max(evaluation_date)             AS recent_evaluation_date,
-        countIf(aaa_error_count = 0)     AS aaa_conform_count,
-        countIf(aa_error_count = 0)      AS aa_conform_count,
-        countIf(a_error_count = 0)       AS a_conform_count
-    FROM accessibility.v_latest_pages_evaluations
-    ARRAY JOIN dictGetOrDefault('institution_websites_dict', 'directories_ids', toUInt64(website_id), []) AS dir_id
-    WHERE dictGetOrDefault('directories_metadata_dict', 'is_in_observatory', toUInt64(dir_id), false) = true
-    GROUP BY dir_id
-)
+WITH
+    website_stats AS (
+        SELECT
+            website_id,
+            sum(score)                    AS score_sum,
+            count()                       AS page_count,
+            min(evaluation_date)          AS oldest_evaluation_date,
+            max(evaluation_date)          AS recent_evaluation_date,
+            countIf(a_error_count   > 0)  AS pages_with_a_errors,
+            countIf(aa_error_count  > 0)  AS pages_with_aa_errors,
+            countIf(aaa_error_count > 0)  AS pages_with_aaa_errors
+        FROM accessibility.v_latest_pages_evaluations
+        GROUP BY website_id
+    ),
+
+    directory_websites AS (
+        SELECT id AS directory_id, arrayJoin(website_ids) AS website_id
+        FROM directories_metadata_dict
+        WHERE is_in_observatory = true
+    ),
+
+    directory_metrics AS (
+        SELECT
+            dw.directory_id AS directory_id,
+            dictGetOrDefault('directories_metadata_dict',
+                ('name', 'website_count', 'total_stamps', 'total_declarations',
+                 'total_bronze_stamps', 'total_silver_stamps', 'total_gold_stamps',
+                 'total_nonconform_declarations', 'total_partiallyconform_declarations',
+                 'total_conform_declarations'),
+                dw.directory_id, ('', 0, 0, 0, 0, 0, 0, 0, 0, 0)) AS meta,
+            sum(ws.score_sum) / sum(ws.page_count)                AS score_avg,
+            uniqExact(dictGetOrDefault('institution_websites_dict', 'institution_id',
+                                       toUInt64(dw.website_id), 0)) AS institutions_count,
+            sum(ws.page_count)                                    AS page_count,
+            min(ws.oldest_evaluation_date)                        AS oldest_evaluation_date,
+            max(ws.recent_evaluation_date)                        AS recent_evaluation_date,
+            countIf(ws.pages_with_a_errors = 0 AND ws.pages_with_aa_errors > 0)   AS a_conform_count,
+            countIf(ws.pages_with_a_errors = 0 AND ws.pages_with_aa_errors = 0
+                    AND ws.pages_with_aaa_errors > 0)                             AS aa_conform_count,
+            countIf(ws.pages_with_a_errors = 0 AND ws.pages_with_aa_errors = 0
+                    AND ws.pages_with_aaa_errors = 0)                             AS aaa_conform_count
+        FROM directory_websites AS dw
+        INNER JOIN website_stats AS ws ON ws.website_id = dw.website_id
+        GROUP BY dw.directory_id
+    )
 SELECT
     directory_id,
     meta.1  AS name,
@@ -509,9 +531,9 @@ SELECT
     meta.4  AS declarations_count,
     oldest_evaluation_date,
     recent_evaluation_date,
-    aaa_conform_count,
-    aa_conform_count,
     a_conform_count,
+    aa_conform_count,
+    aaa_conform_count,
     meta.5  AS total_bronze_stamps,
     meta.6  AS total_silver_stamps,
     meta.7  AS total_gold_stamps,
