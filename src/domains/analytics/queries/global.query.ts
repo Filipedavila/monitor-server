@@ -20,6 +20,8 @@ export interface BuiltQuery {
   queryParams: ClickHouseQueryParams;
 }
 
+export type CounterType = 'directory' | 'institution' | 'website' | 'page';
+
 const VIEW_OBSERVATORY = 'accessibility.v_latest_pages_evaluations';
 const VIEW_ALL = 'accessibility.v_latest_pages_evaluations_all';
 
@@ -55,6 +57,7 @@ export const buildEvaluationsCombinedLatestCTE = (
   }
 
   if (options.directoryId !== undefined) {
+    // Fonte de verdade: directories_metadata_dict.website_ids
     conditions.push(
       `website_id IN (
             SELECT arrayJoin(
@@ -76,6 +79,7 @@ export const buildEvaluationsCombinedLatestCTE = (
   }
 
   if (options.institutionId !== undefined) {
+    // latest_page_evaluations não tem institution_id -> vem do dicionário
     conditions.push(
       `dictGetOrDefault('institution_websites_dict', 'institution_id', website_id, 0) = {institutionId: UInt32}`,
     );
@@ -119,6 +123,31 @@ export const buildEvaluationsCombinedLatestCTE = (
  */
 export const buildGlobalAnalyticsQuery = (options: EvaluationFilterOptions = {}): BuiltQuery => {
   const { cteSql, queryParams } = buildEvaluationsCombinedLatestCTE(options);
+
+  const counterRegistry: Record<CounterType, string> = {
+    directory: options.onlyObservatory
+      ? `dictGet('dict_app_counters', 'total_count', tuple('directories_obs'))`
+      : `dictGet('dict_app_counters', 'total_count', tuple('directories'))`,
+    institution: `dictGet('dict_app_counters', 'total_count', tuple('institutions'))`,
+    website: options.onlyObservatory
+      ? `dictGet('dict_app_counters', 'total_count', tuple('websites_observatorio'))`
+      : `dictGet('dict_app_counters', 'total_count', tuple('websites'))`,
+    page: options.onlyObservatory
+      ? `dictGet('dict_app_counters', 'total_count', tuple('pages_observatorio'))`
+      : `dictGet('dict_app_counters', 'total_count', tuple('pages'))`,
+  };
+
+  // Os contadores do dicionário são globais. Com filtros de âmbito,
+  // usam-se os valores calculados sobre combined_latest.
+  const hasScopeFilter =
+    options.websiteId !== undefined ||
+    options.pageId !== undefined ||
+    options.directoryId !== undefined ||
+    options.institutionId !== undefined ||
+    options.tagId !== undefined;
+
+  const websitesExpr = hasScopeFilter ? 'c.websitesCount' : counterRegistry.website;
+  const pagesExpr = hasScopeFilter ? 'c.total_pages_evaluated' : counterRegistry.page;
 
   const query = `
 WITH
@@ -310,11 +339,11 @@ WITH
         FROM table_rows
     ),
 
-    -- Contadores globais da aplicação (não dependem dos filtros)
+    -- Contadores da aplicação
     app_counters AS (
         SELECT
-            dictGet('dict_app_counters', 'total_count', tuple('directories_obs')) AS directoriesCount,
-            dictGet('dict_app_counters', 'total_count', tuple('institutions')) AS entitiesCount
+            ${counterRegistry.directory} AS directoriesCount,
+            ${counterRegistry.institution} AS entitiesCount
     )
 
 -- Projeção consolidada
@@ -324,9 +353,9 @@ SELECT
     c.oldestPageDate AS oldestPageDate,
     ac.directoriesCount AS directoriesCount,
     ac.entitiesCount AS entitiesCount,
-    c.websitesCount AS websitesCount,
-    c.total_pages_evaluated AS pagesCount,
-    if(c.websitesCount > 0, c.total_pages_evaluated / c.websitesCount, 0) AS avgPagesPerWebsite,
+    ${websitesExpr} AS websitesCount,
+    ${pagesExpr} AS pagesCount,
+    if(${websitesExpr} > 0, ${pagesExpr} / ${websitesExpr}, 0) AS avgPagesPerWebsite,
 
     c.total_pages_evaluated AS total_pages_evaluated,
     c.global_avg_score AS global_avg_score,
