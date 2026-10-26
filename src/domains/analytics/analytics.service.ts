@@ -10,11 +10,15 @@ import {
   GlobalMetricsResponse,
   PlatformOverviewMetricsResponse,
 } from './types/admin-dashboard.types';
-import { ExportFormat, ExportContext } from './dto/export-analytics.dto';
+import { ExportService } from './services/export.service';
+import { ExportExecutionContext } from './queries/type';
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private readonly analyticRepository: AnalyticRepository) {}
+  constructor(
+    private readonly analyticRepository: AnalyticRepository,
+    private readonly exportService: ExportService,
+  ) {}
 
   async getAppCounters(): Promise<PlatformOverviewMetricsResponse> {
     return await this.analyticRepository.getAppCounters();
@@ -91,8 +95,8 @@ export class AnalyticsService {
     };
   }
 
-  async exportAnalytics(context: ExportContext, format: ExportFormat) {
-    return await this.analyticRepository.exportAnalyticsStream(format);
+  async exportAnalytics(context: ExportExecutionContext) {
+    return await this.exportService.exportResource(context);
   }
 
   async getGlobalStatistics(): Promise<GlobalStatistics> {

@@ -5,6 +5,7 @@ import {
   ApiCookieAuth,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiProduces,
   ApiOkResponse,
   ApiUnauthorizedResponse,
@@ -16,7 +17,7 @@ import {
 import { AppCountersDto } from './dto/app-counter.dto';
 import { GlobalMetricsDto } from './dto/global.dto';
 import { ScopeAnalyticsResponseDto } from './dto/directory.dto';
-import { ExportFormat, ExportContext, ExportAnalyticsParamsDto } from './dto/export-analytics.dto';
+import { ExportAnalyticsDto } from './dto/export-analytics.dto';
 
 export const AnalyticsDocs = {
   /* ============================================================
@@ -182,7 +183,7 @@ export const AnalyticsDocs = {
     ),
 
   /* ============================================================
-   * GET /analytics/export/:context/format/:format
+   * GET /analytics/global/website/:websiteId
    * ============================================================ */
   getGlobalWebsiteMetrics: () =>
     applyDecorators(
@@ -205,6 +206,9 @@ export const AnalyticsDocs = {
       }),
     ),
 
+  /* ============================================================
+   * GET /analytics/global/directory/:directoryId
+   * ============================================================ */
   getGlobalDirectoryMetrics: () =>
     applyDecorators(
       ApiOperation({
@@ -226,33 +230,19 @@ export const AnalyticsDocs = {
       }),
     ),
 
+  /* ============================================================
+   * GET /analytics/exports/:resource
+   * ============================================================ */
   exportAnalytics: () =>
     applyDecorators(
       ApiOperation({
         summary: 'Export analytics report',
         description:
-          'Streams an analytics report for the requested `context` in the requested `format`. ' +
+          'Streams an analytics report for the requested `resource` in the requested `format`. ' +
           'The response is a streamed binary file with `Transfer-Encoding: chunked` and caching disabled.',
       }),
-      ApiParam({
-        name: 'context',
-        required: true,
-        enum: ExportContext,
-        example: ExportContext.AMS,
-        description: 'Analytics context to export.',
-      }),
-      ApiParam({
-        name: 'format',
-        required: true,
-        enum: ExportFormat,
-        example: ExportFormat.CSV,
-        description: 'Output file format.',
-      }),
-      ApiProduces(
-        'text/csv',
-        'application/pdf',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      ),
+
+      ApiProduces('text/csv', 'application/ndjson', 'application/vnd.apache.parquet'),
       ApiOkResponse({
         description: 'Streamed analytics file.',
         content: {

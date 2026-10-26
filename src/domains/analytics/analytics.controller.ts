@@ -8,6 +8,7 @@ import {
   StreamableFile,
   Response,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { AnalyticsDocs } from './analytics.swagger';
 import type { Response as ExpressResponse } from 'express';
@@ -20,8 +21,9 @@ import { Roles } from 'src/core/authorization/decorators/roles.decorator';
 import { FgaGuard } from 'src/core/authorization/guards/fga.guard';
 import { FgaAuthorized } from 'src/core/authorization/decorators/fga-authorization.decorator';
 import { AMS_ROLE_VIEWER } from 'src/core/authorization/policies/role.policies';
-import { ExportAnalyticsParamsDto } from './dto/export-analytics.dto';
 import { CacheableBy } from 'src/core/cache/decorator/cache-resource.decorator';
+import { ExportAnalyticsDto } from './dto/export-analytics.dto';
+import { Readable } from 'stream';
 
 @AnalyticsDocs.controller()
 @Controller('analytics')
@@ -131,22 +133,28 @@ export class AnalyticsController {
   }
 
   @AnalyticsDocs.exportAnalytics()
-  @Get('export/:context/format/:format')
+  @Get('exports')
   @HttpCode(HttpStatus.OK)
   async exportAnalytics(
-    @Param() params: ExportAnalyticsParamsDto,
+    @Query() dto: ExportAnalyticsDto,
     @Response({ passthrough: true }) res: ExpressResponse,
   ): Promise<StreamableFile> {
-    const { stream, contentType, filename } = await this.analyticsService.exportAnalytics(
-      params.context,
-      params.format,
-    );
+    const { stream, contentType, filename } = await this.analyticsService.exportAnalytics({
+      resource: dto.resource,
+      format: dto.format,
+      entityId: dto.entityId,
+    });
+
     res.set({
       'Content-Type': contentType,
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Transfer-Encoding': 'chunked',
       'Cache-Control': 'no-cache, no-store, must-revalidate',
     });
-    return new StreamableFile(stream);
+
+    return new StreamableFile(stream as Readable, {
+      type: contentType,
+      disposition: `attachment; filename="${filename}"`,
+    });
   }
 }

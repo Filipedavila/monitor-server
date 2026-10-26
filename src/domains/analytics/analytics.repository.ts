@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ClickHouseClient } from '@clickhouse/client';
 import { CLICKHOUSE_CLIENT } from 'src/core/clickhouse/clickhouse.constants';
 import {
@@ -6,9 +6,8 @@ import {
   DIRECTORY_WEBSITE_STATISTICS_QUERY,
 } from './queries/observatory/directory.queries';
 import { SEARCH_WEBSITES_QUERY } from './queries/observatory/search.queries';
-import { Readable, Transform } from 'stream';
-import { ExportFormat } from './dto/export-analytics.dto';
-import { ContextTarget, FileStreamResult, ResourceTarget } from './queries/type';
+import { Transform } from 'stream';
+import { ContextTarget, ResourceTarget } from './queries/type';
 import { buildGlobalAnalyticsQuery, EvaluationFilterOptions } from './queries/global.query';
 import { getGenericQuery } from './queries/query.registry';
 import type { Row } from '@clickhouse/client';
@@ -210,24 +209,20 @@ export class AnalyticRepository {
     return rows;
   }
 
-  async exportAnalyticsStream(format: ExportFormat): Promise<FileStreamResult> {
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const { chFormat, contentType, extension } = this.resolveFormatMetadata(format);
-
-    const query = `
-      SELECT 
-        *
-      FROM evaluations
-      LIMIT 1000
-    `;
-
+  async executeExportStream(
+    query: string,
+    chFormat: 'CSVWithNames' | 'JSONEachRow' | 'Parquet',
+    queryParams: Record<string, string> = {},
+  ): Promise<NodeJS.ReadableStream> {
     const resultSet = await this.clickHouseClient.query({
       query,
       format: chFormat,
+      query_params: queryParams,
       clickhouse_settings: {
         max_execution_time: 60,
       },
     });
+
     const chStream = resultSet.stream();
 
     const byteTransformer = new Transform({
@@ -249,40 +244,6 @@ export class AnalyticRepository {
       },
     });
 
-    const outStream = chStream.pipe(byteTransformer);
-
-    return {
-      stream: outStream,
-      contentType,
-      filename: `analytics-export-${timestamp}.${extension}`,
-    };
-  }
-
-  private resolveFormatMetadata(format: ExportFormat) {
-    switch (format) {
-      case ExportFormat.CSV:
-        return {
-          chFormat: 'CSVWithNames' as const,
-          contentType: 'text/csv; charset=utf-8',
-          extension: 'csv',
-        };
-
-      case ExportFormat.JSON:
-        return {
-          chFormat: 'JSONEachRow' as const,
-          contentType: 'application/x-ndjson; charset=utf-8',
-          extension: 'ndjson',
-        };
-
-      case ExportFormat.PARQUET:
-        return {
-          chFormat: 'Parquet' as const,
-          contentType: 'application/vnd.apache.parquet',
-          extension: 'parquet',
-        };
-
-      default:
-        throw new BadRequestException(`Formato ${format} não suportado.`);
-    }
+    return chStream.pipe(byteTransformer);
   }
 }
