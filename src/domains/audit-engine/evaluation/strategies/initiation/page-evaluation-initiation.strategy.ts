@@ -119,7 +119,7 @@ export class PageEvaluationInitiationStrategy implements EvaluationInitiator, On
           w.directories_ids
         FROM page_contexts pc
         INNER JOIN pages p ON p.id = pc.page_id
-        INNER JOIN v_websites_metadata w ON w.website_id = p.website_id
+        INNER JOIN v_institution_websites w ON w.website_id = p.website_id
         WHERE pc.context_id = $1
           AND pc.page_id = ANY($2::int[])
           AND pc.page_status != $3::page_status_enum

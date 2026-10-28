@@ -55,7 +55,7 @@ export class PrivatePageExtractorProcessor extends WorkerHost {
         SELECT pc.page_id, p.url,p.website_id, w.institution_id , w.directories_ids
         FROM page_contexts_ams pc
         INNER JOIN pages p ON p.id = pc.page_id
-	    	INNER JOIN v_websites_metadata w ON w.website_id = p.website_id
+	    	INNER JOIN v_institution_websites w ON w.website_id = p.website_id
         WHERE pc.context_id = $1
           AND p.website_id = $2
           AND pc.page_id > $3
