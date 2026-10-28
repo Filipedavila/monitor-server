@@ -1,11 +1,11 @@
 import { ResourceExportQuery } from './type';
 
 export const SELECT_LATEST_PAGES_EVALUATIONS_OBS = `
-        SELECT * FROM v_latest_pages_evaluations
+        SELECT * FROM v_latest_pages_evaluations_real_time_obs
 `;
 
 export const SELECT_LATEST_PAGES_EVALUATIONS_ALL = `
-        SELECT * FROM v_latest_pages_evaluations_all
+        SELECT * FROM v_latest_pages_evaluations_real_time_all
 `;
 
 export const EXPORT_QUERIES: ResourceExportQuery = {

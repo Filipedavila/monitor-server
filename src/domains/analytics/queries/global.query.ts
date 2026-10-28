@@ -22,8 +22,8 @@ export interface BuiltQuery {
 
 export type CounterType = 'directory' | 'institution' | 'website' | 'page';
 
-const VIEW_OBSERVATORY = 'accessibility.v_latest_pages_evaluations';
-const VIEW_ALL = 'accessibility.v_latest_pages_evaluations_all';
+const VIEW_OBSERVATORY = 'accessibility.v_latest_pages_evaluations_real_time_obs';
+const VIEW_ALL = 'accessibility.v_latest_pages_evaluations_real_time_all';
 
 const QUARTILE_TYPE =
   'Tuple(total String, percentage String, interval Tuple(lower String, upper String))';

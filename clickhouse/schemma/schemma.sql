@@ -134,10 +134,10 @@ CREATE TABLE latest_page_evaluations_temp (
 ORDER BY ( website_id, page_id);
 
 
-
+---- Fazer uma VIEW sem ser materialiada para as queries do AMS
 DROP VIEW IF EXISTS mv_latest_page_evaluations_temp;
 CREATE MATERIALIZED VIEW mv_latest_page_evaluations_temp
-REFRESH EVERY 10 MINUTE
+REFRESH EVERY 2 MINUTE
 TO latest_page_evaluations_temp AS
 SELECT
     website_id,
@@ -296,8 +296,9 @@ CREATE TABLE global_statistics (
 ) ENGINE = MergeTree
 ORDER BY tuple();
 
+DROP VIEW IF EXISTS mv_global_statistics;
 CREATE MATERIALIZED VIEW mv_global_statistics
-REFRESH EVERY 5 MINUTE
+REFRESH EVERY 2 MINUTE
 TO global_statistics
 AS
 SELECT
@@ -334,8 +335,9 @@ CREATE TABLE global_rules_top_summary
 ENGINE = MergeTree
 ORDER BY (rule_result, rule_id);
 
+DROP VIEW IF EXISTS global_rules_top_summary_mv;
 CREATE MATERIALIZED VIEW global_rules_top_summary_mv
-REFRESH EVERY 10 MINUTE
+REFRESH EVERY 5 MINUTE
 TO global_rules_top_summary
 AS
 WITH latest_pages AS (
@@ -422,9 +424,10 @@ CREATE TABLE global_directories_statistics (
     recent_evaluation_date DateTime
 ) ENGINE = MergeTree
 ORDER BY tuple();
- 
+
+DROP VIEW IF EXISTS mv_global_directories_statistics;
 CREATE MATERIALIZED VIEW mv_global_directories_statistics
-REFRESH EVERY 5 MINUTE
+REFRESH EVERY 2 MINUTE
 TO global_directories_statistics
 AS
 SELECT
@@ -471,8 +474,9 @@ CREATE TABLE ranked_directories (
 ORDER BY (directory_id)
 SETTINGS index_granularity = 4096;
 
+DROP  VIEW IF EXISTS mv_ranked_directories;
 CREATE MATERIALIZED VIEW mv_ranked_directories
-REFRESH EVERY 5 MINUTE
+REFRESH EVERY 2 MINUTE
 TO ranked_directories
 AS
 WITH
@@ -541,3 +545,210 @@ SELECT
     meta.9  AS total_partiallyconform_declarations,
     meta.10 AS total_conform_declarations
 FROM directory_metrics;
+
+
+
+----------------- REAL TIME QUERIES --- Slower, to use with caching and in AMS only
+
+
+---- Fazer uma VIEW sem ser materialiada para as queries do AMS
+DROP VIEW IF EXISTS mv_latest_page_evaluations_temp_real_time;
+CREATE VIEW mv_latest_page_evaluations_temp_real_time AS
+SELECT
+    website_id,
+    page_id,
+    evaluation_id,
+    evaluation_date,
+    score,
+    
+    -- Contadores WCAG por nível
+    countIf(dictGet('rules_dict', 'wcag_level', rule_id) = 'AAA' AND rule_result = 'failed') AS aaa_error_count,
+    countIf(dictGet('rules_dict', 'wcag_level', rule_id) = 'AA' AND rule_result = 'failed') AS aa_error_count,
+    countIf(dictGet('rules_dict', 'wcag_level', rule_id) = 'A' AND rule_result = 'failed') AS a_error_count,
+    sumIf(count, rule_result = 'failed') AS total_error_count,
+
+    -- Mapas de Regras (rule_id -> soma dos counts)
+    CAST(
+        sumMap(
+            if(rule_result = 'failed', [rule_id], CAST([], 'Array(LowCardinality(String))')),
+            if(rule_result = 'failed', [count], CAST([], 'Array(UInt32)'))
+        ),
+        'Map(LowCardinality(String), UInt32)'
+    ) AS failed_rules,
+
+    CAST(
+        sumMap(
+            if(rule_result = 'warning', [rule_id], CAST([], 'Array(LowCardinality(String))')),
+            if(rule_result = 'warning', [count], CAST([], 'Array(UInt32)'))
+        ),
+        'Map(LowCardinality(String), UInt32)'
+    ) AS warning_rules,
+
+    CAST(
+        sumMap(
+            if(rule_result = 'passed', [rule_id], CAST([], 'Array(LowCardinality(String))')),
+            if(rule_result = 'passed', [count], CAST([], 'Array(UInt32)'))
+        ),
+        'Map(LowCardinality(String), UInt32)'
+    ) AS passed_rules
+FROM accessibility.evaluations_temp
+GROUP BY
+    institution_id,
+    directories_ids,
+    website_id,
+    page_id,
+    evaluation_id,
+    evaluation_date,
+    score;
+
+
+
+
+CREATE OR REPLACE VIEW v_latest_pages_evaluations_real_time_obs AS
+
+WITH
+    eligible_websites AS (
+    SELECT website_id
+    FROM (
+        SELECT DISTINCT website_id FROM accessibility.latest_page_evaluations
+        UNION DISTINCT
+        SELECT DISTINCT website_id FROM accessibility.mv_latest_page_evaluations_temp_real_time
+    )
+    WHERE dictGetOrDefault('institution_websites_dict', 'is_in_observatory', website_id, false) = true
+      AND arrayExists(
+            x -> dictGetOrDefault('directories_metadata_dict', 'is_in_observatory', x, false) = true,
+            dictGetOrDefault('institution_websites_dict', 'directories_ids', website_id, [])
+          )
+),
+
+    temp_pages AS (
+        SELECT
+            website_id, page_id, evaluation_id, evaluation_date, score,
+            aaa_error_count, aa_error_count, a_error_count, total_error_count,
+            failed_rules, warning_rules, passed_rules
+        FROM accessibility.mv_latest_page_evaluations_temp_real_time
+        WHERE website_id IN eligible_websites
+          AND dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true
+    ),
+
+    main_pages AS (
+        SELECT
+            website_id, page_id,
+            argMax(evaluation_id,     version) AS evaluation_id,
+            argMax(evaluation_date,   version) AS evaluation_date,
+            argMax(score,             version) AS score,
+            argMax(aaa_error_count,   version) AS aaa_error_count,
+            argMax(aa_error_count,    version) AS aa_error_count,
+            argMax(a_error_count,     version) AS a_error_count,
+            argMax(total_error_count, version) AS total_error_count,
+            argMax(failed_rules,      version) AS failed_rules,
+            argMax(warning_rules,     version) AS warning_rules,
+            argMax(passed_rules,      version) AS passed_rules
+        FROM accessibility.latest_page_evaluations
+        WHERE website_id IN eligible_websites
+          AND dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true
+          AND page_id NOT IN (SELECT page_id FROM temp_pages)
+        GROUP BY website_id, page_id
+        HAVING argMax(is_deleted, version) = 0
+        )
+
+SELECT * FROM temp_pages
+UNION ALL
+SELECT * FROM main_pages;
+
+
+
+
+
+
+
+CREATE OR REPLACE VIEW v_latest_pages_evaluations_real_time_all AS
+
+WITH
+    eligible_websites AS (
+    SELECT website_id
+    FROM (
+        SELECT DISTINCT website_id FROM accessibility.latest_page_evaluations
+        UNION DISTINCT
+        SELECT DISTINCT website_id FROM accessibility.mv_latest_page_evaluations_temp_real_time
+    )
+),
+
+    temp_pages AS (
+        SELECT
+            website_id, page_id, evaluation_id, evaluation_date, score,
+            aaa_error_count, aa_error_count, a_error_count, total_error_count,
+            failed_rules, warning_rules, passed_rules
+        FROM accessibility.mv_latest_page_evaluations_temp_real_time
+        WHERE website_id IN eligible_websites
+          ),
+
+    main_pages AS (
+        SELECT
+            website_id, page_id,
+            argMax(evaluation_id,     version) AS evaluation_id,
+            argMax(evaluation_date,   version) AS evaluation_date,
+            argMax(score,             version) AS score,
+            argMax(aaa_error_count,   version) AS aaa_error_count,
+            argMax(aa_error_count,    version) AS aa_error_count,
+            argMax(a_error_count,     version) AS a_error_count,
+            argMax(total_error_count, version) AS total_error_count,
+            argMax(failed_rules,      version) AS failed_rules,
+            argMax(warning_rules,     version) AS warning_rules,
+            argMax(passed_rules,      version) AS passed_rules
+        FROM accessibility.latest_page_evaluations
+        WHERE website_id IN eligible_websites
+          AND dictGetOrDefault('pages_context_dict', 'is_in_observatory', page_id, false) = true
+          AND page_id NOT IN (SELECT page_id FROM temp_pages)
+        GROUP BY website_id, page_id
+        HAVING argMax(is_deleted, version) = 0
+        )
+
+SELECT * FROM temp_pages
+UNION ALL
+SELECT * FROM main_pages;
+
+
+
+DROP VIEW IF EXISTS mv_global_directories_statistics_real_time;
+CREATE MATERIALIZED VIEW mv_global_directories_statistics_real_time
+AS
+SELECT
+    min(CAST(score, 'Decimal64(4)')) AS min_score,
+    max(CAST(score, 'Decimal64(4)')) AS max_score,
+    avg(CAST(score, 'Decimal64(4)')) AS avg_score,
+    dictGet('dict_app_counters', 'total_count', tuple('directories_obs'))       AS directories_count,
+    dictGet('dict_app_counters', 'total_count', tuple('institutions'))          AS institutions_count,
+    dictGet('dict_app_counters', 'total_count', tuple('websites_observatorio')) AS websites_count,
+    dictGet('dict_app_counters', 'total_count', tuple('pages_observatorio'))    AS page_count,
+    min(evaluation_date)             AS oldest_evaluation_date,
+    max(evaluation_date)             AS recent_evaluation_date,
+    countIf(aaa_error_count = 0)                       AS pagesWithoutAAAErrors_count,
+    countIf(aa_error_count = 0)                        AS pagesWithoutAAErrors_count,
+    countIf(a_error_count = 0)                         AS pagesWithoutAErrors_count,
+    sum(total_error_count)                             AS total_errors_sum
+FROM accessibility.v_latest_pages_evaluations_real_time_all
+WHERE notEmpty(dictGetOrDefault('institution_websites_dict', 'directories_ids', website_id, []));
+
+
+
+DROP VIEW IF EXISTS mv_global_statistics_real_time;
+CREATE MATERIALIZED VIEW mv_global_statistics_real_time
+AS
+SELECT
+    min(CAST(score, 'Decimal64(4)')) AS min_score,
+    max(CAST(score, 'Decimal64(4)')) AS max_score,
+    avg(CAST(score, 'Decimal64(4)')) AS avg_score,
+    dictGet('dict_app_counters', 'total_count', tuple('directories_obs'))        AS directories_count,
+    dictGet('dict_app_counters', 'total_count', tuple('institutions'))           AS institutions_count,
+    dictGet('dict_app_counters', 'total_count', tuple('websites_observatorio'))  AS websites_count,
+    uniq(evaluation_id)                                                          AS evaluations_count,
+    dictGet('dict_app_counters', 'total_count', tuple('pages_observatorio'))     AS count_pages,
+    min(evaluation_date)                               AS oldest_evaluation_date,
+    max(evaluation_date)                               AS recent_evaluation_date,
+    countIf(aaa_error_count = 0)                       AS pagesWithoutAAAErrors_count,
+    countIf(aa_error_count = 0)                        AS pagesWithoutAAErrors_count,
+    countIf(a_error_count = 0)                         AS pagesWithoutAErrors_count,
+    sum(total_error_count)                             AS total_errors_sum
+    
+FROM accessibility.v_latest_pages_evaluations_real_time_all

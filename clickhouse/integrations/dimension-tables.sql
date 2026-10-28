@@ -231,8 +231,8 @@ CREATE DICTIONARY IF NOT EXISTS institution_websites_dict (
     declaration_status Nullable(String),
     is_in_observatory Boolean)
 PRIMARY KEY website_id
-SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'v_websites_metadata'))
-LIFETIME(MIN 2 MAX 10)
+SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'v_institution_websites'))
+LIFETIME(MIN 2 MAX 5)
 LAYOUT(HASHED());
 
 
@@ -245,7 +245,7 @@ CREATE DICTIONARY IF NOT EXISTS pages_context_dict (
 )
 PRIMARY KEY id
 SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'pages'))
-LIFETIME(MIN 2 MAX 10)
+LIFETIME(MIN 2 MAX 5)
 LAYOUT(HASHED());
 
 
@@ -269,7 +269,7 @@ CREATE DICTIONARY IF NOT EXISTS directories_metadata_dict (
 )
 PRIMARY KEY id
 SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'v_directory_websites'))
-LIFETIME(MIN 2 MAX 10)
+LIFETIME(MIN 2 MAX 5)
 LAYOUT(HASHED());
 
 
@@ -282,7 +282,7 @@ CREATE DICTIONARY IF NOT EXISTS stamps_dict (
 )
 PRIMARY KEY website_id
 SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'website_stamps'))
-LIFETIME(MIN 2 MAX 10)
+LIFETIME(MIN 2 MAX 5)
 LAYOUT(HASHED());
 
 
@@ -295,7 +295,7 @@ CREATE DICTIONARY IF NOT EXISTS declarations_dict (
 )
 PRIMARY KEY website_id
 SOURCE(POSTGRESQL(HOST '172.17.0.1' PORT 5432 USER 'accessmonitor' PASSWORD 'v2password' DB 'Accessibility' TABLE 'website_declarations'))
-LIFETIME(MIN 2 MAX 10)
+LIFETIME(MIN 2 MAX 5)
 LAYOUT(HASHED());
 
 
@@ -316,4 +316,4 @@ SOURCE(POSTGRESQL(
     invalidate_query 'SELECT MAX(last_updated_at) FROM entity_counters'
 ))
 LAYOUT(COMPLEX_KEY_HASHED())
-LIFETIME(MIN 3 MAX 10);
+LIFETIME(MIN 1 MAX 3);
